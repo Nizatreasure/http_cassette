@@ -1,4 +1,4 @@
-const int _maximumSummaryLength = 256;
+import '../safety/safe_text.dart';
 
 /// Identifies a cassette-system failure without requiring message parsing.
 enum DiagnosticCategory {
@@ -173,7 +173,10 @@ final class _CassetteDiagnostic implements CassetteDiagnostic {
     required this.category,
     required String summary,
     required this.networkAccess,
-  }) : summary = _validateSummary(summary);
+  }) : summary = validateSafeSingleLine(
+          summary,
+          description: 'Diagnostic summary',
+        );
 
   @override
   final DiagnosticCategory category;
@@ -195,38 +198,3 @@ final class _CassetteDiagnostic implements CassetteDiagnostic {
   @override
   int get hashCode => Object.hash(category, summary, networkAccess);
 }
-
-String _validateSummary(String summary) {
-  if (summary.isEmpty || summary.trim() != summary) {
-    throw ArgumentError(
-      'Diagnostic summary must be non-empty with no surrounding whitespace.',
-    );
-  }
-
-  var length = 0;
-  for (final rune in summary.runes) {
-    length += 1;
-
-    if (length > _maximumSummaryLength) {
-      throw ArgumentError(
-        'Diagnostic summary must not exceed $_maximumSummaryLength characters.',
-      );
-    }
-
-    if (_isUnsafeSummaryRune(rune)) {
-      throw ArgumentError(
-        'Diagnostic summary must not contain control or formatting characters.',
-      );
-    }
-  }
-
-  return summary;
-}
-
-bool _isUnsafeSummaryRune(int rune) =>
-    rune <= 0x1f ||
-    (rune >= 0x7f && rune <= 0x9f) ||
-    rune == 0x2028 ||
-    rune == 0x2029 ||
-    (rune >= 0x202a && rune <= 0x202e) ||
-    (rune >= 0x2066 && rune <= 0x2069);

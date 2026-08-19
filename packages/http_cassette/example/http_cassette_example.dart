@@ -16,6 +16,7 @@ void main() {
     }),
     body: <int>[123, 125],
   );
+  final outcome = CassetteResponseOutcome(response);
   final diagnostic = CassetteDiagnostic(
     category: DiagnosticCategory.cassetteMissing,
     summary: 'The cassette does not exist.',
@@ -24,7 +25,7 @@ void main() {
 
   assert(
     request.method == 'GET' &&
-        response.body.length == 2 &&
+        outcome.response.body.length == 2 &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',
             ),

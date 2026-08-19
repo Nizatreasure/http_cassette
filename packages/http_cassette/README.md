@@ -45,10 +45,17 @@ final request = CassetteRequest(
 );
 ```
 
+`CassetteOutcome` represents either a received response or a portable transport
+failure. Caller cancellation and cassette-system failures are not outcomes:
+
+```dart
+final outcome = CassetteResponseOutcome(response);
+```
+
 ## Example
 
-The example constructs canonical request and response values and formats a
-structured missing-cassette diagnostic.
+The example constructs canonical request, response and outcome values and
+formats a structured missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

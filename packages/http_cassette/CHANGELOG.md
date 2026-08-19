@@ -8,4 +8,5 @@
 - Added safe deterministic diagnostic formatting.
 - Added immutable canonical HTTP headers with ordered repeated values.
 - Added immutable canonical HTTP requests and responses with protected bodies.
+- Added canonical response outcomes and portable transport failures.
 - Record/replay behaviour is not available yet.
