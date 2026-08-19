@@ -3,9 +3,9 @@
 `http_cassette` is the planned transport-neutral core of HTTP Cassette, a Dart
 package family for recording and replaying HTTP interactions in tests.
 
-This package is under active development. It currently provides only the safe,
-structured diagnostic foundations required by later behaviour. It does not yet
-record, replay, match, sanitise or persist HTTP interactions.
+This package is under active development. It currently provides foundational
+canonical HTTP values and safe structured diagnostics. It does not yet record,
+replay, match, sanitise or persist HTTP interactions.
 
 ## Installation
 
@@ -34,10 +34,21 @@ final headers = CassetteHeaders(<String, Iterable<String>>{
 });
 ```
 
+`CassetteRequest` and `CassetteResponse` provide immutable canonical messages
+with defensively protected byte bodies:
+
+```dart
+final request = CassetteRequest(
+  method: 'GET',
+  uri: Uri.parse('https://api.example.test/profile'),
+  headers: headers,
+);
+```
+
 ## Example
 
-The example constructs canonical headers and formats a structured
-missing-cassette diagnostic.
+The example constructs canonical request and response values and formats a
+structured missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

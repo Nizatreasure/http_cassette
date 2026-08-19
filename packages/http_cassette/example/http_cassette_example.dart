@@ -4,6 +4,18 @@ void main() {
   final headers = CassetteHeaders(<String, Iterable<String>>{
     'Accept': <String>['application/json'],
   });
+  final request = CassetteRequest(
+    method: 'get',
+    uri: Uri.parse('https://api.example.test/profile'),
+    headers: headers,
+  );
+  final response = CassetteResponse(
+    statusCode: 200,
+    headers: CassetteHeaders(<String, Iterable<String>>{
+      'Content-Type': <String>['application/json'],
+    }),
+    body: <int>[123, 125],
+  );
   final diagnostic = CassetteDiagnostic(
     category: DiagnosticCategory.cassetteMissing,
     summary: 'The cassette does not exist.',
@@ -11,7 +23,8 @@ void main() {
   );
 
   assert(
-    headers.values('accept')?.single == 'application/json' &&
+    request.method == 'GET' &&
+        response.body.length == 2 &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',
             ),

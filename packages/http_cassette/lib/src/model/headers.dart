@@ -1,3 +1,5 @@
+import 'http_syntax.dart';
+
 /// Immutable, transport-neutral HTTP header fields.
 ///
 /// Header names use lower-case ASCII canonical form. Lookup is
@@ -128,61 +130,17 @@ final class _CassetteHeaders implements CassetteHeaders {
 }
 
 String _canonicalName(String name) {
-  if (!_isValidName(name)) {
+  if (!isHttpToken(name)) {
     throw ArgumentError('HTTP header name must use the token grammar.');
   }
   return name.toLowerCase();
 }
 
 String? _canonicalLookupName(String name) =>
-    _isValidName(name) ? name.toLowerCase() : null;
-
-bool _isValidName(String name) {
-  if (name.isEmpty) {
-    return false;
-  }
-
-  for (final codeUnit in name.codeUnits) {
-    if (!_isTokenCodeUnit(codeUnit)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool _isTokenCodeUnit(int codeUnit) =>
-    (codeUnit >= 0x30 && codeUnit <= 0x39) ||
-    (codeUnit >= 0x41 && codeUnit <= 0x5a) ||
-    (codeUnit >= 0x61 && codeUnit <= 0x7a) ||
-    switch (codeUnit) {
-      0x21 || // !
-      0x23 || // #
-      0x24 || // $
-      0x25 || // %
-      0x26 || // &
-      0x27 || // '
-      0x2a || // *
-      0x2b || // +
-      0x2d || // -
-      0x2e || // .
-      0x5e || // ^
-      0x5f || // _
-      0x60 || // `
-      0x7c || // |
-      0x7e => // ~
-        true,
-      _ => false,
-    };
+    isHttpToken(name) ? name.toLowerCase() : null;
 
 void _validateValue(String value) {
-  for (final codeUnit in value.codeUnits) {
-    final prohibitedControl = codeUnit < 0x20 && codeUnit != 0x09;
-    if (prohibitedControl || codeUnit == 0x7f) {
-      throw ArgumentError(
-        'HTTP header value must not contain prohibited control characters.',
-      );
-    }
-  }
+  validateHttpFieldValue(value, description: 'HTTP header value');
 }
 
 bool _listsEqual(List<String> first, List<String> second) {

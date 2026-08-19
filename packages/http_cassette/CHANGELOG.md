@@ -7,4 +7,5 @@
   cassette exception.
 - Added safe deterministic diagnostic formatting.
 - Added immutable canonical HTTP headers with ordered repeated values.
+- Added immutable canonical HTTP requests and responses with protected bodies.
 - Record/replay behaviour is not available yet.
