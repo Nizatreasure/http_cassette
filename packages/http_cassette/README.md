@@ -18,10 +18,16 @@ workspace, it can be resolved with `dart pub get` from the repository root.
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
 
+Diagnostics provide deterministic plain-text formatting without logging
+automatically:
+
+```dart
+final text = diagnostic.format();
+```
+
 ## Example
 
-The example constructs a structured missing-cassette diagnostic. Human-readable
-formatting is not implemented yet.
+The example constructs and formats a structured missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

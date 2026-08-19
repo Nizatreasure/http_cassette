@@ -7,5 +7,9 @@ void main() {
     networkAccess: NetworkAccess.disabled,
   );
 
-  assert(diagnostic.networkAccess == NetworkAccess.disabled);
+  assert(
+    diagnostic.format().contains(
+          'Network access: disabled; no real request was made',
+        ),
+  );
 }
