@@ -9,4 +9,5 @@
 - Added immutable canonical HTTP headers with ordered repeated values.
 - Added immutable canonical HTTP requests and responses with protected bodies.
 - Added canonical response outcomes and portable transport failures.
+- Added validated, cross-platform logical cassette names.
 - Record/replay behaviour is not available yet.

@@ -1,6 +1,7 @@
 import 'package:http_cassette/http_cassette.dart';
 
 void main() {
+  final cassetteName = CassetteName('profiles/current-user');
   final headers = CassetteHeaders(<String, Iterable<String>>{
     'Accept': <String>['application/json'],
   });
@@ -24,7 +25,8 @@ void main() {
   );
 
   assert(
-    request.method == 'GET' &&
+    cassetteName.value == 'profiles/current-user' &&
+        request.method == 'GET' &&
         outcome.response.body.length == 2 &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',

@@ -14,6 +14,13 @@ workspace, it can be resolved with `dart pub get` from the repository root.
 
 ## Current API
 
+`CassetteName` validates portable slash-separated logical names. Stores will own
+the physical path and `.json` suffix:
+
+```dart
+final cassetteName = CassetteName('checkout/expired-discount');
+```
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
@@ -54,8 +61,8 @@ final outcome = CassetteResponseOutcome(response);
 
 ## Example
 
-The example constructs canonical request, response and outcome values and
-formats a structured missing-cassette diagnostic.
+The example constructs a validated cassette name, canonical HTTP values and a
+structured missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

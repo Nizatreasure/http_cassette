@@ -4,6 +4,7 @@
 /// structured diagnostic foundations used by later behaviour.
 library;
 
+export 'src/cassette/name.dart';
 export 'src/diagnostics/diagnostic.dart';
 export 'src/diagnostics/exception.dart';
 export 'src/diagnostics/formatter.dart';
