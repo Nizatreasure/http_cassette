@@ -59,10 +59,20 @@ failure. Caller cancellation and cassette-system failures are not outcomes:
 final outcome = CassetteResponseOutcome(response);
 ```
 
+`BodyLimits` provides measured byte limits for future bounded buffering:
+
+| Body | Default |
+| --- | ---: |
+| Request | 2 MiB |
+| Response | 5 MiB |
+
+Both values require positive byte counts and may be overridden explicitly.
+Buffering and limit enforcement are not implemented yet.
+
 ## Example
 
-The example constructs a validated cassette name, canonical HTTP values and a
-structured missing-cassette diagnostic.
+The example constructs foundational configuration and canonical HTTP values. It
+also formats a structured missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

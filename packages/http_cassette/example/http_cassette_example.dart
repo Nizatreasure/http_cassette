@@ -2,6 +2,7 @@ import 'package:http_cassette/http_cassette.dart';
 
 void main() {
   final cassetteName = CassetteName('profiles/current-user');
+  final bodyLimits = BodyLimits();
   final headers = CassetteHeaders(<String, Iterable<String>>{
     'Accept': <String>['application/json'],
   });
@@ -26,6 +27,7 @@ void main() {
 
   assert(
     cassetteName.value == 'profiles/current-user' &&
+        bodyLimits.requestBytes == 2 * 1024 * 1024 &&
         request.method == 'GET' &&
         outcome.response.body.length == 2 &&
         diagnostic.format().contains(

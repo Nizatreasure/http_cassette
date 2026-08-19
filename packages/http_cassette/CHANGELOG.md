@@ -10,4 +10,5 @@
 - Added immutable canonical HTTP requests and responses with protected bodies.
 - Added canonical response outcomes and portable transport failures.
 - Added validated, cross-platform logical cassette names.
+- Added measured, configurable request and response body limits.
 - Record/replay behaviour is not available yet.
