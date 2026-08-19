@@ -3,4 +3,6 @@
 ## 0.1.0
 
 - Created the initial package scaffold.
-- No public API or record/replay behaviour is available yet.
+- Added structured diagnostic categories, network-access status and the base
+  cassette exception.
+- Record/replay behaviour is not available yet.

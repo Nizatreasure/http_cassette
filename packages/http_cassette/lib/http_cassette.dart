@@ -1,4 +1,8 @@
 /// Transport-neutral foundations for HTTP recording and replay.
 ///
-/// The package is currently a scaffold and exposes no public API.
+/// Recording and replay are not implemented yet. The current API provides the
+/// structured diagnostic foundations used by later behaviour.
 library;
+
+export 'src/diagnostics/diagnostic.dart';
+export 'src/diagnostics/exception.dart';
