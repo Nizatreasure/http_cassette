@@ -25,9 +25,19 @@ automatically:
 final text = diagnostic.format();
 ```
 
+`CassetteHeaders` provides immutable, transport-neutral HTTP fields with
+case-insensitive lookup and ordered repeated values:
+
+```dart
+final headers = CassetteHeaders(<String, Iterable<String>>{
+  'Accept': <String>['application/json'],
+});
+```
+
 ## Example
 
-The example constructs and formats a structured missing-cassette diagnostic.
+The example constructs canonical headers and formats a structured
+missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

@@ -7,3 +7,4 @@ library;
 export 'src/diagnostics/diagnostic.dart';
 export 'src/diagnostics/exception.dart';
 export 'src/diagnostics/formatter.dart';
+export 'src/model/headers.dart';
