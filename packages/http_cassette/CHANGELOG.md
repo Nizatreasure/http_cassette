@@ -11,4 +11,5 @@
 - Added canonical response outcomes and portable transport failures.
 - Added validated, cross-platform logical cassette names.
 - Added measured, configurable request and response body limits.
+- Added conservative method and URI normalisation for matching.
 - Record/replay behaviour is not available yet.
