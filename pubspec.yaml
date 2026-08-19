@@ -1,0 +1,14 @@
+name: http_cassette_workspace
+description: Workspace tooling for the HTTP Cassette package family.
+publish_to: none
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+
+workspace:
+  - packages/http_cassette
+  - packages/http_cassette_dio
+  - packages/http_cassette_http
+
+dev_dependencies:
+  lints: ^5.1.1

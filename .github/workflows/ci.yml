@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk:
+          - 3.6.0
+          - stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ matrix.sdk }}
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test packages/http_cassette/test
+      - run: dart test packages/http_cassette_dio/test
+      - run: dart test packages/http_cassette_http/test
+      - run: dart run packages/http_cassette/example/http_cassette_example.dart
+      - run: dart run packages/http_cassette_dio/example/http_cassette_dio_example.dart
+      - run: dart run packages/http_cassette_http/example/http_cassette_http_example.dart
+      - run: dart pub publish --dry-run
+        working-directory: packages/http_cassette
+      - run: dart pub publish --dry-run
+        working-directory: packages/http_cassette_dio
+      - run: dart pub publish --dry-run
+        working-directory: packages/http_cassette_http

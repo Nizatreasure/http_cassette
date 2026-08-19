@@ -1,0 +1,17 @@
+# Dart and pub
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Editors
+.idea/
+.vscode/
+*.iml
+
+# Operating systems
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage/
