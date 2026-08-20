@@ -15,7 +15,7 @@ final class NormalisedRequestTarget {
       scheme: scheme,
       host: host,
       port: _normalisePort(uri, scheme),
-      path: _normalisePath(uri.path),
+      path: uri.path.isEmpty ? '/' : normaliseUriComponent(uri.path),
     );
   }
 
@@ -78,28 +78,28 @@ int? _normalisePort(Uri uri, String scheme) {
   return uri.port;
 }
 
-String _normalisePath(String path) {
-  if (path.isEmpty) {
-    return '/';
-  }
-
+/// Normalises percent escapes in an encoded URI component conservatively.
+///
+/// Unreserved ASCII characters are decoded. Other escapes remain encoded with
+/// upper-case hexadecimal digits.
+String normaliseUriComponent(String value) {
   final result = StringBuffer();
   var index = 0;
-  while (index < path.length) {
-    final codeUnit = path.codeUnitAt(index);
+  while (index < value.length) {
+    final codeUnit = value.codeUnitAt(index);
     if (codeUnit != 0x25) {
       result.writeCharCode(codeUnit);
       index += 1;
       continue;
     }
 
-    if (index + 2 >= path.length) {
-      throw ArgumentError('HTTP request path contains a malformed escape.');
+    if (index + 2 >= value.length) {
+      throw ArgumentError('URI component contains a malformed escape.');
     }
-    final first = _hexValue(path.codeUnitAt(index + 1));
-    final second = _hexValue(path.codeUnitAt(index + 2));
+    final first = _hexValue(value.codeUnitAt(index + 1));
+    final second = _hexValue(value.codeUnitAt(index + 2));
     if (first == null || second == null) {
-      throw ArgumentError('HTTP request path contains a malformed escape.');
+      throw ArgumentError('URI component contains a malformed escape.');
     }
 
     final decoded = first * 16 + second;

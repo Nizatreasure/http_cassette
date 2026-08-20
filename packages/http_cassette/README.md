@@ -69,9 +69,10 @@ final outcome = CassetteResponseOutcome(response);
 Both values require positive byte counts and may be overridden explicitly.
 Buffering and limit enforcement are not implemented yet.
 
-The internal matching foundation now normalises HTTP methods, URI origins and
-paths conservatively. Query, header and body comparison are not implemented
-yet. Adapters must supply internationalised hosts in canonical ASCII form.
+The internal matching foundation now normalises HTTP methods, URI origins,
+paths and queries conservatively. Query-name order is ignored, while repeated
+values retain their order. Header and body comparison are not implemented yet.
+Adapters must supply internationalised hosts in canonical ASCII form.
 
 ## Example
 
