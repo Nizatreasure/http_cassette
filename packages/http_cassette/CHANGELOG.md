@@ -21,4 +21,5 @@
   and JSON behaviour.
 - Added immutable matching configuration and composed the default request
   matcher.
+- Added deterministic, value-free and bounded matcher component differences.
 - Record/replay behaviour is not available yet.

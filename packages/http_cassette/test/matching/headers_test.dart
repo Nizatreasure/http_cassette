@@ -171,6 +171,30 @@ void main() {
         throwsUnsupportedError,
       );
     });
+
+    test('produces deterministic value-free selected-header differences', () {
+      final expected = NormalisedSelectedHeaders.fromHeaders(
+        CassetteHeaders(<String, Iterable<String>>{
+          'accept': <String>['one', 'two'],
+          'x-missing': <String>['value'],
+        }),
+        selectedNames: <String>{'accept', 'x-extra', 'x-missing'},
+      );
+      final actual = NormalisedSelectedHeaders.fromHeaders(
+        CassetteHeaders(<String, Iterable<String>>{
+          'accept': <String>['different'],
+          'x-extra': <String>['value'],
+        }),
+        selectedNames: <String>{'accept', 'x-extra', 'x-missing'},
+      );
+
+      final differences = compareSelectedHeaders(expected, actual);
+      expect(
+        differences.differences.map((difference) => difference.location),
+        <String>['accept', 'accept[0]', 'accept[1]', 'x-extra', 'x-missing'],
+      );
+      expect(differences.totalCount, 5);
+    });
   });
 }
 

@@ -124,6 +124,19 @@ void main() {
         throwsUnsupportedError,
       );
     });
+
+    test('produces deterministic value-free structural differences', () {
+      final differences = compareNormalisedQueries(
+        _query('?b=one&a=one&a=two&missing=value'),
+        _query('?a=other&b=one&extra=value'),
+      );
+
+      expect(
+        differences.differences.map((difference) => difference.location),
+        <String>['a', 'a[0]', 'a[1]', 'extra', 'missing'],
+      );
+      expect(differences.totalCount, 5);
+    });
   });
 }
 

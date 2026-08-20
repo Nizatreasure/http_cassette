@@ -102,7 +102,7 @@ void main() {
 
       expect(result.matches, isTrue);
       expect(result.body.kind, RequestBodyComparisonKind.structuralJson);
-      expect(result.body.jsonComparison!.matches, isTrue);
+      expect(result.body.differences.isEmpty, isTrue);
     });
 
     test('falls back safely when claimed JSON is invalid', () {
@@ -187,6 +187,53 @@ void main() {
         () => first.components.add(first.components.first),
         throwsUnsupportedError,
       );
+    });
+
+    test('retains bounded differences while preserving the complete count', () {
+      final matcher = DefaultRequestMatcher(maximumDifferencesPerComponent: 2);
+      final result = matcher.compare(
+        _jsonRequest('{"a":1,"b":2,"c":3}'),
+        _jsonRequest('{"a":4,"b":5,"c":6}'),
+      );
+      final body = result.components.last.differences;
+
+      expect(body.totalCount, 3);
+      expect(body.differences.length, 2);
+      expect(body.omittedCount, 1);
+      expect(
+        body.differences.map((difference) => difference.location),
+        <String>['/a', '/b'],
+      );
+    });
+
+    test('does not retain differing header, query or body values', () {
+      const sentinel = 'credential-sentinel-value';
+      final result = _compare(
+        _jsonRequest(
+          '{"value":"$sentinel"}',
+          suffix: '?token=$sentinel',
+          extraHeaders: <String, Iterable<String>>{
+            'x-version': <String>[sentinel],
+          },
+        ),
+        _jsonRequest(
+          '{"value":"different"}',
+          suffix: '?token=different',
+          extraHeaders: <String, Iterable<String>>{
+            'x-version': <String>['different'],
+          },
+        ),
+        configuration: MatchingConfiguration(
+          includedHeaders: <String>{'x-version'},
+        ),
+      );
+
+      expect(result.toString(), isNot(contains(sentinel)));
+      for (final component in result.components) {
+        for (final difference in component.differences.differences) {
+          expect(difference.location, isNot(contains(sentinel)));
+        }
+      }
     });
   });
 }

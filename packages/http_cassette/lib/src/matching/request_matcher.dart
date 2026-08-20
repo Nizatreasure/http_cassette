@@ -1,6 +1,7 @@
 import '../configuration/matching_configuration.dart';
 import '../model/http_message.dart';
 import 'body.dart';
+import 'difference.dart';
 import 'exclusions.dart';
 import 'headers.dart';
 import 'json.dart';
@@ -31,6 +32,7 @@ final class RequestMatchComponentResult {
     required this.component,
     required this.state,
     required this.matches,
+    required this.differences,
   });
 
   /// The component that was compared.
@@ -44,6 +46,9 @@ final class RequestMatchComponentResult {
   /// An unavailable semantic body comparison may still match through exact
   /// byte fallback.
   final bool matches;
+
+  /// Safe bounded differences and the complete count used for ranking.
+  final BoundedMatchDifferences differences;
 }
 
 /// The comparison strategy used for the request body.
@@ -59,10 +64,10 @@ final class RequestBodyMatchResult {
   const RequestBodyMatchResult._({
     required this.kind,
     required this.matches,
-    this.jsonComparison,
     this.exactComparison,
     this.expectedJsonStatus,
     this.actualJsonStatus,
+    required this.differences,
   });
 
   /// The comparison strategy selected from the two canonical requests.
@@ -70,9 +75,6 @@ final class RequestBodyMatchResult {
 
   /// Whether the body component matched.
   final bool matches;
-
-  /// Structural differences when [kind] is structural JSON.
-  final JsonComparisonResult? jsonComparison;
 
   /// Value-free byte facts when exact comparison was used.
   final ExactBodyComparisonResult? exactComparison;
@@ -82,6 +84,9 @@ final class RequestBodyMatchResult {
 
   /// The actual body's JSON classification when parsing was attempted.
   final JsonBodyStatus? actualJsonStatus;
+
+  /// Safe bounded body differences and their complete count.
+  final BoundedMatchDifferences differences;
 }
 
 /// The immutable result of comparing one expected and actual request.
@@ -106,10 +111,21 @@ final class DefaultRequestMatcher {
   /// Creates a matcher using [configuration].
   DefaultRequestMatcher({
     MatchingConfiguration? configuration,
-  }) : configuration = configuration ?? MatchingConfiguration.defaults;
+    this.maximumDifferencesPerComponent =
+        MatchDifferenceCollector.defaultMaximumRetained,
+  }) : configuration = configuration ?? MatchingConfiguration.defaults {
+    if (maximumDifferencesPerComponent < 0) {
+      throw ArgumentError(
+        'Maximum differences per component must not be negative.',
+      );
+    }
+  }
 
   /// Immutable built-in matching configuration.
   final MatchingConfiguration configuration;
+
+  /// Maximum safe difference records retained for each component.
+  final int maximumDifferencesPerComponent;
 
   /// Compares [expected] with [actual] without mutating either request.
   RequestMatchResult compare(
@@ -137,45 +153,84 @@ final class DefaultRequestMatcher {
         expectedTarget.port == actualTarget.port &&
         expectedTarget.userInformation == actualTarget.userInformation;
     final pathMatches = expectedTarget.path == actualTarget.path;
-    final queryMatches = NormalisedQuery.fromUri(
-          expected.uri,
-          exclusions: effectiveExclusions,
-        ) ==
-        NormalisedQuery.fromUri(
-          actual.uri,
-          exclusions: effectiveExclusions,
-        );
+    final expectedQuery = NormalisedQuery.fromUri(
+      expected.uri,
+      exclusions: effectiveExclusions,
+    );
+    final actualQuery = NormalisedQuery.fromUri(
+      actual.uri,
+      exclusions: effectiveExclusions,
+    );
+    final queryDifferences = compareNormalisedQueries(
+      expectedQuery,
+      actualQuery,
+      maximumRetained: maximumDifferencesPerComponent,
+    );
+    final queryMatches = queryDifferences.isEmpty;
 
     final hasSelectedHeaders = configuration.includedHeaders.isNotEmpty;
-    final headersMatch = !hasSelectedHeaders ||
-        NormalisedSelectedHeaders.fromHeaders(
-              expected.headers,
-              selectedNames: configuration.includedHeaders,
-              exclusions: effectiveExclusions,
-            ) ==
-            NormalisedSelectedHeaders.fromHeaders(
-              actual.headers,
-              selectedNames: configuration.includedHeaders,
-              exclusions: effectiveExclusions,
-            );
+    final expectedHeaders = NormalisedSelectedHeaders.fromHeaders(
+      expected.headers,
+      selectedNames: configuration.includedHeaders,
+      exclusions: effectiveExclusions,
+    );
+    final actualHeaders = NormalisedSelectedHeaders.fromHeaders(
+      actual.headers,
+      selectedNames: configuration.includedHeaders,
+      exclusions: effectiveExclusions,
+    );
+    final headerDifferences = compareSelectedHeaders(
+      expectedHeaders,
+      actualHeaders,
+      maximumRetained: maximumDifferencesPerComponent,
+    );
+    final headersMatch = !hasSelectedHeaders || headerDifferences.isEmpty;
     final body = _compareRequestBodies(
       expected,
       actual,
       effectiveExclusions,
+      maximumDifferencesPerComponent,
     );
 
     return RequestMatchResult._(
       components: <RequestMatchComponentResult>[
-        _component(RequestMatchComponent.method, methodMatches),
-        _component(RequestMatchComponent.origin, originMatches),
-        _component(RequestMatchComponent.path, pathMatches),
-        _component(RequestMatchComponent.query, queryMatches),
+        _component(
+          RequestMatchComponent.method,
+          methodMatches,
+          _singleDifference(
+            matches: methodMatches,
+            kind: MatchDifferenceKind.differentValue,
+            location: 'method',
+            maximumRetained: maximumDifferencesPerComponent,
+          ),
+        ),
+        _component(
+          RequestMatchComponent.origin,
+          originMatches,
+          _originDifferences(
+            expectedTarget,
+            actualTarget,
+            maximumDifferencesPerComponent,
+          ),
+        ),
+        _component(
+          RequestMatchComponent.path,
+          pathMatches,
+          _singleDifference(
+            matches: pathMatches,
+            kind: MatchDifferenceKind.differentValue,
+            location: 'path',
+            maximumRetained: maximumDifferencesPerComponent,
+          ),
+        ),
+        _component(RequestMatchComponent.query, queryMatches, queryDifferences),
         RequestMatchComponentResult(
           component: RequestMatchComponent.selectedHeaders,
           state: hasSelectedHeaders
               ? _state(headersMatch)
               : RequestMatchComponentState.notConfigured,
           matches: headersMatch,
+          differences: headerDifferences,
         ),
         RequestMatchComponentResult(
           component: RequestMatchComponent.body,
@@ -187,6 +242,7 @@ final class DefaultRequestMatcher {
             _ => _state(body.matches),
           },
           matches: body.matches,
+          differences: body.differences,
         ),
       ],
       body: body,
@@ -197,11 +253,13 @@ final class DefaultRequestMatcher {
 RequestMatchComponentResult _component(
   RequestMatchComponent component,
   bool matches,
+  BoundedMatchDifferences differences,
 ) =>
     RequestMatchComponentResult(
       component: component,
       state: _state(matches),
       matches: matches,
+      differences: differences,
     );
 
 RequestMatchComponentState _state(bool matches) => matches
@@ -212,11 +270,13 @@ RequestBodyMatchResult _compareRequestBodies(
   CassetteRequest expected,
   CassetteRequest actual,
   MatchingExclusions exclusions,
+  int maximumRetained,
 ) {
   if (expected.body.isEmpty && actual.body.isEmpty) {
-    return const RequestBodyMatchResult._(
+    return RequestBodyMatchResult._(
       kind: RequestBodyComparisonKind.notConfigured,
       matches: true,
+      differences: _emptyDifferences(),
     );
   }
 
@@ -230,18 +290,47 @@ RequestBodyMatchResult _compareRequestBodies(
         actualJson.value,
         exclusions: exclusions,
       );
+      final differences = MatchDifferenceCollector(
+        maximumRetained: maximumRetained,
+      );
+      for (final difference in comparison.differences) {
+        differences.add(
+          MatchDifference(
+            kind: _jsonDifferenceKind(difference.kind),
+            location: difference.pointer,
+          ),
+        );
+      }
       return RequestBodyMatchResult._(
         kind: RequestBodyComparisonKind.structuralJson,
         matches: comparison.matches,
-        jsonComparison: comparison,
         expectedJsonStatus: expectedJson.status,
         actualJsonStatus: actualJson.status,
+        differences: differences.build(),
       );
     }
 
     final unavailable = _isInvalidJson(expectedJson.status) ||
         _isInvalidJson(actualJson.status);
     final exact = compareExactBodies(expected.body, actual.body);
+    final differences = MatchDifferenceCollector(
+      maximumRetained: maximumRetained,
+    );
+    if (unavailable) {
+      differences.add(
+        MatchDifference(kind: MatchDifferenceKind.unavailableComparison),
+      );
+    }
+    if (!exact.matches) {
+      differences.add(
+        MatchDifference(
+          kind: expected.body.length == actual.body.length
+              ? MatchDifferenceKind.differentValue
+              : MatchDifferenceKind.differentMultiplicity,
+          location: 'body',
+        ),
+      );
+    }
     return RequestBodyMatchResult._(
       kind: unavailable
           ? RequestBodyComparisonKind.exactBytesJsonUnavailable
@@ -250,16 +339,94 @@ RequestBodyMatchResult _compareRequestBodies(
       exactComparison: exact,
       expectedJsonStatus: expectedJson.status,
       actualJsonStatus: actualJson.status,
+      differences: differences.build(),
     );
   }
 
   final exact = compareExactBodies(expected.body, actual.body);
+  final differences = _singleDifference(
+    matches: exact.matches,
+    kind: expected.body.length == actual.body.length
+        ? MatchDifferenceKind.differentValue
+        : MatchDifferenceKind.differentMultiplicity,
+    location: 'body',
+    maximumRetained: maximumRetained,
+  );
   return RequestBodyMatchResult._(
     kind: RequestBodyComparisonKind.exactBytes,
     matches: exact.matches,
     exactComparison: exact,
+    differences: differences,
   );
 }
+
+BoundedMatchDifferences _originDifferences(
+  NormalisedRequestTarget expected,
+  NormalisedRequestTarget actual,
+  int maximumRetained,
+) {
+  final collector = MatchDifferenceCollector(maximumRetained: maximumRetained);
+  if (expected.scheme != actual.scheme) {
+    collector.add(
+      MatchDifference(
+        kind: MatchDifferenceKind.differentValue,
+        location: 'scheme',
+      ),
+    );
+  }
+  if (expected.host != actual.host) {
+    collector.add(
+      MatchDifference(
+        kind: MatchDifferenceKind.differentValue,
+        location: 'host',
+      ),
+    );
+  }
+  if (expected.port != actual.port) {
+    collector.add(
+      MatchDifference(
+        kind: MatchDifferenceKind.differentValue,
+        location: 'port',
+      ),
+    );
+  }
+  if (expected.userInformation != actual.userInformation) {
+    collector.add(
+      MatchDifference(
+        kind: MatchDifferenceKind.differentValue,
+        location: 'user-information',
+      ),
+    );
+  }
+  return collector.build();
+}
+
+BoundedMatchDifferences _singleDifference({
+  required bool matches,
+  required MatchDifferenceKind kind,
+  required String location,
+  required int maximumRetained,
+}) {
+  final collector = MatchDifferenceCollector(maximumRetained: maximumRetained);
+  if (!matches) {
+    collector.add(MatchDifference(kind: kind, location: location));
+  }
+  return collector.build();
+}
+
+BoundedMatchDifferences _emptyDifferences() =>
+    MatchDifferenceCollector(maximumRetained: 0).build();
+
+MatchDifferenceKind _jsonDifferenceKind(JsonDifferenceKind kind) =>
+    switch (kind) {
+      JsonDifferenceKind.missing => MatchDifferenceKind.missing,
+      JsonDifferenceKind.extra => MatchDifferenceKind.extra,
+      JsonDifferenceKind.differentType => MatchDifferenceKind.differentType,
+      JsonDifferenceKind.differentValue => MatchDifferenceKind.differentValue,
+      JsonDifferenceKind.differentOrder => MatchDifferenceKind.differentOrder,
+      JsonDifferenceKind.differentLength =>
+        MatchDifferenceKind.differentMultiplicity,
+    };
 
 bool _hasContentEncoding(CassetteRequest request) =>
     request.headers.values('content-encoding') != null;

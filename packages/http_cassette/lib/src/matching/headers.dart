@@ -1,4 +1,5 @@
 import '../model/headers.dart';
+import 'difference.dart';
 import 'exclusions.dart';
 import 'header_names.dart';
 
@@ -47,6 +48,94 @@ final class NormalisedSelectedHeaders {
 
   @override
   int get hashCode => Object.hashAll(fields);
+}
+
+/// Compares selected headers without retaining field values in differences.
+BoundedMatchDifferences compareSelectedHeaders(
+  NormalisedSelectedHeaders expected,
+  NormalisedSelectedHeaders actual, {
+  int maximumRetained = MatchDifferenceCollector.defaultMaximumRetained,
+}) {
+  final collector = MatchDifferenceCollector(maximumRetained: maximumRetained);
+  for (var index = 0; index < expected.fields.length; index += 1) {
+    final expectedField = expected.fields[index];
+    final actualField = actual.fields[index];
+    final expectedValues = expectedField.values;
+    final actualValues = actualField.values;
+    if (expectedValues == null && actualValues != null) {
+      collector.add(
+        MatchDifference(
+          kind: MatchDifferenceKind.extra,
+          location: expectedField.name,
+        ),
+      );
+      continue;
+    }
+    if (expectedValues != null && actualValues == null) {
+      collector.add(
+        MatchDifference(
+          kind: MatchDifferenceKind.missing,
+          location: expectedField.name,
+        ),
+      );
+      continue;
+    }
+    if (expectedValues == null || actualValues == null) {
+      continue;
+    }
+    if (expectedValues.length != actualValues.length) {
+      collector.add(
+        MatchDifference(
+          kind: MatchDifferenceKind.differentMultiplicity,
+          location: expectedField.name,
+        ),
+      );
+    } else if (!_nullableListsEqual(expectedValues, actualValues) &&
+        _containEquivalentStrings(expectedValues, actualValues)) {
+      collector.add(
+        MatchDifference(
+          kind: MatchDifferenceKind.differentOrder,
+          location: expectedField.name,
+        ),
+      );
+      continue;
+    }
+
+    final sharedLength = expectedValues.length < actualValues.length
+        ? expectedValues.length
+        : actualValues.length;
+    for (var valueIndex = 0; valueIndex < sharedLength; valueIndex += 1) {
+      if (expectedValues[valueIndex] != actualValues[valueIndex]) {
+        collector.add(
+          MatchDifference(
+            kind: MatchDifferenceKind.differentValue,
+            location: '${expectedField.name}[$valueIndex]',
+          ),
+        );
+      }
+    }
+    for (var valueIndex = sharedLength;
+        valueIndex < expectedValues.length;
+        valueIndex += 1) {
+      collector.add(
+        MatchDifference(
+          kind: MatchDifferenceKind.missing,
+          location: '${expectedField.name}[$valueIndex]',
+        ),
+      );
+    }
+    for (var valueIndex = sharedLength;
+        valueIndex < actualValues.length;
+        valueIndex += 1) {
+      collector.add(
+        MatchDifference(
+          kind: MatchDifferenceKind.extra,
+          location: '${expectedField.name}[$valueIndex]',
+        ),
+      );
+    }
+  }
+  return collector.build();
 }
 
 /// One selected header field and its ordered normalised values.
@@ -107,4 +196,16 @@ bool _nullableListsEqual<T>(List<T>? first, List<T>? second) {
     }
   }
   return true;
+}
+
+bool _containEquivalentStrings(List<String> expected, List<String> actual) {
+  final unmatched = List<String>.of(actual);
+  for (final value in expected) {
+    final index = unmatched.indexOf(value);
+    if (index == -1) {
+      return false;
+    }
+    unmatched.removeAt(index);
+  }
+  return unmatched.isEmpty;
 }
