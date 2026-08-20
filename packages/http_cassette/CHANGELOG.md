@@ -14,4 +14,5 @@
 - Added conservative method and URI normalisation for matching.
 - Added deterministic query normalisation with ordered repeated values.
 - Added case-insensitive selected-header matching foundations.
+- Added strict JSON body classification and duplicate-member detection.
 - Record/replay behaviour is not available yet.

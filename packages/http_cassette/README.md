@@ -73,8 +73,10 @@ The internal matching foundation now normalises HTTP methods, URI origins,
 paths and queries conservatively. Query-name order is ignored, while repeated
 values retain their order. Headers are ignored unless explicitly selected;
 selected values preserve order and compare after surrounding HTTP whitespace is
-removed. Body comparison is not implemented yet. Adapters must supply
-internationalised hosts in canonical ASCII form.
+removed. JSON bodies are classified from `application/json` and structured
+`+json` content types, then parsed strictly as UTF-8 with duplicate object
+members rejected. Structural and byte-body comparison are not implemented yet.
+Adapters must supply internationalised hosts in canonical ASCII form.
 
 ## Example
 
