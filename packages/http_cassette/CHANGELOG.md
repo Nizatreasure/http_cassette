@@ -22,4 +22,5 @@
 - Added immutable matching configuration and composed the default request
   matcher.
 - Added deterministic, value-free and bounded matcher component differences.
+- Added deterministic closest-candidate ranking from stored match results.
 - Record/replay behaviour is not available yet.
