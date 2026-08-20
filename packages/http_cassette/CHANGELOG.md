@@ -16,4 +16,5 @@
 - Added case-insensitive selected-header matching foundations.
 - Added strict JSON body classification and duplicate-member detection.
 - Added deterministic structural JSON comparison with lossless numeric matching.
+- Added exact byte-body comparison with value-free difference facts.
 - Record/replay behaviour is not available yet.

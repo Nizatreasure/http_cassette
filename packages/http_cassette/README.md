@@ -78,8 +78,9 @@ removed. JSON bodies are classified from `application/json` and structured
 members rejected. Parsed JSON can be compared structurally: object order is
 ignored, array order is preserved and equivalent number spellings match without
 losing precision. This remains an internal matching foundation; full request
-matching and byte-body comparison are not implemented yet. Adapters must supply
-internationalised hosts in canonical ASCII form.
+matching is not implemented yet. Opaque bodies can be compared as exact bytes;
+differences retain only safe length, empty-state and first-offset facts. Adapters
+must supply internationalised hosts in canonical ASCII form.
 
 ## Example
 
