@@ -97,6 +97,10 @@ ASCII form. Matching exclusions validate header names and exact JSON Pointers.
 Excluded query values retain their parameter names, multiplicity, order and
 equals-sign state.
 
+The transport-neutral custom matcher contract can be implemented and tested
+against canonical requests and a restricted context of matching exclusions.
+Custom matcher registration and execution are not implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

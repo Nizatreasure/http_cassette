@@ -23,4 +23,5 @@
   matcher.
 - Added deterministic, value-free and bounded matcher component differences.
 - Added deterministic closest-candidate ranking from stored match results.
+- Added the safe transport-neutral custom matcher component contract.
 - Record/replay behaviour is not available yet.

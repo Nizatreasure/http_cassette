@@ -10,6 +10,7 @@ enum MatchDifferenceKind {
   differentMultiplicity,
   invalidRepresentation,
   unavailableComparison,
+  customComponentDifference,
 }
 
 /// One safe, value-free request difference.

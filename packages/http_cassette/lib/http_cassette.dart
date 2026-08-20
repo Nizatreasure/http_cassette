@@ -10,6 +10,9 @@ export 'src/configuration/matching_configuration.dart';
 export 'src/diagnostics/diagnostic.dart';
 export 'src/diagnostics/exception.dart';
 export 'src/diagnostics/formatter.dart';
+export 'src/matching/custom.dart';
+export 'src/matching/difference.dart'
+    show BoundedMatchDifferences, MatchDifference, MatchDifferenceKind;
 export 'src/model/headers.dart';
 export 'src/model/http_message.dart';
 export 'src/model/outcome.dart';
