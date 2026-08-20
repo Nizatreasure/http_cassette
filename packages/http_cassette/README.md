@@ -75,8 +75,11 @@ values retain their order. Headers are ignored unless explicitly selected;
 selected values preserve order and compare after surrounding HTTP whitespace is
 removed. JSON bodies are classified from `application/json` and structured
 `+json` content types, then parsed strictly as UTF-8 with duplicate object
-members rejected. Structural and byte-body comparison are not implemented yet.
-Adapters must supply internationalised hosts in canonical ASCII form.
+members rejected. Parsed JSON can be compared structurally: object order is
+ignored, array order is preserved and equivalent number spellings match without
+losing precision. This remains an internal matching foundation; full request
+matching and byte-body comparison are not implemented yet. Adapters must supply
+internationalised hosts in canonical ASCII form.
 
 ## Example
 

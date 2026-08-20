@@ -148,6 +148,96 @@ void main() {
       expect(() => item['value'] = 2, throwsUnsupportedError);
     });
   });
+
+  group('compareJsonValues', () {
+    test('ignores object member order and formatting whitespace', () {
+      final result = _compare(
+        '{"first": 1, "nested": {"enabled": true}}',
+        '{"nested":{"enabled":true},"first":1.0}',
+      );
+
+      expect(result.matches, isTrue);
+      expect(result.differences, isEmpty);
+    });
+
+    test('compares arbitrary-size numbers by numeric value', () {
+      for (final pair in <(String, String)>[
+        ('1', '1.0'),
+        ('1e0', '0.10e1'),
+        ('-0', '0.000e999999999999999999999'),
+        ('9007199254740993000', '9.007199254740993e18'),
+      ]) {
+        expect(_compare(pair.$1, pair.$2).matches, isTrue, reason: '$pair');
+      }
+
+      expect(
+        _compare('9007199254740992', '9007199254740993').matches,
+        isFalse,
+      );
+      expect(_compare('-1', '1').matches, isFalse);
+    });
+
+    test('preserves array order and reports reordered values once', () {
+      final result = _compare('[1, {"value": 2}, 3]', '[3, 1, {"value": 2}]');
+
+      _expectDifferences(result, <(String, JsonDifferenceKind)>[
+        ('', JsonDifferenceKind.differentOrder),
+      ]);
+    });
+
+    test('reports deterministic object differences in lexical order', () {
+      final result = _compare(
+        '{"z":1,"nested":{"kind":"old"},"missing":true,"typed":1}',
+        '{"a":2,"nested":{"kind":"new"},"typed":"1"}',
+      );
+
+      _expectDifferences(result, <(String, JsonDifferenceKind)>[
+        ('/a', JsonDifferenceKind.extra),
+        ('/missing', JsonDifferenceKind.missing),
+        ('/nested/kind', JsonDifferenceKind.differentValue),
+        ('/typed', JsonDifferenceKind.differentType),
+        ('/z', JsonDifferenceKind.missing),
+      ]);
+    });
+
+    test('escapes JSON Pointer tokens', () {
+      final result = _compare(
+        '{"a/b":{"m~n":true}}',
+        '{"a/b":{"m~n":false}}',
+      );
+
+      _expectDifferences(result, <(String, JsonDifferenceKind)>[
+        ('/a~1b/m~0n', JsonDifferenceKind.differentValue),
+      ]);
+    });
+
+    test('reports array length and positions in numeric order', () {
+      final result = _compare('[0,1,2]', '[0,false,2,3,4]');
+
+      _expectDifferences(result, <(String, JsonDifferenceKind)>[
+        ('', JsonDifferenceKind.differentLength),
+        ('/1', JsonDifferenceKind.differentType),
+        ('/3', JsonDifferenceKind.extra),
+        ('/4', JsonDifferenceKind.extra),
+      ]);
+    });
+
+    test('uses the empty pointer for a root scalar difference', () {
+      _expectDifferences(
+        _compare('true', 'false'),
+        <(String, JsonDifferenceKind)>[
+          ('', JsonDifferenceKind.differentValue),
+        ],
+      );
+    });
+
+    test('rejects values not produced by the JSON parser', () {
+      expect(
+        () => compareJsonValues(1, 1),
+        throwsArgumentError,
+      );
+    });
+  });
 }
 
 JsonBodyParseResult _parse(
@@ -163,3 +253,18 @@ CassetteHeaders _jsonHeaders([String value = 'application/json']) =>
     CassetteHeaders(<String, Iterable<String>>{
       'content-type': <String>[value],
     });
+
+JsonComparisonResult _compare(String expected, String actual) =>
+    compareJsonValues(_parse(expected).value, _parse(actual).value);
+
+void _expectDifferences(
+  JsonComparisonResult result,
+  List<(String, JsonDifferenceKind)> expected,
+) {
+  expect(result.matches, isFalse);
+  expect(
+    result.differences
+        .map((difference) => (difference.pointer, difference.kind)),
+    orderedEquals(expected),
+  );
+}

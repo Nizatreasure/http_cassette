@@ -15,4 +15,5 @@
 - Added deterministic query normalisation with ordered repeated values.
 - Added case-insensitive selected-header matching foundations.
 - Added strict JSON body classification and duplicate-member detection.
+- Added deterministic structural JSON comparison with lossless numeric matching.
 - Record/replay behaviour is not available yet.
