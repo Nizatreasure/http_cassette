@@ -1,6 +1,6 @@
 import '../model/headers.dart';
-import '../model/http_syntax.dart';
 import 'exclusions.dart';
+import 'header_names.dart';
 
 /// Immutable values for the explicitly selected request headers.
 final class NormalisedSelectedHeaders {
@@ -13,18 +13,10 @@ final class NormalisedSelectedHeaders {
     Set<String> selectedNames = const <String>{},
     MatchingExclusions exclusions = MatchingExclusions.none,
   }) {
-    final canonicalNames = <String>{};
-    for (final name in selectedNames) {
-      if (!isHttpToken(name)) {
-        throw ArgumentError('Selected header name must use the token grammar.');
-      }
-      final canonicalName = name.toLowerCase();
-      if (!exclusions.headers.contains(canonicalName)) {
-        canonicalNames.add(canonicalName);
-      }
-    }
-
-    final sortedNames = canonicalNames.toList()..sort();
+    final sortedNames = canonicaliseHeaderNames(
+      selectedNames,
+      invalidMessage: 'Selected header name must use the token grammar.',
+    ).where((name) => !exclusions.headers.contains(name));
     return NormalisedSelectedHeaders._(
       List<NormalisedSelectedHeader>.unmodifiable(
         sortedNames.map((name) {

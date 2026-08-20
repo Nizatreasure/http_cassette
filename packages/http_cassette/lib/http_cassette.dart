@@ -6,6 +6,7 @@ library;
 
 export 'src/cassette/name.dart';
 export 'src/configuration/body_limits.dart';
+export 'src/configuration/matching_configuration.dart';
 export 'src/diagnostics/diagnostic.dart';
 export 'src/diagnostics/exception.dart';
 export 'src/diagnostics/formatter.dart';

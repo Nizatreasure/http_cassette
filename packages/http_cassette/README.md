@@ -5,7 +5,8 @@ package family for recording and replaying HTTP interactions in tests.
 
 This package is under active development. It currently provides foundational
 canonical HTTP values and safe structured diagnostics. It does not yet record,
-replay, match, sanitise or persist HTTP interactions.
+replay, sanitise or persist HTTP interactions, and the matcher is not yet
+exposed as an operational engine.
 
 ## Installation
 
@@ -69,6 +70,17 @@ final outcome = CassetteResponseOutcome(response);
 Both values require positive byte counts and may be overridden explicitly.
 Buffering and limit enforcement are not implemented yet.
 
+`MatchingConfiguration` selects headers and exact query or JSON values to
+ignore. Method, URI and non-empty-body matching remain fixed:
+
+```dart
+final matching = MatchingConfiguration(
+  includedHeaders: <String>{'accept'},
+  ignoredQueryParameters: <String>{'request_id'},
+  ignoredJsonPointers: <String>{'/metadata/generated_at'},
+);
+```
+
 The internal matching foundation now normalises HTTP methods, URI origins,
 paths and queries conservatively. Query-name order is ignored, while repeated
 values retain their order. Headers are ignored unless explicitly selected;
@@ -78,16 +90,17 @@ removed. JSON bodies are classified from `application/json` and structured
 members rejected. Parsed JSON can be compared structurally: object order is
 ignored, array order is preserved and equivalent number spellings match without
 losing precision. This remains an internal matching foundation; full request
-matching is not implemented yet. Opaque bodies can be compared as exact bytes;
-differences retain only safe length, empty-state and first-offset facts. Adapters
-must supply internationalised hosts in canonical ASCII form. Internal matching
-exclusions validate header names and exact JSON Pointers. Excluded query values
-retain their parameter names, multiplicity, order and equals-sign state.
+comparison now composes these components without replay state. Opaque bodies
+compare as exact bytes; differences retain only safe length, empty-state and
+first-offset facts. Adapters must supply internationalised hosts in canonical
+ASCII form. Matching exclusions validate header names and exact JSON Pointers.
+Excluded query values retain their parameter names, multiplicity, order and
+equals-sign state.
 
 ## Example
 
-The example constructs foundational configuration and canonical HTTP values. It
-also formats a structured missing-cassette diagnostic.
+The example constructs body and matching configuration with canonical HTTP
+values. It also formats a structured missing-cassette diagnostic.
 
 ```sh
 dart run example/http_cassette_example.dart

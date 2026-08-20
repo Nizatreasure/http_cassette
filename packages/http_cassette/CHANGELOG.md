@@ -19,4 +19,6 @@
 - Added exact byte-body comparison with value-free difference facts.
 - Added validated request matching exclusions with structure-preserving query
   and JSON behaviour.
+- Added immutable matching configuration and composed the default request
+  matcher.
 - Record/replay behaviour is not available yet.

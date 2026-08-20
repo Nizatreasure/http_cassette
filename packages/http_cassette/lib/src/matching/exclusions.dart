@@ -1,4 +1,4 @@
-import '../model/http_syntax.dart';
+import 'header_names.dart';
 import 'uri_component.dart';
 
 /// Immutable request locations excluded from ordinary value matching.
@@ -14,16 +14,6 @@ final class MatchingExclusions {
     Iterable<String> jsonPointers = const <String>[],
     bool uriUserInformation = false,
   }) {
-    final canonicalHeaders = <String>{};
-    for (final name in headers) {
-      if (!isHttpToken(name)) {
-        throw ArgumentError(
-          'Excluded header name must use the HTTP token grammar.',
-        );
-      }
-      canonicalHeaders.add(name.toLowerCase());
-    }
-
     final canonicalQueryParameters = <String>{};
     for (final name in queryParameters) {
       canonicalQueryParameters.add(normaliseUriComponent(name));
@@ -36,7 +26,10 @@ final class MatchingExclusions {
     }
 
     return MatchingExclusions._(
-      headers: _sortedSet(canonicalHeaders),
+      headers: canonicaliseHeaderNames(
+        headers,
+        invalidMessage: 'Excluded header name must use the HTTP token grammar.',
+      ),
       queryParameters: _sortedSet(canonicalQueryParameters),
       jsonPointers: _sortedSet(validatedPointers),
       uriUserInformation: uriUserInformation,
@@ -69,6 +62,17 @@ final class MatchingExclusions {
 
   /// Whether the complete URI user-information value is excluded.
   final bool uriUserInformation;
+
+  /// Returns the union of this exclusion set and [other].
+  MatchingExclusions mergedWith(MatchingExclusions other) => MatchingExclusions(
+        headers: <String>{...headers, ...other.headers},
+        queryParameters: <String>{
+          ...queryParameters,
+          ...other.queryParameters,
+        },
+        jsonPointers: <String>{...jsonPointers, ...other.jsonPointers},
+        uriUserInformation: uriUserInformation || other.uriUserInformation,
+      );
 }
 
 Set<String> _sortedSet(Set<String> values) {
