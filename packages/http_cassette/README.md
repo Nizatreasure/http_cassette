@@ -71,8 +71,10 @@ Buffering and limit enforcement are not implemented yet.
 
 The internal matching foundation now normalises HTTP methods, URI origins,
 paths and queries conservatively. Query-name order is ignored, while repeated
-values retain their order. Header and body comparison are not implemented yet.
-Adapters must supply internationalised hosts in canonical ASCII form.
+values retain their order. Headers are ignored unless explicitly selected;
+selected values preserve order and compare after surrounding HTTP whitespace is
+removed. Body comparison is not implemented yet. Adapters must supply
+internationalised hosts in canonical ASCII form.
 
 ## Example
 

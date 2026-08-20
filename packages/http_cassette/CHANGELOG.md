@@ -13,4 +13,5 @@
 - Added measured, configurable request and response body limits.
 - Added conservative method and URI normalisation for matching.
 - Added deterministic query normalisation with ordered repeated values.
+- Added case-insensitive selected-header matching foundations.
 - Record/replay behaviour is not available yet.
