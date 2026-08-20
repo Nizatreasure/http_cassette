@@ -1,4 +1,5 @@
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/matching/exclusions.dart';
 import 'package:http_cassette/src/matching/headers.dart';
 import 'package:test/test.dart';
 
@@ -119,6 +120,20 @@ void main() {
       );
 
       expect(combined, isNot(repeated));
+    });
+
+    test('omits selected headers excluded from value matching', () {
+      final headers = CassetteHeaders(<String, Iterable<String>>{
+        'accept': <String>['application/json'],
+        'x-secret': <String>['sensitive'],
+      });
+      final normalised = NormalisedSelectedHeaders.fromHeaders(
+        headers,
+        selectedNames: <String>{'accept', 'x-secret'},
+        exclusions: MatchingExclusions(headers: <String>{'X-Secret'}),
+      );
+
+      expect(normalised.fields.map((field) => field.name), <String>['accept']);
     });
 
     test('rejects invalid selected names without echoing them', () {

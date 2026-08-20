@@ -1,4 +1,5 @@
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/matching/exclusions.dart';
 import 'package:http_cassette/src/matching/normalisation.dart';
 import 'package:test/test.dart';
 
@@ -76,6 +77,32 @@ void main() {
       );
     });
 
+    test('matches URI user information unless its value is excluded', () {
+      final first = _target(
+        'GET',
+        'https://first:secret@example.test/path',
+      );
+      final second = _target(
+        'GET',
+        'https://second:other@example.test/path',
+      );
+
+      expect(first, isNot(second));
+      final exclusions = MatchingExclusions(uriUserInformation: true);
+      expect(
+        _target(
+          'GET',
+          'https://first:secret@example.test/path',
+          exclusions: exclusions,
+        ),
+        _target(
+          'GET',
+          'https://second:other@example.test/path',
+          exclusions: exclusions,
+        ),
+      );
+    });
+
     test('accepts canonical ASCII internationalised hosts', () {
       expect(
         _target('GET', 'https://XN--MNICH-KVA.EXAMPLE/').host,
@@ -111,7 +138,12 @@ void main() {
   });
 }
 
-NormalisedRequestTarget _target(String method, String uri) =>
+NormalisedRequestTarget _target(
+  String method,
+  String uri, {
+  MatchingExclusions exclusions = MatchingExclusions.none,
+}) =>
     NormalisedRequestTarget.fromRequest(
       CassetteRequest(method: method, uri: Uri.parse(uri)),
+      exclusions: exclusions,
     );

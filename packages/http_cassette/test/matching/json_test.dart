@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/matching/exclusions.dart';
 import 'package:http_cassette/src/matching/json.dart';
 import 'package:test/test.dart';
 
@@ -231,6 +232,62 @@ void main() {
       );
     });
 
+    test('ignores only the value at an exact JSON Pointer', () {
+      final exclusions = MatchingExclusions(
+        jsonPointers: <String>{'/customer/email', '/items/0/id'},
+      );
+      final result = _compare(
+        '{"customer":{"email":"first","role":"buyer"},'
+            '"items":[{"id":1,"name":"one"}]}',
+        '{"customer":{"email":"second","role":"buyer"},'
+            '"items":[{"id":"different","name":"one"}]}',
+        exclusions: exclusions,
+      );
+
+      expect(result.matches, isTrue);
+    });
+
+    test('requires an ignored object member to exist on both sides', () {
+      final exclusions = MatchingExclusions(
+        jsonPointers: <String>{'/customer/email'},
+      );
+
+      _expectDifferences(
+        _compare(
+          '{"customer":{"email":"first"}}',
+          '{"customer":{}}',
+          exclusions: exclusions,
+        ),
+        <(String, JsonDifferenceKind)>[
+          ('/customer/email', JsonDifferenceKind.missing),
+        ],
+      );
+    });
+
+    test('keeps array length and positions significant when ignored', () {
+      final exclusions = MatchingExclusions(jsonPointers: <String>{'/0'});
+
+      expect(
+        _compare('["first",1]', '["different",1]', exclusions: exclusions)
+            .matches,
+        isTrue,
+      );
+      _expectDifferences(
+        _compare('["first"]', '[]', exclusions: exclusions),
+        <(String, JsonDifferenceKind)>[
+          ('', JsonDifferenceKind.differentLength),
+          ('/0', JsonDifferenceKind.missing),
+        ],
+      );
+    });
+
+    test('ignores the complete JSON root through the empty pointer', () {
+      final exclusions = MatchingExclusions(jsonPointers: <String>{''});
+
+      expect(_compare('{"value":1}', '[false]', exclusions: exclusions).matches,
+          isTrue);
+    });
+
     test('rejects values not produced by the JSON parser', () {
       expect(
         () => compareJsonValues(1, 1),
@@ -254,8 +311,16 @@ CassetteHeaders _jsonHeaders([String value = 'application/json']) =>
       'content-type': <String>[value],
     });
 
-JsonComparisonResult _compare(String expected, String actual) =>
-    compareJsonValues(_parse(expected).value, _parse(actual).value);
+JsonComparisonResult _compare(
+  String expected,
+  String actual, {
+  MatchingExclusions exclusions = MatchingExclusions.none,
+}) =>
+    compareJsonValues(
+      _parse(expected).value,
+      _parse(actual).value,
+      exclusions: exclusions,
+    );
 
 void _expectDifferences(
   JsonComparisonResult result,

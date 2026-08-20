@@ -17,4 +17,6 @@
 - Added strict JSON body classification and duplicate-member detection.
 - Added deterministic structural JSON comparison with lossless numeric matching.
 - Added exact byte-body comparison with value-free difference facts.
+- Added validated request matching exclusions with structure-preserving query
+  and JSON behaviour.
 - Record/replay behaviour is not available yet.

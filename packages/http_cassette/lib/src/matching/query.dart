@@ -1,21 +1,20 @@
-import 'normalisation.dart';
+import 'exclusions.dart';
+import 'uri_component.dart';
 
 /// An immutable, deterministic representation of an encoded URI query.
 final class NormalisedQuery {
   /// Parses and normalises the query from [uri].
   ///
-  /// Every occurrence whose normalised name appears in [ignoredNames] is
-  /// omitted. Ignored-name comparison is exact and case-sensitive.
+  /// Values selected by [exclusions] are omitted while their names,
+  /// multiplicity, order and equals-sign state remain significant.
   factory NormalisedQuery.fromUri(
     Uri uri, {
-    Set<String> ignoredNames = const <String>{},
+    MatchingExclusions exclusions = MatchingExclusions.none,
   }) {
     if (uri.query.isEmpty) {
       return const NormalisedQuery._(<NormalisedQueryGroup>[]);
     }
 
-    final normalisedIgnoredNames =
-        ignoredNames.map(normaliseUriComponent).toSet();
     final grouped = <String, List<NormalisedQueryValue>>{};
 
     for (final field in uri.query.split('&')) {
@@ -23,14 +22,12 @@ final class NormalisedQuery {
       final hasEquals = equalsIndex >= 0;
       final encodedName = hasEquals ? field.substring(0, equalsIndex) : field;
       final name = normaliseUriComponent(encodedName);
-      if (normalisedIgnoredNames.contains(name)) {
-        continue;
-      }
-
       final encodedValue = hasEquals ? field.substring(equalsIndex + 1) : '';
+      final isExcluded = exclusions.queryParameters.contains(name);
       final value = NormalisedQueryValue._(
-        value: normaliseUriComponent(encodedValue),
+        value: isExcluded ? null : normaliseUriComponent(encodedValue),
         hasEquals: hasEquals,
+        isExcluded: isExcluded,
       );
       (grouped[name] ??= <NormalisedQueryValue>[]).add(value);
     }
@@ -91,23 +88,28 @@ final class NormalisedQueryValue {
   const NormalisedQueryValue._({
     required this.value,
     required this.hasEquals,
+    required this.isExcluded,
   });
 
-  /// The conservatively normalised encoded value.
-  final String value;
+  /// The conservatively normalised encoded value, or `null` when excluded.
+  final String? value;
 
   /// Whether the original occurrence contained `=`.
   final bool hasEquals;
+
+  /// Whether the original value was excluded from matching.
+  final bool isExcluded;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is NormalisedQueryValue &&
           value == other.value &&
-          hasEquals == other.hasEquals;
+          hasEquals == other.hasEquals &&
+          isExcluded == other.isExcluded;
 
   @override
-  int get hashCode => Object.hash(value, hasEquals);
+  int get hashCode => Object.hash(value, hasEquals, isExcluded);
 }
 
 bool _listsEqual<T>(List<T> first, List<T> second) {

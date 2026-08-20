@@ -1,11 +1,16 @@
 import '../model/http_message.dart';
+import 'exclusions.dart';
+import 'uri_component.dart';
 
 /// The method, origin and path used by the default request matcher.
 ///
 /// Query data is deliberately excluded and is normalised separately.
 final class NormalisedRequestTarget {
   /// Creates a normalised target from a validated canonical [request].
-  factory NormalisedRequestTarget.fromRequest(CassetteRequest request) {
+  factory NormalisedRequestTarget.fromRequest(
+    CassetteRequest request, {
+    MatchingExclusions exclusions = MatchingExclusions.none,
+  }) {
     final uri = request.uri;
     final scheme = uri.scheme.toLowerCase();
     final host = _normaliseHost(uri.host);
@@ -16,6 +21,9 @@ final class NormalisedRequestTarget {
       host: host,
       port: _normalisePort(uri, scheme),
       path: uri.path.isEmpty ? '/' : normaliseUriComponent(uri.path),
+      userInformation: exclusions.uriUserInformation || uri.userInfo.isEmpty
+          ? null
+          : normaliseUriComponent(uri.userInfo),
     );
   }
 
@@ -25,6 +33,7 @@ final class NormalisedRequestTarget {
     required this.host,
     required this.port,
     required this.path,
+    required this.userInformation,
   });
 
   /// The canonical upper-case HTTP method.
@@ -42,6 +51,11 @@ final class NormalisedRequestTarget {
   /// The canonical encoded path, with an empty path represented as `/`.
   final String path;
 
+  /// Normalised URI user information, or `null` when absent or excluded.
+  ///
+  /// This value is for equality only and must never enter diagnostics.
+  final String? userInformation;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -50,10 +64,12 @@ final class NormalisedRequestTarget {
           scheme == other.scheme &&
           host == other.host &&
           port == other.port &&
-          path == other.path;
+          path == other.path &&
+          userInformation == other.userInformation;
 
   @override
-  int get hashCode => Object.hash(method, scheme, host, port, path);
+  int get hashCode =>
+      Object.hash(method, scheme, host, port, path, userInformation);
 }
 
 String _normaliseHost(String host) {
@@ -77,60 +93,3 @@ int? _normalisePort(Uri uri, String scheme) {
   }
   return uri.port;
 }
-
-/// Normalises percent escapes in an encoded URI component conservatively.
-///
-/// Unreserved ASCII characters are decoded. Other escapes remain encoded with
-/// upper-case hexadecimal digits.
-String normaliseUriComponent(String value) {
-  final result = StringBuffer();
-  var index = 0;
-  while (index < value.length) {
-    final codeUnit = value.codeUnitAt(index);
-    if (codeUnit != 0x25) {
-      result.writeCharCode(codeUnit);
-      index += 1;
-      continue;
-    }
-
-    if (index + 2 >= value.length) {
-      throw ArgumentError('URI component contains a malformed escape.');
-    }
-    final first = _hexValue(value.codeUnitAt(index + 1));
-    final second = _hexValue(value.codeUnitAt(index + 2));
-    if (first == null || second == null) {
-      throw ArgumentError('URI component contains a malformed escape.');
-    }
-
-    final decoded = first * 16 + second;
-    if (_isUnreserved(decoded)) {
-      result.writeCharCode(decoded);
-    } else {
-      result
-        ..write('%')
-        ..write(decoded.toRadixString(16).toUpperCase().padLeft(2, '0'));
-    }
-    index += 3;
-  }
-  return result.toString();
-}
-
-int? _hexValue(int codeUnit) {
-  if (codeUnit >= 0x30 && codeUnit <= 0x39) {
-    return codeUnit - 0x30;
-  }
-  final lower = codeUnit | 0x20;
-  if (lower >= 0x61 && lower <= 0x66) {
-    return lower - 0x61 + 10;
-  }
-  return null;
-}
-
-bool _isUnreserved(int codeUnit) =>
-    (codeUnit >= 0x41 && codeUnit <= 0x5a) ||
-    (codeUnit >= 0x61 && codeUnit <= 0x7a) ||
-    (codeUnit >= 0x30 && codeUnit <= 0x39) ||
-    codeUnit == 0x2d ||
-    codeUnit == 0x2e ||
-    codeUnit == 0x5f ||
-    codeUnit == 0x7e;

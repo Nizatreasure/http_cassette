@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../model/headers.dart';
 import '../model/http_syntax.dart';
+import 'exclusions.dart';
 
 /// The result of classifying and parsing a canonical body as JSON.
 enum JsonBodyStatus {
@@ -87,9 +88,13 @@ final class JsonComparisonResult {
 }
 
 /// Compares values produced by [parseJsonBody] without exposing scalar values.
-JsonComparisonResult compareJsonValues(Object? expected, Object? actual) {
+JsonComparisonResult compareJsonValues(
+  Object? expected,
+  Object? actual, {
+  MatchingExclusions exclusions = MatchingExclusions.none,
+}) {
   final differences = <JsonDifference>[];
-  _compareJsonValue(expected, actual, '', differences);
+  _compareJsonValue(expected, actual, '', exclusions, differences);
   return JsonComparisonResult(differences);
 }
 
@@ -373,8 +378,12 @@ void _compareJsonValue(
   Object? expected,
   Object? actual,
   String pointer,
+  MatchingExclusions exclusions,
   List<JsonDifference> differences,
 ) {
+  if (exclusions.jsonPointers.contains(pointer)) {
+    return;
+  }
   if (_jsonType(expected) != _jsonType(actual)) {
     differences.add(
       JsonDifference(pointer: pointer, kind: JsonDifferenceKind.differentType),
@@ -383,9 +392,9 @@ void _compareJsonValue(
   }
 
   if (expected is Map<String, Object?> && actual is Map<String, Object?>) {
-    _compareJsonObjects(expected, actual, pointer, differences);
+    _compareJsonObjects(expected, actual, pointer, exclusions, differences);
   } else if (expected is List<Object?> && actual is List<Object?>) {
-    _compareJsonArrays(expected, actual, pointer, differences);
+    _compareJsonArrays(expected, actual, pointer, exclusions, differences);
   } else if (!_jsonScalarsEqual(expected, actual)) {
     differences.add(
       JsonDifference(pointer: pointer, kind: JsonDifferenceKind.differentValue),
@@ -397,6 +406,7 @@ void _compareJsonObjects(
   Map<String, Object?> expected,
   Map<String, Object?> actual,
   String pointer,
+  MatchingExclusions exclusions,
   List<JsonDifference> differences,
 ) {
   final names = <String>{...expected.keys, ...actual.keys}.toList()..sort();
@@ -421,6 +431,7 @@ void _compareJsonObjects(
         expected[name],
         actual[name],
         memberPointer,
+        exclusions,
         differences,
       );
     }
@@ -431,6 +442,7 @@ void _compareJsonArrays(
   List<Object?> expected,
   List<Object?> actual,
   String pointer,
+  MatchingExclusions exclusions,
   List<JsonDifference> differences,
 ) {
   if (expected.length != actual.length) {
@@ -438,7 +450,8 @@ void _compareJsonArrays(
       JsonDifference(
           pointer: pointer, kind: JsonDifferenceKind.differentLength),
     );
-  } else if (!_jsonListsEqual(expected, actual) &&
+  } else if (!_hasExcludedDescendant(pointer, exclusions) &&
+      !_jsonListsEqual(expected, actual) &&
       _containEquivalentJsonValues(expected, actual)) {
     differences.add(
       JsonDifference(pointer: pointer, kind: JsonDifferenceKind.differentOrder),
@@ -453,6 +466,7 @@ void _compareJsonArrays(
       expected[index],
       actual[index],
       '$pointer/$index',
+      exclusions,
       differences,
     );
   }
@@ -505,8 +519,22 @@ bool _jsonListsEqual(List<Object?> expected, List<Object?> actual) {
 
 bool _jsonValuesEqual(Object? expected, Object? actual) {
   final differences = <JsonDifference>[];
-  _compareJsonValue(expected, actual, '', differences);
+  _compareJsonValue(
+    expected,
+    actual,
+    '',
+    MatchingExclusions.none,
+    differences,
+  );
   return differences.isEmpty;
+}
+
+bool _hasExcludedDescendant(
+  String pointer,
+  MatchingExclusions exclusions,
+) {
+  final prefix = '$pointer/';
+  return exclusions.jsonPointers.any((excluded) => excluded.startsWith(prefix));
 }
 
 bool _jsonScalarsEqual(Object? expected, Object? actual) {

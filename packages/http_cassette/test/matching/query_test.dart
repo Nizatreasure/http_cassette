@@ -1,3 +1,4 @@
+import 'package:http_cassette/src/matching/exclusions.dart';
 import 'package:http_cassette/src/matching/query.dart';
 import 'package:test/test.dart';
 
@@ -56,23 +57,51 @@ void main() {
       expect(_query('?name=a%2Fvalue'), isNot(_query('?name=a/value')));
     });
 
-    test('ignores every occurrence of exact normalised names', () {
+    test('ignores values while preserving names and multiplicity', () {
+      final exclusions = MatchingExclusions(
+        queryParameters: <String>{'request_id'},
+      );
+
       expect(
         _query(
-          '?keep=one&request%5fid=first&request_id=second&Keep=two',
-          ignoredNames: <String>{'request_id'},
+          '?keep=one&request%5fid=first&request_id=second',
+          exclusions: exclusions,
         ),
-        _query('?keep=one&Keep=two'),
+        _query(
+          '?keep=one&request_id=different&request_id=values',
+          exclusions: exclusions,
+        ),
+      );
+      expect(
+        _query('?request_id=one&request_id=two', exclusions: exclusions),
+        isNot(_query('?request_id=one', exclusions: exclusions)),
       );
     });
 
     test('compares ignored names case-sensitively', () {
+      final exclusions = MatchingExclusions(
+        queryParameters: <String>{'token'},
+      );
       final query = _query(
         '?token=one&Token=two',
-        ignoredNames: <String>{'token'},
+        exclusions: exclusions,
       );
 
-      expect(query.groups.map((group) => group.name), <String>['Token']);
+      expect(
+          query.groups.map((group) => group.name), <String>['Token', 'token']);
+      expect(query.groups.first.values.single.value, 'two');
+      expect(query.groups.last.values.single.value, isNull);
+    });
+
+    test('keeps equals-sign state significant for excluded values', () {
+      final exclusions = MatchingExclusions(
+        queryParameters: <String>{'token'},
+      );
+
+      expect(
+        _query('?token', exclusions: exclusions),
+        isNot(_query('?token=', exclusions: exclusions)),
+      );
     });
 
     test('represents an absent or empty query with no groups', () {
@@ -100,9 +129,9 @@ void main() {
 
 NormalisedQuery _query(
   String suffix, {
-  Set<String> ignoredNames = const <String>{},
+  MatchingExclusions exclusions = MatchingExclusions.none,
 }) =>
     NormalisedQuery.fromUri(
       Uri.parse('https://example.test/$suffix'),
-      ignoredNames: ignoredNames,
+      exclusions: exclusions,
     );

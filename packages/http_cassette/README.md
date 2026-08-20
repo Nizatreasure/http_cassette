@@ -80,7 +80,9 @@ ignored, array order is preserved and equivalent number spellings match without
 losing precision. This remains an internal matching foundation; full request
 matching is not implemented yet. Opaque bodies can be compared as exact bytes;
 differences retain only safe length, empty-state and first-offset facts. Adapters
-must supply internationalised hosts in canonical ASCII form.
+must supply internationalised hosts in canonical ASCII form. Internal matching
+exclusions validate header names and exact JSON Pointers. Excluded query values
+retain their parameter names, multiplicity, order and equals-sign state.
 
 ## Example
 
