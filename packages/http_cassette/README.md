@@ -117,8 +117,11 @@ ordinary setup option and is not used by the package example.
 The internal sanitisation foundation now replaces complete values for
 `authorization`, `cookie`, `proxy-authorization`, `set-cookie`, `x-api-key`,
 `api-key`, `x-auth-token`, `x-csrf-token` and `x-xsrf-token`, plus configured
-exact header names. Repeated values retain their count. Request composition and
-the recording pipeline are not implemented yet.
+exact header names. Repeated values retain their count. It also replaces every
+present value of common credential-shaped query parameters and configured exact
+query names while preserving names, order, multiplicity, and missing versus
+empty values. Request composition and the recording pipeline are not
+implemented yet.
 
 ## Example
 

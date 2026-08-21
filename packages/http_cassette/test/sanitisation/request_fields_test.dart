@@ -88,4 +88,100 @@ void main() {
       expect(result.sanitisedNames, isEmpty);
     });
   });
+
+  group('sanitiseQuery', () {
+    test('replaces every present value for built-in sensitive names', () {
+      const builtInNames = <String>[
+        'access_token',
+        'api_key',
+        'apikey',
+        'auth',
+        'authorization',
+        'client_secret',
+        'id_token',
+        'password',
+        'passwd',
+        'refresh_token',
+        'secret',
+        'token',
+      ];
+      final query = <String>[
+        for (final name in builtInNames)
+          '${name.toUpperCase()}=synthetic-secret',
+        'token=another-secret',
+        'keep=retained',
+      ].join('&');
+      final uri = Uri.parse('https://example.test/path?$query');
+
+      final result = sanitiseQuery(uri, SanitisationConfiguration());
+
+      expect(result.sanitisedNames, builtInNames.toSet());
+      expect(
+        result.uri.query.split('&'),
+        <String>[
+          for (final name in builtInNames)
+            '${name.toUpperCase()}=%5BREDACTED%5D',
+          'token=%5BREDACTED%5D',
+          'keep=retained',
+        ],
+      );
+    });
+
+    test('uses exact case-insensitive project rules without substrings', () {
+      final uri = Uri.parse(
+        'https://example.test/?Project%5FSecret=value&project_secret_suffix=retained',
+      );
+      final configuration = SanitisationConfiguration(
+        additionalQueryParameters: <String>{'PROJECT_SECRET'},
+      );
+
+      final result = sanitiseQuery(uri, configuration);
+
+      expect(result.sanitisedNames, <String>{'project_secret'});
+      expect(
+        result.uri.query,
+        'Project_Secret=%5BREDACTED%5D&project_secret_suffix=retained',
+      );
+    });
+
+    test('preserves repeated order and missing versus empty values', () {
+      final uri = Uri.parse(
+        'https://example.test/?token&token=&keep=first&token=third&keep=second',
+      );
+
+      final result = sanitiseQuery(uri, SanitisationConfiguration());
+
+      expect(
+        result.uri.query,
+        'token&token=%5BREDACTED%5D&keep=first&token=%5BREDACTED%5D&keep=second',
+      );
+      expect(result.sanitisedNames, <String>{'token'});
+    });
+
+    test('does not mutate or expose sensitive source values', () {
+      const sentinel = 'synthetic-credential-sentinel';
+      final uri = Uri.parse('https://example.test/?token=$sentinel');
+
+      final result = sanitiseQuery(uri, SanitisationConfiguration());
+
+      expect(uri.query, 'token=$sentinel');
+      expect(result.uri.toString(), isNot(contains(sentinel)));
+      expect(
+        () => result.sanitisedNames.add('another'),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('leaves the URI unchanged when unsafe built-ins are disabled', () {
+      final uri = Uri.parse('https://example.test/?token=synthetic-secret');
+
+      final result = sanitiseQuery(
+        uri,
+        SanitisationConfiguration.unsafeWithoutBuiltIns(),
+      );
+
+      expect(result.uri, same(uri));
+      expect(result.sanitisedNames, isEmpty);
+    });
+  });
 }
