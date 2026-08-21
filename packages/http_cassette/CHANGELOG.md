@@ -34,4 +34,5 @@
 - Added exact sensitive query-value sanitisation with affected-name reporting.
 - Added URI user-information sanitisation and composed request-field matching
   exclusions.
+- Added recursive, type-preserving JSON member-name sanitisation.
 - Record/replay behaviour is not available yet.

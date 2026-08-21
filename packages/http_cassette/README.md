@@ -122,7 +122,9 @@ present value of common credential-shaped query parameters and configured exact
 query names while preserving names, order, multiplicity, and missing versus
 empty values. URI user information is replaced as one complete value. The
 internal request-field result carries matching exclusions for every changed
-location. JSON sanitisation and the recording pipeline are not implemented yet.
+location. The internal JSON foundation recursively sanitises exact sensitive
+member names while retaining object and array shape. Exact JSON Pointer rules,
+body composition and the recording pipeline are not implemented yet.
 
 ## Example
 
