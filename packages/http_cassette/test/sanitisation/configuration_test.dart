@@ -12,6 +12,7 @@ void main() {
     test('enables every secure built-in rule by default', () {
       final configuration = SanitisationConfiguration();
 
+      expect(configuration.builtInRulesEnabled, isTrue);
       expect(
         effectiveSensitiveHeaders(configuration),
         <String>{
@@ -43,6 +44,22 @@ void main() {
       expect(effectiveSensitiveQueryParameters(configuration), credentialNames);
       expect(effectiveSensitiveJsonNames(configuration), credentialNames);
       expect(effectiveSensitiveJsonPointers(configuration), isEmpty);
+    });
+
+    test('disables built-ins only through the conspicuous unsafe constructor',
+        () {
+      final configuration = SanitisationConfiguration.unsafeWithoutBuiltIns();
+
+      expect(configuration.builtInRulesEnabled, isFalse);
+      expect(configuration.additionalHeaders, isEmpty);
+      expect(configuration.additionalQueryParameters, isEmpty);
+      expect(configuration.additionalJsonNames, isEmpty);
+      expect(configuration.additionalJsonPointers, isEmpty);
+      expect(effectiveSensitiveHeaders(configuration), isEmpty);
+      expect(effectiveSensitiveQueryParameters(configuration), isEmpty);
+      expect(effectiveSensitiveJsonNames(configuration), isEmpty);
+      expect(effectiveSensitiveJsonPointers(configuration), isEmpty);
+      expect(configuration, isNot(SanitisationConfiguration()));
     });
 
     test('canonicalises, deduplicates and sorts project additions', () {

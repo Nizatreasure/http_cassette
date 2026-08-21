@@ -29,4 +29,5 @@
 - Added custom matcher execution, eligibility and closest-candidate ranking.
 - Added deterministic type-preserving scalar sanitisation placeholders.
 - Added immutable secure-default sanitisation rule configuration.
+- Added a conspicuous unsafe opt-out from built-in sanitisation rules.
 - Record/replay behaviour is not available yet.

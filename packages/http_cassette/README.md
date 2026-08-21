@@ -109,6 +109,11 @@ available now, but the sanitisation pipeline is not implemented yet. These
 defaults reduce risk; they cannot guarantee that a future cassette is safe to
 commit, so generated cassettes will still require review.
 
+Built-in rules can be disabled only with the conspicuously named
+`SanitisationConfiguration.unsafeWithoutBuiltIns()` constructor. Recording with
+that configuration may persist raw credentials and personal data. It is not an
+ordinary setup option and is not used by the package example.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

@@ -47,6 +47,7 @@ abstract final class SanitisationConfiguration {
       jsonPointers: additionalJsonPointers,
     ).jsonPointers;
     return _SanitisationConfiguration(
+      builtInRulesEnabled: true,
       additionalHeaders: canonicaliseHeaderNames(
         additionalHeaders,
         invalidMessage:
@@ -60,8 +61,25 @@ abstract final class SanitisationConfiguration {
     );
   }
 
+  /// Creates explicitly unsafe configuration without built-in rules.
+  ///
+  /// Recording with this configuration may persist raw credentials and
+  /// personal data. Project custom sanitisers added by later configuration
+  /// stages will remain independent of this built-in policy.
+  factory SanitisationConfiguration.unsafeWithoutBuiltIns() =>
+      const _SanitisationConfiguration(
+        builtInRulesEnabled: false,
+        additionalHeaders: <String>{},
+        additionalQueryParameters: <String>{},
+        additionalJsonNames: <String>{},
+        additionalJsonPointers: <String>{},
+      );
+
   /// Secure defaults with no project-specific additions.
   static final defaults = SanitisationConfiguration();
+
+  /// Whether mandatory built-in sensitive-name rules are enabled.
+  bool get builtInRulesEnabled;
 
   /// Project-added canonical lower-case sensitive header names.
   Set<String> get additionalHeaders;
@@ -78,11 +96,15 @@ abstract final class SanitisationConfiguration {
 
 final class _SanitisationConfiguration implements SanitisationConfiguration {
   const _SanitisationConfiguration({
+    required this.builtInRulesEnabled,
     required this.additionalHeaders,
     required this.additionalQueryParameters,
     required this.additionalJsonNames,
     required this.additionalJsonPointers,
   });
+
+  @override
+  final bool builtInRulesEnabled;
 
   @override
   final Set<String> additionalHeaders;
@@ -100,6 +122,7 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SanitisationConfiguration &&
+          builtInRulesEnabled == other.builtInRulesEnabled &&
           _setsEqual(additionalHeaders, other.additionalHeaders) &&
           _setsEqual(
             additionalQueryParameters,
@@ -110,6 +133,7 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
 
   @override
   int get hashCode => Object.hash(
+        builtInRulesEnabled,
         Object.hashAll(additionalHeaders),
         Object.hashAll(additionalQueryParameters),
         Object.hashAll(additionalJsonNames),
@@ -119,12 +143,17 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
 
 Set<String> effectiveSensitiveHeaders(
         SanitisationConfiguration configuration) =>
-    _union(_builtInHeaders, configuration.additionalHeaders);
+    _effectiveRules(
+      configuration,
+      _builtInHeaders,
+      configuration.additionalHeaders,
+    );
 
 Set<String> effectiveSensitiveQueryParameters(
   SanitisationConfiguration configuration,
 ) =>
-    _union(
+    _effectiveRules(
+      configuration,
       _builtInCredentialNames,
       configuration.additionalQueryParameters,
     );
@@ -132,7 +161,11 @@ Set<String> effectiveSensitiveQueryParameters(
 Set<String> effectiveSensitiveJsonNames(
   SanitisationConfiguration configuration,
 ) =>
-    _union(_builtInCredentialNames, configuration.additionalJsonNames);
+    _effectiveRules(
+      configuration,
+      _builtInCredentialNames,
+      configuration.additionalJsonNames,
+    );
 
 Set<String> effectiveSensitiveJsonPointers(
   SanitisationConfiguration configuration,
@@ -146,8 +179,15 @@ Set<String> _canonicalQueryNames(Iterable<String> names) => _sortedSet(
 Set<String> _canonicalNames(Iterable<String> names) =>
     _sortedSet(names.map((name) => name.toLowerCase()));
 
-Set<String> _union(Set<String> builtIns, Set<String> additions) =>
-    _sortedSet(<String>{...builtIns, ...additions});
+Set<String> _effectiveRules(
+  SanitisationConfiguration configuration,
+  Set<String> builtIns,
+  Set<String> additions,
+) =>
+    _sortedSet(<String>{
+      if (configuration.builtInRulesEnabled) ...builtIns,
+      ...additions,
+    });
 
 Set<String> _sortedSet(Iterable<String> values) {
   final sorted = values.toSet().toList()..sort();
