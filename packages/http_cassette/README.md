@@ -123,8 +123,31 @@ query names while preserving names, order, multiplicity, and missing versus
 empty values. URI user information is replaced as one complete value. The
 internal request-field result carries matching exclusions for every changed
 location. The internal JSON foundation recursively sanitises exact sensitive
-member names while retaining object and array shape. Exact JSON Pointer rules,
-body composition and the recording pipeline are not implemented yet.
+member names and exact RFC 6901 locations while retaining object and array
+shape. Body composition and the recording pipeline are not implemented yet.
+
+### Choosing JSON sanitisation rules
+
+An additional JSON member name applies at every object depth and is matched
+case-insensitively. For example, adding `customerReference` sanitises every
+member with that name, including members inside arrays. Use this form only when
+every occurrence is sensitive.
+
+An RFC 6901 JSON Pointer applies to one exact, case-sensitive location. For
+example, `/credentials/code` sanitises that value without changing
+`/metadata/code`. Use a pointer when the same member name is sensitive in one
+part of a document but safe elsewhere. Pointer tokens use RFC 6901 escaping:
+`~1` represents `/` and `~0` represents `~`.
+
+Built-in credential-shaped names such as `token`, `password` and
+`authorization` deliberately apply everywhere as a secure default. A selected
+object or array keeps its keys, length and nesting while all scalar descendants
+are replaced. That remaining shape can itself be sensitive, so projects should
+use a future custom body sanitiser when the structure must also be hidden.
+
+Automatic sanitisation reduces risk but cannot recognise every secret or item
+of personal information. Add project rules for domain-specific data and review
+every generated cassette before committing it.
 
 ## Example
 

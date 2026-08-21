@@ -2,9 +2,9 @@ import '../matching/json.dart';
 import 'configuration.dart';
 import 'placeholders.dart';
 
-/// Immutable output from sanitising a parsed JSON value by member name.
-final class JsonNameSanitisationResult {
-  JsonNameSanitisationResult._({
+/// Immutable output from sanitising a parsed JSON value.
+final class JsonSanitisationResult {
+  JsonSanitisationResult._({
     required this.value,
     required Iterable<String> sanitisedPointers,
   }) : sanitisedPointers = Set<String>.unmodifiable(sanitisedPointers);
@@ -16,8 +16,8 @@ final class JsonNameSanitisationResult {
   final Set<String> sanitisedPointers;
 }
 
-/// Recursively sanitises sensitive JSON object members by exact name.
-JsonNameSanitisationResult sanitiseJsonNames(
+/// Recursively sanitises JSON using exact names and RFC 6901 pointers.
+JsonSanitisationResult sanitiseJsonValue(
   Object? value,
   SanitisationConfiguration configuration,
 ) {
@@ -25,10 +25,11 @@ JsonNameSanitisationResult sanitiseJsonNames(
     value,
     '',
     effectiveSensitiveJsonNames(configuration),
+    sensitivePointers: effectiveSensitiveJsonPointers(configuration),
     sanitiseDescendants: false,
   );
   final sortedPointers = result.pointers.toList()..sort();
-  return JsonNameSanitisationResult._(
+  return JsonSanitisationResult._(
     value: result.pointers.isEmpty ? value : result.value,
     sanitisedPointers: sortedPointers,
   );
@@ -38,8 +39,11 @@ _SanitisedJsonNode _sanitiseJsonValue(
   Object? value,
   String pointer,
   Set<String> sensitiveNames, {
+  required Set<String> sensitivePointers,
   required bool sanitiseDescendants,
 }) {
+  final sanitiseValue =
+      sanitiseDescendants || sensitivePointers.contains(pointer);
   if (value is Map<String, Object?>) {
     final output = <String, Object?>{};
     final pointers = <String>{};
@@ -49,8 +53,9 @@ _SanitisedJsonNode _sanitiseJsonValue(
         value,
         memberPointer,
         sensitiveNames,
+        sensitivePointers: sensitivePointers,
         sanitiseDescendants:
-            sanitiseDescendants || sensitiveNames.contains(key.toLowerCase()),
+            sanitiseValue || sensitiveNames.contains(key.toLowerCase()),
       );
       output[key] = child.value;
       pointers.addAll(child.pointers);
@@ -70,7 +75,8 @@ _SanitisedJsonNode _sanitiseJsonValue(
         value[index],
         '$pointer/$index',
         sensitiveNames,
-        sanitiseDescendants: sanitiseDescendants,
+        sensitivePointers: sensitivePointers,
+        sanitiseDescendants: sanitiseValue,
       );
       output.add(child.value);
       pointers.addAll(child.pointers);
@@ -84,7 +90,7 @@ _SanitisedJsonNode _sanitiseJsonValue(
   if (!_isJsonScalar(value)) {
     throw ArgumentError.value(value, 'value', 'Not a parsed JSON value.');
   }
-  if (!sanitiseDescendants) {
+  if (!sanitiseValue) {
     return _SanitisedJsonNode(value: value, pointers: const <String>{});
   }
   return _SanitisedJsonNode(

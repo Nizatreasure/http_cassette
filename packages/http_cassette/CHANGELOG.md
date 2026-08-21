@@ -35,4 +35,5 @@
 - Added URI user-information sanitisation and composed request-field matching
   exclusions.
 - Added recursive, type-preserving JSON member-name sanitisation.
+- Added exact RFC 6901 JSON Pointer sanitisation.
 - Record/replay behaviour is not available yet.
