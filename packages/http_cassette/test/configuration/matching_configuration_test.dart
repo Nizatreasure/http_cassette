@@ -9,9 +9,48 @@ void main() {
       expect(configuration.includedHeaders, isEmpty);
       expect(configuration.ignoredQueryParameters, isEmpty);
       expect(configuration.ignoredJsonPointers, isEmpty);
+      expect(configuration.customComponents, isEmpty);
       expect(
         () => configuration.includedHeaders.add('accept'),
         throwsUnsupportedError,
+      );
+    });
+
+    test('preserves custom component registration order immutably', () {
+      final first = _Component('first');
+      final second = _Component('second');
+      final source = <RequestMatcherComponent>[first, second];
+
+      final configuration = MatchingConfiguration(customComponents: source);
+      source.clear();
+
+      expect(configuration.customComponents, <RequestMatcherComponent>[
+        first,
+        second,
+      ]);
+      expect(
+        () => configuration.customComponents.add(_Component('third')),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('rejects unsafe or duplicate custom component names', () {
+      expect(
+        () => MatchingConfiguration(
+          customComponents: <RequestMatcherComponent>[
+            _Component('unsafe\nname'),
+          ],
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => MatchingConfiguration(
+          customComponents: <RequestMatcherComponent>[
+            _Component('authority'),
+            _Component('authority'),
+          ],
+        ),
+        throwsArgumentError,
       );
     });
 
@@ -46,17 +85,44 @@ void main() {
     });
 
     test('has structural equality and deterministic hash codes', () {
+      final component = _Component('authority');
       final first = MatchingConfiguration(
         includedHeaders: <String>{'accept'},
         ignoredJsonPointers: <String>{'/volatile'},
+        customComponents: <RequestMatcherComponent>[component],
       );
       final second = MatchingConfiguration(
         ignoredJsonPointers: <String>{'/volatile'},
         includedHeaders: <String>{'ACCEPT'},
+        customComponents: <RequestMatcherComponent>[component],
       );
 
       expect(first, second);
       expect(first.hashCode, second.hashCode);
+      expect(
+        first,
+        isNot(
+          MatchingConfiguration(
+            includedHeaders: <String>{'accept'},
+            ignoredJsonPointers: <String>{'/volatile'},
+          ),
+        ),
+      );
     });
   });
+}
+
+final class _Component implements RequestMatcherComponent {
+  const _Component(this.name);
+
+  @override
+  final String name;
+
+  @override
+  MatchComponentResult compare(
+    CassetteRequest expected,
+    CassetteRequest actual,
+    MatchContext context,
+  ) =>
+      MatchComponentResult(matches: true);
 }
