@@ -27,4 +27,5 @@
 - Added validated ordered custom matcher registration to matching
   configuration.
 - Added custom matcher execution, eligibility and closest-candidate ranking.
+- Added deterministic type-preserving scalar sanitisation placeholders.
 - Record/replay behaviour is not available yet.

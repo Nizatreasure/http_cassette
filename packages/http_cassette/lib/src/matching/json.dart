@@ -39,8 +39,17 @@ final class JsonBodyParseResult {
 final class ParsedJsonNumber {
   const ParsedJsonNumber._(this.source);
 
+  /// The fixed placeholder for a parsed JSON integer.
+  static const zeroInteger = ParsedJsonNumber._('0');
+
+  /// The fixed placeholder for a parsed non-integer JSON number.
+  static const zeroNonInteger = ParsedJsonNumber._('0.0');
+
   /// The original valid JSON number spelling.
   final String source;
+
+  /// Whether the decoded representation belongs to the integer category.
+  bool get isInteger => !source.contains(RegExp(r'[.eE]'));
 }
 
 /// The kind of structural difference between two parsed JSON values.
