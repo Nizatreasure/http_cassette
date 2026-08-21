@@ -30,4 +30,5 @@
 - Added deterministic type-preserving scalar sanitisation placeholders.
 - Added immutable secure-default sanitisation rule configuration.
 - Added a conspicuous unsafe opt-out from built-in sanitisation rules.
+- Added exact sensitive-header value sanitisation with affected-name reporting.
 - Record/replay behaviour is not available yet.

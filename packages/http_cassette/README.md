@@ -114,6 +114,12 @@ Built-in rules can be disabled only with the conspicuously named
 that configuration may persist raw credentials and personal data. It is not an
 ordinary setup option and is not used by the package example.
 
+The internal sanitisation foundation now replaces complete values for
+`authorization`, `cookie`, `proxy-authorization`, `set-cookie`, `x-api-key`,
+`api-key`, `x-auth-token`, `x-csrf-token` and `x-xsrf-token`, plus configured
+exact header names. Repeated values retain their count. Request composition and
+the recording pipeline are not implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP
