@@ -1,4 +1,5 @@
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/matching/request_matcher.dart';
 import 'package:http_cassette/src/sanitisation/placeholders.dart';
 import 'package:http_cassette/src/sanitisation/request_fields.dart';
 import 'package:test/test.dart';
@@ -115,7 +116,10 @@ void main() {
 
       final result = sanitiseQuery(uri, SanitisationConfiguration());
 
-      expect(result.sanitisedNames, builtInNames.toSet());
+      expect(
+        result.sanitisedNames,
+        <String>{...builtInNames.map((name) => name.toUpperCase()), 'token'},
+      );
       expect(
         result.uri.query.split('&'),
         <String>[
@@ -137,7 +141,7 @@ void main() {
 
       final result = sanitiseQuery(uri, configuration);
 
-      expect(result.sanitisedNames, <String>{'project_secret'});
+      expect(result.sanitisedNames, <String>{'Project_Secret'});
       expect(
         result.uri.query,
         'Project_Secret=%5BREDACTED%5D&project_secret_suffix=retained',
@@ -182,6 +186,133 @@ void main() {
 
       expect(result.uri, same(uri));
       expect(result.sanitisedNames, isEmpty);
+    });
+  });
+
+  group('sanitiseRequestFields', () {
+    test('sanitises URI user information and reports every changed field', () {
+      final request = CassetteRequest(
+        method: 'post',
+        uri: Uri.parse(
+          'https://synthetic-user:synthetic-password@example.test/path?TOKEN=secret&keep=value',
+        ),
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'Authorization': <String>['synthetic-credential'],
+          'Accept': <String>['application/json'],
+        }),
+        body: <int>[1, 2, 3],
+      );
+
+      final result = sanitiseRequestFields(
+        request,
+        SanitisationConfiguration(),
+      );
+
+      expect(
+        result.request.uri.toString(),
+        'https://%5BREDACTED%5D@example.test/path?TOKEN=%5BREDACTED%5D&keep=value',
+      );
+      expect(
+        result.request.headers.values('authorization'),
+        <String>[redactedStringPlaceholder],
+      );
+      expect(result.request.headers.values('accept'),
+          <String>['application/json']);
+      expect(result.request.method, 'POST');
+      expect(result.request.body, <int>[1, 2, 3]);
+      expect(result.exclusions.uriUserInformation, isTrue);
+      expect(result.exclusions.headers, <String>{'authorization'});
+      expect(result.exclusions.queryParameters, <String>{'TOKEN'});
+      expect(result.exclusions.jsonPointers, isEmpty);
+    });
+
+    test('does not retain source user information in the safe request', () {
+      const sentinel = 'synthetic-user-info-sentinel';
+      final request = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://$sentinel@example.test/'),
+      );
+
+      final result = sanitiseRequestFields(
+        request,
+        SanitisationConfiguration(),
+      );
+
+      expect(request.uri.userInfo, sentinel);
+      expect(result.request.uri.toString(), isNot(contains(sentinel)));
+      expect(result.request.uri.userInfo, '%5BREDACTED%5D');
+    });
+
+    test('produces exclusions that ignore only the sanitised values', () {
+      final recorded = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://user:password@example.test/?TOKEN=first'),
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'authorization': <String>['first'],
+        }),
+      );
+      final incoming = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://other:credential@example.test/?TOKEN=second'),
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'authorization': <String>['second'],
+        }),
+      );
+      final sanitised = sanitiseRequestFields(
+        recorded,
+        SanitisationConfiguration(),
+      );
+      final matcher = DefaultRequestMatcher(
+        configuration: MatchingConfiguration(
+          includedHeaders: <String>{'authorization'},
+        ),
+      );
+
+      final result = matcher.compare(
+        sanitised.request,
+        incoming,
+        exclusions: sanitised.exclusions,
+      );
+
+      expect(result.matches, isTrue);
+    });
+
+    test('returns the original request when no field needs sanitisation', () {
+      final request = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://example.test/?keep=value'),
+      );
+
+      final result = sanitiseRequestFields(
+        request,
+        SanitisationConfiguration(),
+      );
+
+      expect(result.request, same(request));
+      expect(result.exclusions.headers, isEmpty);
+      expect(result.exclusions.queryParameters, isEmpty);
+      expect(result.exclusions.uriUserInformation, isFalse);
+    });
+
+    test('unsafe opt-out leaves all request fields unchanged', () {
+      final request = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://user:password@example.test/?token=secret'),
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'authorization': <String>['synthetic-credential'],
+        }),
+      );
+
+      final result = sanitiseRequestFields(
+        request,
+        SanitisationConfiguration.unsafeWithoutBuiltIns(),
+      );
+
+      expect(result.request, same(request));
+      expect(result.exclusions.headers, isEmpty);
+      expect(result.exclusions.queryParameters, isEmpty);
+      expect(result.exclusions.jsonPointers, isEmpty);
+      expect(result.exclusions.uriUserInformation, isFalse);
     });
   });
 }

@@ -32,4 +32,6 @@
 - Added a conspicuous unsafe opt-out from built-in sanitisation rules.
 - Added exact sensitive-header value sanitisation with affected-name reporting.
 - Added exact sensitive query-value sanitisation with affected-name reporting.
+- Added URI user-information sanitisation and composed request-field matching
+  exclusions.
 - Record/replay behaviour is not available yet.
