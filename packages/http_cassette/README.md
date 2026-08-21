@@ -102,6 +102,13 @@ requirements. Registered components run after the built-in components in their
 configuration order and contribute to matching eligibility and closest-match
 ranking. Custom components cannot replace built-in matching in the current API.
 
+`SanitisationConfiguration` enables fixed rules for common credential headers,
+query parameters and JSON member names. Projects may add exact header names,
+query names, JSON member names and JSON Pointers. This configuration is
+available now, but the sanitisation pipeline is not implemented yet. These
+defaults reduce risk; they cannot guarantee that a future cassette is safe to
+commit, so generated cassettes will still require review.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

@@ -16,3 +16,4 @@ export 'src/matching/difference.dart'
 export 'src/model/headers.dart';
 export 'src/model/http_message.dart';
 export 'src/model/outcome.dart';
+export 'src/sanitisation/configuration.dart' show SanitisationConfiguration;

@@ -8,6 +8,10 @@ void main() {
     ignoredQueryParameters: <String>{'request_id'},
     customComponents: const <RequestMatcherComponent>[_ApiVersionMatcher()],
   );
+  final sanitisation = SanitisationConfiguration(
+    additionalHeaders: <String>{'x-project-secret'},
+    additionalJsonPointers: <String>{'/customer/account_number'},
+  );
   final headers = CassetteHeaders(<String, Iterable<String>>{
     'Accept': <String>['application/json'],
   });
@@ -34,6 +38,7 @@ void main() {
     cassetteName.value == 'profiles/current-user' &&
         bodyLimits.requestBytes == 2 * 1024 * 1024 &&
         matching.includedHeaders.contains('accept') &&
+        sanitisation.additionalHeaders.contains('x-project-secret') &&
         request.method == 'GET' &&
         outcome.response.body.length == 2 &&
         diagnostic.format().contains(
