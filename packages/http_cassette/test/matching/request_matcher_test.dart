@@ -235,7 +235,88 @@ void main() {
         }
       }
     });
+
+    test('evaluates additive custom components in registration order', () {
+      final calls = <String>[];
+      final first = _TestComponent('first', (
+        expected,
+        actual,
+        context,
+      ) {
+        calls.add('first');
+        expect(context.excludedHeaders, <String>{'x-secret'});
+        expect(context.excludedQueryParameters, <String>{'token'});
+        expect(context.excludedJsonPointers, <String>{'/secret'});
+        expect(context.uriUserInformationExcluded, isTrue);
+        return MatchComponentResult(matches: true);
+      });
+      final second = _TestComponent('second', (
+        expected,
+        actual,
+        context,
+      ) {
+        calls.add('second');
+        return MatchComponentResult(
+          matches: false,
+          differences: <MatchDifference>[
+            MatchDifference(
+              kind: MatchDifferenceKind.customComponentDifference,
+              location: 'domain-rule',
+            ),
+          ],
+        );
+      });
+      final matcher = DefaultRequestMatcher(
+        configuration: MatchingConfiguration(
+          ignoredQueryParameters: <String>{'token'},
+          ignoredJsonPointers: <String>{'/secret'},
+          customComponents: <RequestMatcherComponent>[first, second],
+        ),
+      );
+
+      final result = matcher.compare(
+        _request('GET', 'https://user@example.test/items?token=one'),
+        _request('GET', 'https://other@example.test/items?token=two'),
+        exclusions: MatchingExclusions(
+          headers: <String>{'x-secret'},
+          uriUserInformation: true,
+        ),
+      );
+
+      expect(calls, <String>['first', 'second']);
+      expect(result.components.every((component) => component.matches), isTrue);
+      expect(
+        result.customComponents.map((component) => component.name),
+        <String>['first', 'second'],
+      );
+      expect(result.customComponents.first.result.matches, isTrue);
+      expect(result.customComponents.last.result.matches, isFalse);
+      expect(result.matches, isFalse);
+    });
   });
+}
+
+typedef _CompareCustom = MatchComponentResult Function(
+  CassetteRequest expected,
+  CassetteRequest actual,
+  MatchContext context,
+);
+
+final class _TestComponent implements RequestMatcherComponent {
+  const _TestComponent(this.name, this._compare);
+
+  @override
+  final String name;
+
+  final _CompareCustom _compare;
+
+  @override
+  MatchComponentResult compare(
+    CassetteRequest expected,
+    CassetteRequest actual,
+    MatchContext context,
+  ) =>
+      _compare(expected, actual, context);
 }
 
 RequestMatchResult _compare(

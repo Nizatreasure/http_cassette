@@ -97,9 +97,10 @@ ASCII form. Matching exclusions validate header names and exact JSON Pointers.
 Excluded query values retain their parameter names, multiplicity, order and
 equals-sign state.
 
-The transport-neutral custom matcher contract can be implemented, tested and
-registered in `MatchingConfiguration`. Registration order is preserved, but
-custom matcher execution is not implemented yet.
+The transport-neutral custom matcher contract supports additional safe matching
+requirements. Registered components run after the built-in components in their
+configuration order and contribute to matching eligibility and closest-match
+ranking. Custom components cannot replace built-in matching in the current API.
 
 ## Example
 

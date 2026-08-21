@@ -6,6 +6,7 @@ void main() {
   final matching = MatchingConfiguration(
     includedHeaders: <String>{'accept'},
     ignoredQueryParameters: <String>{'request_id'},
+    customComponents: const <RequestMatcherComponent>[_ApiVersionMatcher()],
   );
   final headers = CassetteHeaders(<String, Iterable<String>>{
     'Accept': <String>['application/json'],
@@ -39,4 +40,49 @@ void main() {
               'Network access: disabled; no real request was made',
             ),
   );
+}
+
+final class _ApiVersionMatcher implements RequestMatcherComponent {
+  const _ApiVersionMatcher();
+
+  @override
+  String get name => 'api-version';
+
+  @override
+  MatchComponentResult compare(
+    CassetteRequest expected,
+    CassetteRequest actual,
+    MatchContext context,
+  ) {
+    final matches = _equalValues(
+      expected.headers.values('x-api-version'),
+      actual.headers.values('x-api-version'),
+    );
+    return MatchComponentResult(
+      matches: matches,
+      differences: matches
+          ? const <MatchDifference>[]
+          : <MatchDifference>[
+              MatchDifference(
+                kind: MatchDifferenceKind.customComponentDifference,
+                location: 'x-api-version',
+              ),
+            ],
+    );
+  }
+}
+
+bool _equalValues(List<String>? first, List<String>? second) {
+  if (first == null || second == null) {
+    return first == null && second == null;
+  }
+  if (first.length != second.length) {
+    return false;
+  }
+  for (var index = 0; index < first.length; index += 1) {
+    if (first[index] != second[index]) {
+      return false;
+    }
+  }
+  return true;
 }

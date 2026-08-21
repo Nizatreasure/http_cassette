@@ -82,5 +82,26 @@ int _compareCandidates(
     }
   }
 
+  final leftCustom = left.comparison.customComponents;
+  final rightCustom = right.comparison.customComponents;
+  if (leftCustom.length != rightCustom.length) {
+    throw StateError('Candidate custom matcher components must be identical.');
+  }
+  for (var index = 0; index < leftCustom.length; index += 1) {
+    if (leftCustom[index].name != rightCustom[index].name) {
+      throw StateError(
+        'Candidate custom matcher components must be identical.',
+      );
+    }
+    final differenceComparison = leftCustom[index]
+        .result
+        .differences
+        .totalCount
+        .compareTo(rightCustom[index].result.differences.totalCount);
+    if (differenceComparison != 0) {
+      return differenceComparison;
+    }
+  }
+
   return left.recordedIndex.compareTo(right.recordedIndex);
 }

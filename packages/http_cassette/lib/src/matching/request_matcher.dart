@@ -1,6 +1,7 @@
 import '../configuration/matching_configuration.dart';
 import '../model/http_message.dart';
 import 'body.dart';
+import 'custom.dart';
 import 'difference.dart';
 import 'exclusions.dart';
 import 'headers.dart';
@@ -51,6 +52,20 @@ final class RequestMatchComponentResult {
   final BoundedMatchDifferences differences;
 }
 
+/// One evaluated custom component in registration order.
+final class CustomComponentMatchResult {
+  const CustomComponentMatchResult({
+    required this.name,
+    required this.result,
+  });
+
+  /// The component's validated registration name.
+  final String name;
+
+  /// The safe result returned by the component.
+  final MatchComponentResult result;
+}
+
 /// The comparison strategy used for the request body.
 enum RequestBodyComparisonKind {
   notConfigured,
@@ -93,17 +108,25 @@ final class RequestBodyMatchResult {
 final class RequestMatchResult {
   RequestMatchResult._({
     required Iterable<RequestMatchComponentResult> components,
+    required Iterable<CustomComponentMatchResult> customComponents,
     required this.body,
-  }) : components = List<RequestMatchComponentResult>.unmodifiable(components);
+  })  : components = List<RequestMatchComponentResult>.unmodifiable(components),
+        customComponents =
+            List<CustomComponentMatchResult>.unmodifiable(customComponents);
 
   /// Component results in deterministic matcher order.
   final List<RequestMatchComponentResult> components;
+
+  /// Custom component results in deterministic registration order.
+  final List<CustomComponentMatchResult> customComponents;
 
   /// Safe details from the body component.
   final RequestBodyMatchResult body;
 
   /// Whether every configured component matched.
-  bool get matches => components.every((component) => component.matches);
+  bool get matches =>
+      components.every((component) => component.matches) &&
+      customComponents.every((component) => component.result.matches);
 }
 
 /// Stateless composition of the built-in V1 request matcher components.
@@ -191,6 +214,21 @@ final class DefaultRequestMatcher {
       effectiveExclusions,
       maximumDifferencesPerComponent,
     );
+    final customContext = MatchContext(
+      excludedHeaders: effectiveExclusions.headers,
+      excludedQueryParameters: effectiveExclusions.queryParameters,
+      excludedJsonPointers: effectiveExclusions.jsonPointers,
+      uriUserInformationExcluded: effectiveExclusions.uriUserInformation,
+    );
+    final customComponents = <CustomComponentMatchResult>[];
+    for (final component in configuration.customComponents) {
+      customComponents.add(
+        CustomComponentMatchResult(
+          name: component.name,
+          result: component.compare(expected, actual, customContext),
+        ),
+      );
+    }
 
     return RequestMatchResult._(
       components: <RequestMatchComponentResult>[
@@ -245,6 +283,7 @@ final class DefaultRequestMatcher {
           differences: body.differences,
         ),
       ],
+      customComponents: customComponents,
       body: body,
     );
   }

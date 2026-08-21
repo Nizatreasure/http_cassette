@@ -26,4 +26,5 @@
 - Added the safe transport-neutral custom matcher component contract.
 - Added validated ordered custom matcher registration to matching
   configuration.
+- Added custom matcher execution, eligibility and closest-candidate ranking.
 - Record/replay behaviour is not available yet.

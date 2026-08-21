@@ -74,6 +74,52 @@ void main() {
       expect(ranking.closestCandidate, same(lowerIndex));
     });
 
+    test('ranks custom components after built-ins in registration order', () {
+      final configuration = MatchingConfiguration(
+        customComponents: const <RequestMatcherComponent>[
+          _HeaderComponent('first', 'x-first'),
+          _HeaderComponent('second', 'x-second'),
+        ],
+      );
+      final actual = _request(
+        extraHeaders: <String, Iterable<String>>{
+          'x-first': <String>['same'],
+          'x-second': <String>['same'],
+        },
+      );
+      final earlierCustomDifference = RequestMatchCandidate(
+        recordedIndex: 0,
+        comparison: DefaultRequestMatcher(configuration: configuration).compare(
+          _request(
+            extraHeaders: <String, Iterable<String>>{
+              'x-first': <String>['different'],
+              'x-second': <String>['same'],
+            },
+          ),
+          actual,
+        ),
+      );
+      final laterCustomDifference = RequestMatchCandidate(
+        recordedIndex: 1,
+        comparison: DefaultRequestMatcher(configuration: configuration).compare(
+          _request(
+            extraHeaders: <String, Iterable<String>>{
+              'x-first': <String>['same'],
+              'x-second': <String>['different'],
+            },
+          ),
+          actual,
+        ),
+      );
+
+      final ranking = rankRequestMatchCandidates(<RequestMatchCandidate>[
+        earlierCustomDifference,
+        laterCustomDifference,
+      ]);
+
+      expect(ranking.closestCandidate, same(laterCustomDifference));
+    });
+
     test('reports the number considered and preserves the stored result', () {
       final comparison = _compare(_request(path: '/other'));
       final candidate = RequestMatchCandidate(
@@ -149,6 +195,8 @@ CassetteRequest _request({
   String query = 'a=1&b=2',
   String header = 'current',
   String body = '{"value":1}',
+  Map<String, Iterable<String>> extraHeaders =
+      const <String, Iterable<String>>{},
 }) =>
     CassetteRequest(
       method: method,
@@ -156,6 +204,54 @@ CassetteRequest _request({
       headers: CassetteHeaders(<String, Iterable<String>>{
         'content-type': <String>['application/json'],
         'x-version': <String>[header],
+        ...extraHeaders,
       }),
       body: utf8.encode(body),
     );
+
+final class _HeaderComponent implements RequestMatcherComponent {
+  const _HeaderComponent(this.name, this.headerName);
+
+  @override
+  final String name;
+
+  final String headerName;
+
+  @override
+  MatchComponentResult compare(
+    CassetteRequest expected,
+    CassetteRequest actual,
+    MatchContext context,
+  ) {
+    final matches = _equalValues(
+      expected.headers.values(headerName),
+      actual.headers.values(headerName),
+    );
+    return MatchComponentResult(
+      matches: matches,
+      differences: matches
+          ? const <MatchDifference>[]
+          : <MatchDifference>[
+              MatchDifference(
+                kind: MatchDifferenceKind.customComponentDifference,
+                location: headerName,
+              ),
+            ],
+    );
+  }
+}
+
+bool _equalValues(List<String>? first, List<String>? second) {
+  if (first == null || second == null) {
+    return first == null && second == null;
+  }
+  if (first.length != second.length) {
+    return false;
+  }
+  for (var index = 0; index < first.length; index += 1) {
+    if (first[index] != second[index]) {
+      return false;
+    }
+  }
+  return true;
+}
