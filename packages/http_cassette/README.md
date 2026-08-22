@@ -160,6 +160,18 @@ with the recording pipeline is not implemented yet. The internal composition
 layer now applies these built-ins to complete canonical requests and responses,
 and carries every changed request location into matching exclusions.
 
+### Custom sanitiser contracts
+
+`RequestSanitiser` and `ResponseSanitiser` are transport-neutral extension
+contracts. A request sanitiser returns a `SanitisedRequest` containing valid
+canonical data and a validated `MatchingExclusions` value for every changed
+location that affects matching. A response sanitiser returns a valid canonical
+response. Implementations must be deterministic and must not log their raw
+input.
+
+The contracts are available for implementation, but configuration and pipeline
+execution are not implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

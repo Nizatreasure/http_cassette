@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:http_cassette/http_cassette.dart';
-import 'package:http_cassette/src/matching/exclusions.dart';
 import 'package:http_cassette/src/matching/request_matcher.dart';
 import 'package:test/test.dart';
 

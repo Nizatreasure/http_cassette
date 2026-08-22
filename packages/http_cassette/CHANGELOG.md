@@ -39,4 +39,5 @@
 - Added deterministic UTF-8 encoding for strictly parsed JSON values.
 - Added safe JSON body classification, sanitisation and invalid-body failure.
 - Added composed built-in request and response sanitisation.
+- Added public transport-neutral custom sanitiser contracts.
 - Record/replay behaviour is not available yet.
