@@ -52,4 +52,6 @@
   indices and persisted matching exclusions.
 - Added immutable current-version cassettes with contiguous ordered interaction
   validation.
+- Added immutable empty, readable-text and canonical-Base64 persisted body
+  representations with exact byte reconstruction.
 - Record/replay behaviour is not available yet.

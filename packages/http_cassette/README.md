@@ -195,6 +195,11 @@ version at `1`, defensively owns its interaction list and requires indices to
 start at zero and remain contiguous in ascending arrival order. Readable-version
 compatibility and the schema codec are not implemented yet.
 
+The persisted-body foundation represents zero-byte bodies explicitly, readable
+text as validated UTF-8 content, and opaque bytes as canonical padded Base64.
+Each representation reconstructs immutable replay bytes. Structured JSON and
+automatic encoding selection are not implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP
