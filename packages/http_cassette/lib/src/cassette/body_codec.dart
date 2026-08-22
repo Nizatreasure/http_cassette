@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../matching/json.dart';
+import '../model/headers.dart';
 import '../sanitisation/json_encoding.dart';
 
 /// An immutable body representation used by the cassette schema.
@@ -11,6 +12,46 @@ sealed class PersistedBody {
   /// Reconstructs the canonical replay bytes.
   Uint8List reconstruct();
 }
+
+/// Selects the V1 persisted representation for canonical [bytes].
+///
+/// Selection uses empty, JSON, readable UTF-8 text and Base64 precedence.
+/// Non-empty content-encoded bytes are always opaque Base64.
+PersistedBody selectPersistedBody(
+  CassetteHeaders headers,
+  List<int> bytes,
+) {
+  final validated = _validatedBytes(bytes);
+  if (validated.isEmpty) {
+    return const PersistedEmptyBody();
+  }
+  if (headers.contains('content-encoding')) {
+    return PersistedBase64Body.fromBytes(validated);
+  }
+
+  final parsed = parseJsonBody(headers, validated);
+  if (parsed.status == JsonBodyStatus.valid) {
+    return PersistedJsonBody(parsed.value);
+  }
+
+  if (_startsWithUtf8ByteOrderMark(validated)) {
+    return PersistedBase64Body.fromBytes(validated);
+  }
+
+  try {
+    return PersistedTextBody(utf8.decode(validated, allowMalformed: false));
+  } on FormatException {
+    return PersistedBase64Body.fromBytes(validated);
+  } on ArgumentError {
+    return PersistedBase64Body.fromBytes(validated);
+  }
+}
+
+bool _startsWithUtf8ByteOrderMark(List<int> bytes) =>
+    bytes.length >= 3 &&
+    bytes[0] == 0xef &&
+    bytes[1] == 0xbb &&
+    bytes[2] == 0xbf;
 
 /// A persisted zero-byte body.
 final class PersistedEmptyBody extends PersistedBody {

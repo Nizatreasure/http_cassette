@@ -203,7 +203,10 @@ text as validated UTF-8 content, and opaque bytes as canonical padded Base64.
 Structured JSON is stored as a deeply immutable value with lexically ordered
 object members and preserved array order, then reconstructed as deterministic
 compact UTF-8 JSON. Each representation reconstructs immutable replay bytes.
-Automatic encoding selection is not implemented yet.
+The internal selector now applies the fixed precedence: empty, valid
+media-type JSON, readable UTF-8 text, then Base64. Non-empty content-encoded
+bytes always select Base64. Callers and adapters do not select representations.
+Payload-derived header correction is not implemented yet.
 
 ## Example
 

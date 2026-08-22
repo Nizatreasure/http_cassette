@@ -6,6 +6,92 @@ import 'package:http_cassette/src/matching/json.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('selectPersistedBody', () {
+    test('selects empty before every other representation', () {
+      final body = selectPersistedBody(
+        _headers(
+          contentType: 'application/json',
+          contentEncoding: 'gzip',
+        ),
+        const <int>[],
+      );
+
+      expect(body, isA<PersistedEmptyBody>());
+    });
+
+    test('forces non-empty content-encoded bytes to Base64', () {
+      final source = utf8.encode('{"valid":true}');
+      final body = selectPersistedBody(
+        _headers(
+          contentType: 'application/json',
+          contentEncoding: 'gzip',
+        ),
+        source,
+      );
+
+      expect(body, isA<PersistedBase64Body>());
+      expect(body.reconstruct(), source);
+    });
+
+    test('selects valid media-type JSON before readable text', () {
+      final body = selectPersistedBody(
+        _headers(contentType: 'application/json'),
+        utf8.encode('{ "b" : 2, "a" : 1 }'),
+      );
+
+      expect(body, isA<PersistedJsonBody>());
+      expect(utf8.decode(body.reconstruct()), '{"a":1,"b":2}');
+    });
+
+    test('selects readable UTF-8 independently of media type', () {
+      for (final headers in <CassetteHeaders>[
+        _headers(contentType: 'text/plain'),
+        _headers(contentType: 'application/octet-stream'),
+        _headers(contentType: 'application/json'),
+      ]) {
+        final body = selectPersistedBody(
+          headers,
+          utf8.encode('readable but not JSON'),
+        );
+
+        expect(body, isA<PersistedTextBody>());
+        expect(utf8.decode(body.reconstruct()), 'readable but not JSON');
+      }
+    });
+
+    test('selects Base64 for invalid UTF-8, controls and a byte-order mark',
+        () {
+      final cases = <List<int>>[
+        <int>[0xff],
+        utf8.encode('before\u0000after'),
+        utf8.encode('\uFEFFtext'),
+      ];
+
+      for (final source in cases) {
+        final body = selectPersistedBody(const CassetteHeaders.empty(), source);
+
+        expect(body, isA<PersistedBase64Body>());
+        expect(body.reconstruct(), source);
+      }
+    });
+
+    test('validates and defensively copies input bytes', () {
+      final source = <int>[0xff, 0x00];
+      final body = selectPersistedBody(const CassetteHeaders.empty(), source);
+
+      source[0] = 0;
+
+      expect(body.reconstruct(), <int>[0xff, 0x00]);
+      expect(
+        () => selectPersistedBody(
+          const CassetteHeaders.empty(),
+          <int>[256],
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('PersistedEmptyBody', () {
     test('reconstructs immutable zero bytes', () {
       const body = PersistedEmptyBody();
@@ -160,3 +246,13 @@ Object? _parseJson(String source) {
   expect(result.status, JsonBodyStatus.valid);
   return result.value;
 }
+
+CassetteHeaders _headers({
+  String? contentType,
+  String? contentEncoding,
+}) =>
+    CassetteHeaders(<String, Iterable<String>>{
+      if (contentType != null) 'content-type': <String>[contentType],
+      if (contentEncoding != null)
+        'content-encoding': <String>[contentEncoding],
+    });
