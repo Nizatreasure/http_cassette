@@ -7,6 +7,7 @@ import '../matching/uri_component.dart';
 import '../model/headers.dart';
 import '../model/http_message.dart';
 import '../model/http_syntax.dart';
+import '../model/outcome.dart';
 import 'body_codec.dart';
 import 'request_encoding.dart';
 
@@ -378,6 +379,124 @@ DecodedCassetteRequestV1 decodeCassetteRequestV1(
     request: request,
     matchingExclusions: matchingExclusions,
   );
+}
+
+/// Strictly reconstructs one V1 response or transport failure at [location].
+CassetteOutcome decodeCassetteOutcomeV1(
+  Object? value, {
+  required String location,
+}) {
+  if (value is! Map<String, Object?>) {
+    _invalidStructure(location);
+  }
+  final type = value['type'];
+  if (type is! String) {
+    _invalidStructure('$location/type');
+  }
+  return switch (type) {
+    'response' => _decodeResponseOutcomeV1(value, location),
+    'transportFailure' => _decodeTransportFailureV1(value, location),
+    _ => _invalidStructure('$location/type'),
+  };
+}
+
+CassetteOutcome _decodeResponseOutcomeV1(
+  Map<String, Object?> value,
+  String location,
+) {
+  final hasReasonPhrase = value.containsKey('reasonPhrase');
+  final expectedKeys = hasReasonPhrase
+      ? const <String>['type', 'statusCode', 'reasonPhrase', 'headers', 'body']
+      : const <String>['type', 'statusCode', 'headers', 'body'];
+  if (!_keysEqual(value.keys, expectedKeys)) {
+    _invalidStructure(location);
+  }
+
+  final statusCode = _decodeIntegerInRange(
+    value['statusCode'],
+    '$location/statusCode',
+    minimum: 100,
+    maximum: 599,
+  );
+  final reasonPhrase = value['reasonPhrase'];
+  if (hasReasonPhrase && reasonPhrase is! String) {
+    _invalidStructure('$location/reasonPhrase');
+  }
+  final headers = decodeCassetteHeadersV1(
+    value['headers'],
+    location: '$location/headers',
+  );
+  final persistedBody = decodePersistedBodyV1(
+    value['body'],
+    location: '$location/body',
+  );
+  final prepared = preparePersistedBody(headers, persistedBody.reconstruct());
+  if (prepared.body != persistedBody) {
+    _invalidStructure('$location/body');
+  }
+  if (prepared.headers != headers || prepared.changedHeaderNames.isNotEmpty) {
+    _invalidStructure('$location/headers');
+  }
+
+  try {
+    return CassetteResponseOutcome(
+      CassetteResponse(
+        statusCode: statusCode,
+        reasonPhrase: reasonPhrase as String?,
+        headers: headers,
+        body: persistedBody.reconstruct(),
+      ),
+    );
+  } on ArgumentError {
+    _invalidStructure('$location/reasonPhrase');
+  }
+}
+
+CassetteOutcome _decodeTransportFailureV1(
+  Map<String, Object?> value,
+  String location,
+) {
+  if (!_keysEqual(value.keys, const <String>['type', 'category', 'message'])) {
+    _invalidStructure(location);
+  }
+  final categoryValue = value['category'];
+  if (categoryValue is! String) {
+    _invalidStructure('$location/category');
+  }
+  final category = switch (categoryValue) {
+    'nameResolution' => TransportFailureCategory.nameResolution,
+    'connection' => TransportFailureCategory.connection,
+    'secureConnection' => TransportFailureCategory.secureConnection,
+    'timeout' => TransportFailureCategory.timeout,
+    'protocol' => TransportFailureCategory.protocol,
+    'other' => TransportFailureCategory.other,
+    _ => _invalidStructure('$location/category'),
+  };
+  final message = value['message'];
+  if (message is! String) {
+    _invalidStructure('$location/message');
+  }
+  try {
+    return CassetteTransportFailure(category: category, message: message);
+  } on ArgumentError {
+    _invalidStructure('$location/message');
+  }
+}
+
+int _decodeIntegerInRange(
+  Object? value,
+  String location, {
+  required int minimum,
+  required int maximum,
+}) {
+  if (value is! ParsedJsonNumber || !value.isInteger) {
+    _invalidStructure(location);
+  }
+  final integer = BigInt.parse(value.source);
+  if (integer < BigInt.from(minimum) || integer > BigInt.from(maximum)) {
+    _invalidStructure(location);
+  }
+  return integer.toInt();
 }
 
 List<String> _decodeCanonicalStringList(Object? value, String location) {

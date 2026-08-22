@@ -71,4 +71,5 @@
 - Added strict V1 header and request matching-exclusion decoding.
 - Added strict reconstruction of complete canonical V1 requests.
 - Standardised internal V1-specific identifiers with a `V1` suffix.
+- Added strict reconstruction of V1 response and transport-failure outcomes.
 - Record/replay behaviour is not available yet.
