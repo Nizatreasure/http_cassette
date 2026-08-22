@@ -1,10 +1,119 @@
 import 'dart:convert';
 
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/sanitisation/body.dart';
 import 'package:http_cassette/src/sanitisation/pipeline.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('sanitiseRequest', () {
+    test('runs custom sanitisers before built-ins and unions exclusions', () {
+      final configuration = SanitisationConfiguration(
+        requestSanitisers: <RequestSanitiser>[
+          _RequestSanitiser(
+            (request) => SanitisedRequest(
+              request: CassetteRequest(
+                method: request.method,
+                uri: Uri.parse('https://example.test/?project=[SAFE]'),
+                headers: CassetteHeaders(<String, Iterable<String>>{
+                  'authorization': <String>['restored-secret'],
+                  'content-type': <String>['application/json'],
+                }),
+                body: request.body,
+              ),
+              exclusions: MatchingExclusions(
+                headers: <String>{'authorization'},
+                queryParameters: <String>{'project'},
+              ),
+            ),
+          ),
+        ],
+      );
+
+      final result = sanitiseRequest(
+        CassetteRequest(
+          method: 'POST',
+          uri: Uri.parse('https://example.test/?project=secret'),
+          headers: CassetteHeaders(<String, Iterable<String>>{
+            'authorization': <String>['original-secret'],
+            'content-type': <String>['application/json'],
+          }),
+          body: utf8.encode('{"token":"body-secret"}'),
+        ),
+        configuration,
+      );
+
+      expect(result.request.uri.query, 'project=%5BSAFE%5D');
+      expect(
+        result.request.headers.values('authorization'),
+        <String>['[REDACTED]'],
+      );
+      expect(utf8.decode(result.request.body), '{"token":"[REDACTED]"}');
+      expect(result.exclusions.headers, <String>{'authorization'});
+      expect(result.exclusions.queryParameters, <String>{'project'});
+      expect(result.exclusions.jsonPointers, <String>{'/token'});
+    });
+
+    test('keeps custom execution under the unsafe no-built-ins policy', () {
+      var customCalled = false;
+      final configuration = SanitisationConfiguration.unsafeWithoutBuiltIns(
+        requestSanitisers: <RequestSanitiser>[
+          _RequestSanitiser((request) {
+            customCalled = true;
+            return SanitisedRequest(
+              request: request,
+              exclusions: MatchingExclusions.none,
+            );
+          }),
+        ],
+      );
+      final request = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://example.test/'),
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'authorization': <String>['left-unsafe'],
+        }),
+      );
+
+      final result = sanitiseRequest(request, configuration);
+
+      expect(customCalled, isTrue);
+      expect(result.request, same(request));
+      expect(
+        result.request.headers.values('authorization'),
+        <String>['left-unsafe'],
+      );
+    });
+
+    test('propagates built-in validation failure after custom execution', () {
+      final configuration = SanitisationConfiguration(
+        requestSanitisers: <RequestSanitiser>[
+          _RequestSanitiser(
+            (request) => SanitisedRequest(
+              request: _copyRequest(request, body: utf8.encode('{invalid')),
+              exclusions: MatchingExclusions(body: true),
+            ),
+          ),
+        ],
+      );
+
+      expect(
+        () => sanitiseRequest(
+          CassetteRequest(
+            method: 'POST',
+            uri: Uri.parse('https://example.test/'),
+            headers: CassetteHeaders(<String, Iterable<String>>{
+              'content-type': <String>['application/json'],
+            }),
+            body: utf8.encode('{"safe":true}'),
+          ),
+          configuration,
+        ),
+        throwsA(isA<JsonBodySanitisationException>()),
+      );
+    });
+  });
+
   group('sanitiseCustomRequest', () {
     test('runs in registration order and accumulates exclusions', () {
       final calls = <String>[];
@@ -217,6 +326,62 @@ void main() {
         throwsA(isA<_SyntheticFailure>()),
       );
       expect(laterCalled, isFalse);
+    });
+  });
+
+  group('sanitiseResponse', () {
+    test('runs custom sanitisers before mandatory built-ins', () {
+      final configuration = SanitisationConfiguration(
+        responseSanitisers: <ResponseSanitiser>[
+          _ResponseSanitiser(
+            (response) => _copyResponse(
+              response,
+              headers: CassetteHeaders(<String, Iterable<String>>{
+                'set-cookie': <String>['restored=secret'],
+                'content-type': <String>['application/json'],
+              }),
+            ),
+          ),
+        ],
+      );
+
+      final result = sanitiseResponse(
+        CassetteResponse(
+          statusCode: 200,
+          headers: CassetteHeaders(<String, Iterable<String>>{
+            'content-type': <String>['application/json'],
+          }),
+          body: utf8.encode('{"token":"body-secret"}'),
+        ),
+        configuration,
+      );
+
+      expect(result.headers.values('set-cookie'), <String>['[REDACTED]']);
+      expect(utf8.decode(result.body), '{"token":"[REDACTED]"}');
+    });
+
+    test('keeps custom execution under the unsafe no-built-ins policy', () {
+      var customCalled = false;
+      final configuration = SanitisationConfiguration.unsafeWithoutBuiltIns(
+        responseSanitisers: <ResponseSanitiser>[
+          _ResponseSanitiser((response) {
+            customCalled = true;
+            return response;
+          }),
+        ],
+      );
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'set-cookie': <String>['left-unsafe'],
+        }),
+      );
+
+      final result = sanitiseResponse(response, configuration);
+
+      expect(customCalled, isTrue);
+      expect(result, same(response));
+      expect(result.headers.values('set-cookie'), <String>['left-unsafe']);
     });
   });
 }

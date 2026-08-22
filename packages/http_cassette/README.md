@@ -182,8 +182,10 @@ reported by that sanitiser; incomplete exclusions or changes to fixed request
 identity fail without retaining changed values in diagnostics. Response
 sanitisers also execute internally in registration order, with each canonical
 output feeding the next. Responses need no matching exclusions because they do
-not select recorded interactions. Complete custom-then-built-in pipeline
-composition is not implemented yet.
+not select recorded interactions. The complete internal pipeline now runs each
+custom chain first and the built-in rules last, then unions custom and built-in
+request exclusions. The explicit unsafe no-built-ins policy still runs custom
+sanitisers. Recording integration is not implemented yet.
 
 ## Example
 

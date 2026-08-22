@@ -46,4 +46,6 @@
 - Added ordered custom request-sanitiser execution with value-free exclusion
   coverage validation.
 - Added ordered custom response-sanitiser execution.
+- Composed complete custom-then-built-in request and response sanitisation
+  pipelines.
 - Record/replay behaviour is not available yet.

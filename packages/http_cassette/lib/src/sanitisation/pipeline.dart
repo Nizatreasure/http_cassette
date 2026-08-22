@@ -3,6 +3,21 @@ import '../matching/exclusions.dart';
 import '../matching/request_matcher.dart';
 import '../model/http_message.dart';
 import 'configuration.dart';
+import 'messages.dart';
+
+/// Immutable output from the complete request sanitisation pipeline.
+final class RequestSanitisationResult {
+  const RequestSanitisationResult._({
+    required this.request,
+    required this.exclusions,
+  });
+
+  /// The canonical request after custom and built-in sanitisation.
+  final CassetteRequest request;
+
+  /// The union of every custom and built-in matching exclusion.
+  final MatchingExclusions exclusions;
+}
 
 /// Immutable output from ordered custom request sanitisation.
 final class CustomRequestSanitisationResult {
@@ -16,6 +31,19 @@ final class CustomRequestSanitisationResult {
 
   /// The union of exclusions reported by every custom sanitiser.
   final MatchingExclusions exclusions;
+}
+
+/// Runs the complete custom-then-built-in request sanitisation pipeline.
+RequestSanitisationResult sanitiseRequest(
+  CassetteRequest request,
+  SanitisationConfiguration configuration,
+) {
+  final custom = sanitiseCustomRequest(request, configuration);
+  final builtIn = sanitiseBuiltInRequest(custom.request, configuration);
+  return RequestSanitisationResult._(
+    request: builtIn.request,
+    exclusions: custom.exclusions.mergedWith(builtIn.exclusions),
+  );
 }
 
 /// Runs configured custom request sanitisers in registration order.
@@ -59,6 +87,16 @@ CassetteResponse sanitiseCustomResponse(
   }
   return current;
 }
+
+/// Runs the complete custom-then-built-in response sanitisation pipeline.
+CassetteResponse sanitiseResponse(
+  CassetteResponse response,
+  SanitisationConfiguration configuration,
+) =>
+    sanitiseBuiltInResponse(
+      sanitiseCustomResponse(response, configuration),
+      configuration,
+    );
 
 void _validateRequestChange(
   CassetteRequest before,
