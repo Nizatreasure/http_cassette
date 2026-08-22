@@ -74,8 +74,8 @@ final class CassetteDecodeException implements Exception {
 }
 
 /// A strictly validated V1 root whose interactions remain undecoded.
-final class CassetteV1Envelope {
-  const CassetteV1Envelope._(this.interactions);
+final class CassetteEnvelopeV1 {
+  const CassetteEnvelopeV1._(this.interactions);
 
   /// Raw immutable interaction values in persisted order.
   final List<Object?> interactions;
@@ -98,7 +98,7 @@ final class DecodedCassetteRequestV1 {
 /// Decodes UTF-8 [bytes] and validates the exact V1 root envelope.
 ///
 /// Interaction contents are intentionally deferred to later decoder stages.
-CassetteV1Envelope decodeCassetteV1Envelope(List<int> bytes) {
+CassetteEnvelopeV1 decodeCassetteEnvelopeV1(List<int> bytes) {
   late final String source;
   try {
     source = utf8.decode(bytes, allowMalformed: false);
@@ -156,7 +156,7 @@ CassetteV1Envelope decodeCassetteV1Envelope(List<int> bytes) {
   if (interactions is! List<Object?>) {
     _invalidStructure('/interactions');
   }
-  return CassetteV1Envelope._(interactions);
+  return CassetteEnvelopeV1._(interactions);
 }
 
 /// Strictly decodes one V1 persisted body at [location].

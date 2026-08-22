@@ -4,7 +4,7 @@ import 'package:http_cassette/src/cassette/decoder.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('decodeCassetteV1Envelope', () {
+  group('decodeCassetteEnvelopeV1', () {
     test('accepts the exact root and exposes immutable interactions', () {
       final envelope = _decode(
         '{"schemaVersion":1,"interactions":[{"pending":true}]}',
@@ -16,7 +16,7 @@ void main() {
 
     test('rejects invalid UTF-8 without a source position', () {
       _expectFailure(
-        () => decodeCassetteV1Envelope(<int>[0xc3, 0x28]),
+        () => decodeCassetteEnvelopeV1(<int>[0xc3, 0x28]),
         CassetteDecodeFailureKind.invalidUtf8,
         location: '',
       );
@@ -107,8 +107,8 @@ void main() {
   });
 }
 
-CassetteV1Envelope _decode(String source) =>
-    decodeCassetteV1Envelope(utf8.encode(source));
+CassetteEnvelopeV1 _decode(String source) =>
+    decodeCassetteEnvelopeV1(utf8.encode(source));
 
 void _expectVersionFailure(int version, CassetteDecodeFailureKind kind) {
   final exception = _captureFailure(

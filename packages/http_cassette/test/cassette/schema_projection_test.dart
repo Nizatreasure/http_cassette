@@ -7,9 +7,9 @@ import 'package:http_cassette/src/cassette/schema_projection.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('projectCassetteToV1Schema', () {
+  group('projectCassetteSchemaV1', () {
     test('projects an empty cassette in root field order', () {
-      final projected = projectCassetteToV1Schema(Cassette());
+      final projected = projectCassetteSchemaV1(Cassette());
 
       expect(projected.keys, <String>['schemaVersion', 'interactions']);
       expect(projected, <String, Object?>{
@@ -187,6 +187,6 @@ Map<String, Object?> _projectInteraction({
     ],
   );
   final interactions =
-      projectCassetteToV1Schema(cassette)['interactions']! as List<Object?>;
+      projectCassetteSchemaV1(cassette)['interactions']! as List<Object?>;
   return interactions.single as Map<String, Object?>;
 }

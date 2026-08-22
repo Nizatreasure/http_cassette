@@ -70,4 +70,5 @@
 - Added strict decoding for every V1 persisted body representation.
 - Added strict V1 header and request matching-exclusion decoding.
 - Added strict reconstruction of complete canonical V1 requests.
+- Standardised internal V1-specific identifiers with a `V1` suffix.
 - Record/replay behaviour is not available yet.

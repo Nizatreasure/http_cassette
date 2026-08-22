@@ -10,7 +10,7 @@ import 'request_encoding.dart';
 ///
 /// The returned tree still contains lossless parsed JSON numbers. Converting
 /// the tree into deterministic UTF-8 JSON is a separate encoder responsibility.
-Map<String, Object?> projectCassetteToV1Schema(Cassette cassette) =>
+Map<String, Object?> projectCassetteSchemaV1(Cassette cassette) =>
     Map<String, Object?>.unmodifiable(<String, Object?>{
       'schemaVersion': cassette.schemaVersion,
       'interactions': List<Object?>.unmodifiable(

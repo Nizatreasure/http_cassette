@@ -11,7 +11,7 @@ import 'schema_projection.dart';
 /// The returned bytes are immutable.
 Uint8List encodeCassetteV1(Cassette cassette) {
   final output = StringBuffer();
-  _writeValue(output, projectCassetteToV1Schema(cassette), 0);
+  _writeValue(output, projectCassetteSchemaV1(cassette), 0);
   output.write('\n');
   return Uint8List.fromList(utf8.encode(output.toString()))
       .asUnmodifiableView();
