@@ -149,6 +149,15 @@ Automatic sanitisation reduces risk but cannot recognise every secret or item
 of personal information. Add project rules for domain-specific data and review
 every generated cassette before committing it.
 
+A body that declares a JSON media type must be valid UTF-8 JSON without
+duplicate object member names before built-in sanitisation can inspect it. The
+internal body sanitisation foundation fails safely rather than retaining
+uninspectable claimed JSON. Non-JSON bodies are opaque to built-in sanitisation
+and remain unchanged; projects must use a future custom body sanitiser when
+those bytes may contain sensitive data. The explicit unsafe no-built-ins
+configuration also disables this claimed-JSON inspection guarantee. Integration
+with the recording pipeline is not implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

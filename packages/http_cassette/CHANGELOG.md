@@ -37,4 +37,5 @@
 - Added recursive, type-preserving JSON member-name sanitisation.
 - Added exact RFC 6901 JSON Pointer sanitisation.
 - Added deterministic UTF-8 encoding for strictly parsed JSON values.
+- Added safe JSON body classification, sanitisation and invalid-body failure.
 - Record/replay behaviour is not available yet.
