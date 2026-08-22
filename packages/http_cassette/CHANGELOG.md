@@ -66,4 +66,5 @@
 - Added immutable, exactly ordered projection into the V1 cassette schema.
 - Added deterministic pretty-printed V1 cassette encoding with golden coverage.
 - Added a shared strict JSON parser with safe positional failures.
+- Added strict V1 root-envelope and schema-version decoding.
 - Record/replay behaviour is not available yet.

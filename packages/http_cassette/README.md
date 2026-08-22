@@ -225,7 +225,9 @@ result is a deeply immutable schema tree. The internal encoder writes that tree
 as deterministic UTF-8 JSON with exact schema ordering, two-space indentation,
 LF line endings and one final line feed. It preserves lossless JSON number
 spelling and has a reviewed complete golden fixture. Reading persisted
-cassettes is not implemented yet.
+cassettes now validates UTF-8, strict JSON, the exact root shape and schema
+version compatibility. Interaction contents are not decoded yet, so complete
+cassette reading and replay remain unavailable.
 
 ## Example
 
