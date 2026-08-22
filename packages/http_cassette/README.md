@@ -176,7 +176,12 @@ whole-body exclusion; body presence remains significant.
 Custom sanitisers may be registered through `SanitisationConfiguration` and are
 retained in explicit order. Registration is immutable and defensively copied.
 The unsafe no-built-ins constructor does not suppress custom sanitisers.
-Pipeline execution is not implemented yet.
+Custom request sanitisers now execute internally in that order, with each output
+feeding the next. Each changed request is checked against the exclusions
+reported by that sanitiser; incomplete exclusions or changes to fixed request
+identity fail without retaining changed values in diagnostics. Response
+execution and complete custom-then-built-in pipeline composition are not
+implemented yet.
 
 ## Example
 

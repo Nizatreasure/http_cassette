@@ -43,4 +43,6 @@
 - Added immutable ordered custom sanitiser registration.
 - Added whole-request-body matching exclusions that retain empty versus
   non-empty body presence.
+- Added ordered custom request-sanitiser execution with value-free exclusion
+  coverage validation.
 - Record/replay behaviour is not available yet.
