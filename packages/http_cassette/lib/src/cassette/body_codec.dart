@@ -256,12 +256,33 @@ Object? _copyJsonValue(Object? value) {
       });
     case List<Object?>():
       return List<Object?>.unmodifiable(value.map(_copyJsonValue));
-    case String() || bool() || ParsedJsonNumber() || null:
+    case String():
+      _validateUnicode(value);
+      return value;
+    case bool() || ParsedJsonNumber() || null:
       return value;
     default:
       throw ArgumentError(
         'Persisted JSON content must come from strict JSON parsing.',
       );
+  }
+}
+
+void _validateUnicode(String value) {
+  for (var index = 0; index < value.length; index += 1) {
+    final codeUnit = value.codeUnitAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) {
+        throw ArgumentError('Persisted JSON contains invalid Unicode.');
+      }
+      final low = value.codeUnitAt(index + 1);
+      if (low < 0xdc00 || low > 0xdfff) {
+        throw ArgumentError('Persisted JSON contains invalid Unicode.');
+      }
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      throw ArgumentError('Persisted JSON contains invalid Unicode.');
+    }
   }
 }
 

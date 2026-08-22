@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../json/strict_json.dart';
 import '../json/value.dart';
+import 'body_codec.dart';
 
 /// The schema version understood by the current cassette decoder.
 ///
@@ -137,6 +138,129 @@ CassetteV1Envelope decodeCassetteV1Envelope(List<int> bytes) {
   }
   return CassetteV1Envelope._(interactions);
 }
+
+/// Strictly decodes one V1 persisted body at [location].
+PersistedBody decodePersistedBodyV1(
+  Object? value, {
+  required String location,
+}) {
+  if (value is! Map<String, Object?>) {
+    _invalidStructure(location);
+  }
+  final encoding = value['encoding'];
+  if (encoding is! String) {
+    _invalidStructure('$location/encoding');
+  }
+
+  return switch (encoding) {
+    'empty' => _decodeEmptyBody(value, location),
+    'json' => _decodeJsonBody(value, location),
+    'text' => _decodeTextBody(value, location),
+    'base64' => _decodeBase64Body(value, location),
+    _ => _invalidStructure('$location/encoding'),
+  };
+}
+
+PersistedBody _decodeEmptyBody(Map<String, Object?> value, String location) {
+  if (!_keysEqual(value.keys, const <String>['encoding'])) {
+    _invalidStructure(location);
+  }
+  return const PersistedEmptyBody();
+}
+
+PersistedBody _decodeJsonBody(Map<String, Object?> value, String location) {
+  if (!_keysEqual(value.keys, const <String>['encoding', 'content'])) {
+    _invalidStructure(location);
+  }
+  final content = value['content'];
+  _validateJsonContent(content, '$location/content');
+  try {
+    return PersistedJsonBody(content);
+  } on ArgumentError {
+    _invalidStructure('$location/content');
+  }
+}
+
+PersistedBody _decodeTextBody(Map<String, Object?> value, String location) {
+  if (!_keysEqual(value.keys, const <String>['encoding', 'content'])) {
+    _invalidStructure(location);
+  }
+  final content = value['content'];
+  if (content is! String || content.isEmpty) {
+    _invalidStructure('$location/content');
+  }
+  try {
+    return PersistedTextBody(content);
+  } on ArgumentError {
+    _invalidStructure('$location/content');
+  }
+}
+
+PersistedBody _decodeBase64Body(Map<String, Object?> value, String location) {
+  if (!_keysEqual(value.keys, const <String>['encoding', 'content'])) {
+    _invalidStructure(location);
+  }
+  final content = value['content'];
+  if (content is! String || content.isEmpty) {
+    _invalidStructure('$location/content');
+  }
+  try {
+    final bytes = base64Decode(content);
+    if (base64Encode(bytes) != content) {
+      _invalidStructure('$location/content');
+    }
+    return PersistedBase64Body.fromBytes(bytes);
+  } on FormatException {
+    _invalidStructure('$location/content');
+  }
+}
+
+void _validateJsonContent(Object? value, String location) {
+  switch (value) {
+    case Map<String, Object?>():
+      final names = value.keys.toList(growable: false);
+      final sortedNames = names.toList()..sort();
+      if (!_keysEqual(names, sortedNames)) {
+        _invalidStructure(location);
+      }
+      for (final name in names) {
+        _validateJsonContent(
+          value[name],
+          '$location/${_escapeJsonPointerToken(name)}',
+        );
+      }
+    case List<Object?>():
+      for (var index = 0; index < value.length; index += 1) {
+        _validateJsonContent(value[index], '$location/$index');
+      }
+    case String():
+      if (!_hasValidUnicode(value)) {
+        _invalidStructure(location);
+      }
+    case bool() || ParsedJsonNumber() || null:
+      return;
+    default:
+      _invalidStructure(location);
+  }
+}
+
+bool _hasValidUnicode(String value) {
+  for (var index = 0; index < value.length; index += 1) {
+    final codeUnit = value.codeUnitAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) return false;
+      final low = value.codeUnitAt(index + 1);
+      if (low < 0xdc00 || low > 0xdfff) return false;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
+String _escapeJsonPointerToken(String token) =>
+    token.replaceAll('~', '~0').replaceAll('/', '~1');
 
 Never _invalidStructure(String location) => throw CassetteDecodeException(
       kind: CassetteDecodeFailureKind.invalidStructure,

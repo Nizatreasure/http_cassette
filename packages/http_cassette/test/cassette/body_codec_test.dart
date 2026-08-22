@@ -251,6 +251,16 @@ void main() {
       );
     });
 
+    test('rejects unpaired UTF-16 surrogates', () {
+      for (final content in <String>['\uD800', '\uDC00', '\uD800x']) {
+        expect(
+          () => PersistedJsonBody(content),
+          throwsArgumentError,
+          reason: content.codeUnits.toString(),
+        );
+      }
+    });
+
     test('uses canonical structural equality and matching hash codes', () {
       final first = PersistedJsonBody(_parseJson('{"b":2,"a":1}'));
       final second = PersistedJsonBody(_parseJson('{"a":1,"b":2}'));
