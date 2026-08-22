@@ -71,5 +71,25 @@ void main() {
       expect(exclusions.uriUserInformation, isTrue);
       expect(exclusions.body, isTrue);
     });
+
+    test('uses structural equality and matching hash codes', () {
+      final first = MatchingExclusions(
+        headers: <String>{'x-secret', 'authorization'},
+        queryParameters: <String>{'token'},
+        jsonPointers: <String>{'/secret'},
+        uriUserInformation: true,
+        body: true,
+      );
+      final second = MatchingExclusions(
+        headers: <String>{'authorization', 'X-Secret'},
+        queryParameters: <String>{'token'},
+        jsonPointers: <String>{'/secret'},
+        uriUserInformation: true,
+        body: true,
+      );
+
+      expect(first, second);
+      expect(first.hashCode, second.hashCode);
+    });
   });
 }

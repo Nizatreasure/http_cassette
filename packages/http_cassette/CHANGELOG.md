@@ -48,4 +48,6 @@
 - Added ordered custom response-sanitiser execution.
 - Composed complete custom-then-built-in request and response sanitisation
   pipelines.
+- Added immutable sanitised cassette interaction values with validated arrival
+  indices and persisted matching exclusions.
 - Record/replay behaviour is not available yet.

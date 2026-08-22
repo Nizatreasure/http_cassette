@@ -187,6 +187,12 @@ custom chain first and the built-in rules last, then unions custom and built-in
 request exclusions. The explicit unsafe no-built-ins policy still runs custom
 sanitisers. Recording integration is not implemented yet.
 
+The internal cassette domain now represents one immutable sanitised
+interaction with its non-negative request-arrival index, canonical request,
+persisted matching exclusions and exactly one canonical response or portable
+transport failure. The containing cassette value and schema codec are not
+implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

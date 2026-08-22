@@ -84,12 +84,34 @@ final class MatchingExclusions {
         uriUserInformation: uriUserInformation || other.uriUserInformation,
         body: body || other.body,
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MatchingExclusions &&
+          _setsEqual(headers, other.headers) &&
+          _setsEqual(queryParameters, other.queryParameters) &&
+          _setsEqual(jsonPointers, other.jsonPointers) &&
+          uriUserInformation == other.uriUserInformation &&
+          body == other.body;
+
+  @override
+  int get hashCode => Object.hash(
+        Object.hashAll(headers),
+        Object.hashAll(queryParameters),
+        Object.hashAll(jsonPointers),
+        uriUserInformation,
+        body,
+      );
 }
 
 Set<String> _sortedSet(Set<String> values) {
   final sorted = values.toList()..sort();
   return Set<String>.unmodifiable(sorted);
 }
+
+bool _setsEqual<T>(Set<T> first, Set<T> second) =>
+    first.length == second.length && first.containsAll(second);
 
 void _validateJsonPointer(String pointer) {
   if (pointer.isEmpty) {
