@@ -217,6 +217,13 @@ their adapter-observed spelling. It normalises origin, default ports, paths,
 percent escapes and query-name order, preserves repeated-query value order and
 equals-sign state, and omits fragments.
 
+The internal persistence foundation now projects a complete cassette into the
+exact V1 field order. Projection prepares request and response bodies, corrects
+payload-derived headers, adds changed request header names to matching
+exclusions, and selects the response or transport-failure schema shape. The
+result is a deeply immutable schema tree. Deterministic JSON byte writing and
+reading persisted cassettes are not implemented yet.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP

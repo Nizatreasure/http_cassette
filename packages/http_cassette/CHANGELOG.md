@@ -63,4 +63,5 @@
 - Added payload-derived header correction with changed-name reporting for
   request matching exclusions.
 - Added deterministic canonical URI construction for persisted requests.
+- Added immutable, exactly ordered projection into the V1 cassette schema.
 - Record/replay behaviour is not available yet.
