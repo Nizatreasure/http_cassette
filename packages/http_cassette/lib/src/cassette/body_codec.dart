@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../matching/json.dart';
+import '../sanitisation/json_encoding.dart';
+
 /// An immutable body representation used by the cassette schema.
 sealed class PersistedBody {
   const PersistedBody();
@@ -24,6 +27,33 @@ final class PersistedEmptyBody extends PersistedBody {
 
   @override
   int get hashCode => runtimeType.hashCode;
+}
+
+/// A persisted structured JSON body.
+final class PersistedJsonBody extends PersistedBody {
+  /// Creates a deeply immutable representation of strictly parsed [content].
+  ///
+  /// [content] must use the value types produced by the core's strict JSON
+  /// parser, including [ParsedJsonNumber] for every number.
+  factory PersistedJsonBody(Object? content) =>
+      PersistedJsonBody._(_copyJsonValue(content));
+
+  const PersistedJsonBody._(this.content);
+
+  /// The deeply immutable JSON value stored in the cassette.
+  final Object? content;
+
+  @override
+  Uint8List reconstruct() => encodeSanitisedJsonValue(content);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PersistedJsonBody &&
+          _bytesEqual(reconstruct(), other.reconstruct());
+
+  @override
+  int get hashCode => Object.hashAll(reconstruct());
 }
 
 /// A persisted readable UTF-8 body.
@@ -108,4 +138,34 @@ List<int> _validatedBytes(List<int> bytes) {
     }
   }
   return List<int>.of(bytes);
+}
+
+Object? _copyJsonValue(Object? value) {
+  switch (value) {
+    case Map<String, Object?>():
+      final names = value.keys.toList()..sort();
+      return Map<String, Object?>.unmodifiable(<String, Object?>{
+        for (final name in names) name: _copyJsonValue(value[name]),
+      });
+    case List<Object?>():
+      return List<Object?>.unmodifiable(value.map(_copyJsonValue));
+    case String() || bool() || ParsedJsonNumber() || null:
+      return value;
+    default:
+      throw ArgumentError(
+        'Persisted JSON content must come from strict JSON parsing.',
+      );
+  }
+}
+
+bool _bytesEqual(Uint8List first, Uint8List second) {
+  if (first.length != second.length) {
+    return false;
+  }
+  for (var index = 0; index < first.length; index += 1) {
+    if (first[index] != second[index]) {
+      return false;
+    }
+  }
+  return true;
 }

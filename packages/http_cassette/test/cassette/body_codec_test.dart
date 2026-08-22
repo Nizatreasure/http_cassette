@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/body_codec.dart';
+import 'package:http_cassette/src/matching/json.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -11,6 +13,68 @@ void main() {
       expect(body.reconstruct(), isEmpty);
       expect(() => body.reconstruct().add(1), throwsUnsupportedError);
       expect(body, const PersistedEmptyBody());
+    });
+  });
+
+  group('PersistedJsonBody', () {
+    test('reconstructs compact JSON with recursively sorted object keys', () {
+      final body = PersistedJsonBody(
+        _parseJson('{"z":1,"nested":{"b":2,"a":3},"a":[true,null]}'),
+      );
+
+      expect(
+        utf8.decode(body.reconstruct()),
+        '{"a":[true,null],"nested":{"a":3,"b":2},"z":1}',
+      );
+      expect(() => body.reconstruct().add(1), throwsUnsupportedError);
+    });
+
+    test('supports every JSON root category', () {
+      for (final source in <String>[
+        '{}',
+        '[]',
+        '"text"',
+        '1.25e2',
+        'true',
+        'null',
+      ]) {
+        final body = PersistedJsonBody(_parseJson(source));
+
+        expect(utf8.decode(body.reconstruct()), source);
+      }
+    });
+
+    test('copies nested collections and exposes immutable content', () {
+      final nested = <Object?>['secret'];
+      final source = <String, Object?>{'value': nested};
+      final body = PersistedJsonBody(source);
+
+      nested[0] = 'changed';
+      source['added'] = true;
+
+      expect(utf8.decode(body.reconstruct()), '{"value":["secret"]}');
+      final content = body.content! as Map<String, Object?>;
+      expect(() => content['other'] = false, throwsUnsupportedError);
+      expect(
+        () => (content['value']! as List<Object?>).add(false),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('rejects values outside the strict parsed representation', () {
+      expect(() => PersistedJsonBody(1), throwsArgumentError);
+      expect(
+        () => PersistedJsonBody(<String, Object?>{'value': 1.5}),
+        throwsArgumentError,
+      );
+    });
+
+    test('uses canonical structural equality and matching hash codes', () {
+      final first = PersistedJsonBody(_parseJson('{"b":2,"a":1}'));
+      final second = PersistedJsonBody(_parseJson('{"a":1,"b":2}'));
+
+      expect(first, second);
+      expect(first.hashCode, second.hashCode);
     });
   });
 
@@ -84,4 +148,15 @@ void main() {
       expect(first.hashCode, second.hashCode);
     });
   });
+}
+
+Object? _parseJson(String source) {
+  final result = parseJsonBody(
+    CassetteHeaders(<String, Iterable<String>>{
+      'content-type': <String>['application/json'],
+    }),
+    utf8.encode(source),
+  );
+  expect(result.status, JsonBodyStatus.valid);
+  return result.value;
 }

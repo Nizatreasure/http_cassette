@@ -54,4 +54,6 @@
   validation.
 - Added immutable empty, readable-text and canonical-Base64 persisted body
   representations with exact byte reconstruction.
+- Added deeply immutable structured JSON bodies with deterministic compact
+  reconstruction.
 - Record/replay behaviour is not available yet.

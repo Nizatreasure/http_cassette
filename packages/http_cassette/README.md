@@ -197,8 +197,10 @@ compatibility and the schema codec are not implemented yet.
 
 The persisted-body foundation represents zero-byte bodies explicitly, readable
 text as validated UTF-8 content, and opaque bytes as canonical padded Base64.
-Each representation reconstructs immutable replay bytes. Structured JSON and
-automatic encoding selection are not implemented yet.
+Structured JSON is stored as a deeply immutable value with lexically ordered
+object members and preserved array order, then reconstructed as deterministic
+compact UTF-8 JSON. Each representation reconstructs immutable replay bytes.
+Automatic encoding selection is not implemented yet.
 
 ## Example
 
