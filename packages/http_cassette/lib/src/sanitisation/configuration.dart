@@ -1,6 +1,7 @@
 import '../matching/exclusions.dart';
 import '../matching/header_names.dart';
 import '../matching/uri_component.dart';
+import 'custom.dart';
 
 const _builtInHeaders = <String>{
   'api-key',
@@ -42,6 +43,9 @@ abstract final class SanitisationConfiguration {
     Iterable<String> additionalQueryParameters = const <String>[],
     Iterable<String> additionalJsonNames = const <String>[],
     Iterable<String> additionalJsonPointers = const <String>[],
+    Iterable<RequestSanitiser> requestSanitisers = const <RequestSanitiser>[],
+    Iterable<ResponseSanitiser> responseSanitisers =
+        const <ResponseSanitiser>[],
   }) {
     final pointers = MatchingExclusions(
       jsonPointers: additionalJsonPointers,
@@ -58,6 +62,12 @@ abstract final class SanitisationConfiguration {
       ),
       additionalJsonNames: _canonicalNames(additionalJsonNames),
       additionalJsonPointers: pointers,
+      requestSanitisers: List<RequestSanitiser>.unmodifiable(
+        requestSanitisers,
+      ),
+      responseSanitisers: List<ResponseSanitiser>.unmodifiable(
+        responseSanitisers,
+      ),
     );
   }
 
@@ -66,13 +76,23 @@ abstract final class SanitisationConfiguration {
   /// Recording with this configuration may persist raw credentials and
   /// personal data. Project custom sanitisers added by later configuration
   /// stages will remain independent of this built-in policy.
-  factory SanitisationConfiguration.unsafeWithoutBuiltIns() =>
-      const _SanitisationConfiguration(
+  factory SanitisationConfiguration.unsafeWithoutBuiltIns({
+    Iterable<RequestSanitiser> requestSanitisers = const <RequestSanitiser>[],
+    Iterable<ResponseSanitiser> responseSanitisers =
+        const <ResponseSanitiser>[],
+  }) =>
+      _SanitisationConfiguration(
         builtInRulesEnabled: false,
-        additionalHeaders: <String>{},
-        additionalQueryParameters: <String>{},
-        additionalJsonNames: <String>{},
-        additionalJsonPointers: <String>{},
+        additionalHeaders: const <String>{},
+        additionalQueryParameters: const <String>{},
+        additionalJsonNames: const <String>{},
+        additionalJsonPointers: const <String>{},
+        requestSanitisers: List<RequestSanitiser>.unmodifiable(
+          requestSanitisers,
+        ),
+        responseSanitisers: List<ResponseSanitiser>.unmodifiable(
+          responseSanitisers,
+        ),
       );
 
   /// Secure defaults with no project-specific additions.
@@ -92,6 +112,12 @@ abstract final class SanitisationConfiguration {
 
   /// Project-added exact RFC 6901 sensitive JSON Pointers.
   Set<String> get additionalJsonPointers;
+
+  /// Custom request sanitisers in explicit execution order.
+  List<RequestSanitiser> get requestSanitisers;
+
+  /// Custom response sanitisers in explicit execution order.
+  List<ResponseSanitiser> get responseSanitisers;
 }
 
 final class _SanitisationConfiguration implements SanitisationConfiguration {
@@ -101,6 +127,8 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
     required this.additionalQueryParameters,
     required this.additionalJsonNames,
     required this.additionalJsonPointers,
+    required this.requestSanitisers,
+    required this.responseSanitisers,
   });
 
   @override
@@ -119,6 +147,12 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
   final Set<String> additionalJsonPointers;
 
   @override
+  final List<RequestSanitiser> requestSanitisers;
+
+  @override
+  final List<ResponseSanitiser> responseSanitisers;
+
+  @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SanitisationConfiguration &&
@@ -129,7 +163,9 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
             other.additionalQueryParameters,
           ) &&
           _setsEqual(additionalJsonNames, other.additionalJsonNames) &&
-          _setsEqual(additionalJsonPointers, other.additionalJsonPointers);
+          _setsEqual(additionalJsonPointers, other.additionalJsonPointers) &&
+          _listsEqual(requestSanitisers, other.requestSanitisers) &&
+          _listsEqual(responseSanitisers, other.responseSanitisers);
 
   @override
   int get hashCode => Object.hash(
@@ -138,6 +174,8 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
         Object.hashAll(additionalQueryParameters),
         Object.hashAll(additionalJsonNames),
         Object.hashAll(additionalJsonPointers),
+        Object.hashAll(requestSanitisers),
+        Object.hashAll(responseSanitisers),
       );
 }
 
@@ -196,3 +234,15 @@ Set<String> _sortedSet(Iterable<String> values) {
 
 bool _setsEqual<T>(Set<T> first, Set<T> second) =>
     first.length == second.length && first.containsAll(second);
+
+bool _listsEqual<T>(List<T> first, List<T> second) {
+  if (first.length != second.length) {
+    return false;
+  }
+  for (var index = 0; index < first.length; index += 1) {
+    if (first[index] != second[index]) {
+      return false;
+    }
+  }
+  return true;
+}

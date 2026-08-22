@@ -55,6 +55,8 @@ void main() {
       expect(configuration.additionalQueryParameters, isEmpty);
       expect(configuration.additionalJsonNames, isEmpty);
       expect(configuration.additionalJsonPointers, isEmpty);
+      expect(configuration.requestSanitisers, isEmpty);
+      expect(configuration.responseSanitisers, isEmpty);
       expect(effectiveSensitiveHeaders(configuration), isEmpty);
       expect(effectiveSensitiveQueryParameters(configuration), isEmpty);
       expect(effectiveSensitiveJsonNames(configuration), isEmpty);
@@ -144,5 +146,78 @@ void main() {
       expect(first, second);
       expect(first.hashCode, second.hashCode);
     });
+
+    test('copies custom sanitisers and preserves registration order', () {
+      const firstRequest = _RequestSanitiser('first');
+      const secondRequest = _RequestSanitiser('second');
+      const response = _ResponseSanitiser();
+      final source = <RequestSanitiser>[firstRequest, secondRequest];
+
+      final configuration = SanitisationConfiguration(
+        requestSanitisers: source,
+        responseSanitisers: const <ResponseSanitiser>[response],
+      );
+      source.clear();
+
+      expect(
+        configuration.requestSanitisers,
+        <RequestSanitiser>[firstRequest, secondRequest],
+      );
+      expect(configuration.responseSanitisers, <ResponseSanitiser>[response]);
+      expect(
+        () => configuration.requestSanitisers.add(firstRequest),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => configuration.responseSanitisers.clear(),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('unsafe configuration retains explicitly registered sanitisers', () {
+      const request = _RequestSanitiser('request');
+      const response = _ResponseSanitiser();
+
+      final configuration = SanitisationConfiguration.unsafeWithoutBuiltIns(
+        requestSanitisers: const <RequestSanitiser>[request],
+        responseSanitisers: const <ResponseSanitiser>[response],
+      );
+
+      expect(configuration.builtInRulesEnabled, isFalse);
+      expect(configuration.requestSanitisers, <RequestSanitiser>[request]);
+      expect(configuration.responseSanitisers, <ResponseSanitiser>[response]);
+    });
+
+    test('custom sanitiser order participates in equality', () {
+      const first = _RequestSanitiser('first');
+      const second = _RequestSanitiser('second');
+      final forward = SanitisationConfiguration(
+        requestSanitisers: const <RequestSanitiser>[first, second],
+      );
+      final reverse = SanitisationConfiguration(
+        requestSanitisers: const <RequestSanitiser>[second, first],
+      );
+
+      expect(forward, isNot(reverse));
+    });
   });
+}
+
+final class _RequestSanitiser implements RequestSanitiser {
+  const _RequestSanitiser(this.id);
+
+  final String id;
+
+  @override
+  SanitisedRequest sanitise(CassetteRequest request) => SanitisedRequest(
+        request: request,
+        exclusions: MatchingExclusions.none,
+      );
+}
+
+final class _ResponseSanitiser implements ResponseSanitiser {
+  const _ResponseSanitiser();
+
+  @override
+  CassetteResponse sanitise(CassetteResponse response) => response;
 }

@@ -40,4 +40,5 @@
 - Added safe JSON body classification, sanitisation and invalid-body failure.
 - Added composed built-in request and response sanitisation.
 - Added public transport-neutral custom sanitiser contracts.
+- Added immutable ordered custom sanitiser registration.
 - Record/replay behaviour is not available yet.

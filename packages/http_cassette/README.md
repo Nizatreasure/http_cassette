@@ -169,8 +169,10 @@ location that affects matching. A response sanitiser returns a valid canonical
 response. Implementations must be deterministic and must not log their raw
 input.
 
-The contracts are available for implementation, but configuration and pipeline
-execution are not implemented yet.
+Custom sanitisers may be registered through `SanitisationConfiguration` and are
+retained in explicit order. Registration is immutable and defensively copied.
+The unsafe no-built-ins constructor does not suppress custom sanitisers.
+Pipeline execution is not implemented yet.
 
 ## Example
 
