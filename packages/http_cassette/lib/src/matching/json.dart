@@ -143,6 +143,9 @@ JsonBodyParseResult parseJsonBody(
 }
 
 bool _hasJsonMediaType(CassetteHeaders headers) {
+  if (headers.contains('content-encoding')) {
+    return false;
+  }
   final values = headers.values('content-type');
   if (values == null || values.length != 1) {
     return false;

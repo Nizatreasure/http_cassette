@@ -59,6 +59,19 @@ void main() {
       expect(result.status, JsonBodyStatus.notJsonMediaType);
     });
 
+    test('does not classify content-encoded bytes as JSON', () {
+      final result = parseJsonBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['gzip'],
+        }),
+        utf8.encode('{"valid":true}'),
+      );
+
+      expect(result.status, JsonBodyStatus.notJsonMediaType);
+      expect(result.value, isNull);
+    });
+
     test('accepts every JSON root type', () {
       for (final source in <String>[
         '{}',

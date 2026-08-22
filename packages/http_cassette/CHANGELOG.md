@@ -56,4 +56,6 @@
   representations with exact byte reconstruction.
 - Added deeply immutable structured JSON bodies with deterministic compact
   reconstruction.
+- Treated content-encoded bodies as opaque bytes during built-in JSON
+  sanitisation.
 - Record/replay behaviour is not available yet.

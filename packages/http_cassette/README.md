@@ -156,12 +156,15 @@ A body that declares a JSON media type must be valid UTF-8 JSON without
 duplicate object member names before built-in sanitisation can inspect it. The
 internal body sanitisation foundation fails safely rather than retaining
 uninspectable claimed JSON. Non-JSON bodies are opaque to built-in sanitisation
-and remain unchanged; projects must use a future custom body sanitiser when
-those bytes may contain sensitive data. The explicit unsafe no-built-ins
-configuration also disables this claimed-JSON inspection guarantee. Integration
-with the recording pipeline is not implemented yet. The internal composition
-layer now applies these built-ins to complete canonical requests and responses,
-and carries every changed request location into matching exclusions.
+and remain unchanged. A body with `Content-Encoding` is also opaque even when
+its media type says JSON, because its canonical bytes still represent the
+encoded payload. Projects must decode and sanitise such content explicitly,
+returning headers consistent with the replacement bytes. The explicit unsafe
+no-built-ins configuration also disables the ordinary claimed-JSON inspection
+guarantee. Integration with the recording pipeline is not implemented yet. The
+internal composition layer now applies these built-ins to complete canonical
+requests and responses, and carries every changed request location into
+matching exclusions.
 
 ### Custom sanitiser contracts
 

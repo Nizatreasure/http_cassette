@@ -55,6 +55,28 @@ void main() {
       expect(result.sanitisedPointers, isEmpty);
     });
 
+    test('leaves content-encoded claimed JSON opaque and unchanged', () {
+      final cases = <List<int>>[
+        <int>[0x1f, 0x8b, 0x08, 0xff],
+        utf8.encode('{"token":"still-encoded"}'),
+      ];
+
+      for (final source in cases) {
+        final result = sanitiseJsonBody(
+          CassetteHeaders(<String, Iterable<String>>{
+            'content-type': <String>['application/json'],
+            'content-encoding': <String>['gzip'],
+          }),
+          source,
+          SanitisationConfiguration(),
+        );
+
+        expect(result.body, source);
+        expect(result.sanitisedPointers, isEmpty);
+        expect(() => result.body.add(0), throwsUnsupportedError);
+      }
+    });
+
     test('fails safely for every invalid claimed-JSON classification', () {
       const sentinel = 'synthetic-secret-sentinel';
       final cases = <JsonBodyStatus, List<int>>{
