@@ -190,8 +190,10 @@ sanitisers. Recording integration is not implemented yet.
 The internal cassette domain now represents one immutable sanitised
 interaction with its non-negative request-arrival index, canonical request,
 persisted matching exclusions and exactly one canonical response or portable
-transport failure. The containing cassette value and schema codec are not
-implemented yet.
+transport failure. The immutable containing cassette fixes its writable schema
+version at `1`, defensively owns its interaction list and requires indices to
+start at zero and remain contiguous in ascending arrival order. Readable-version
+compatibility and the schema codec are not implemented yet.
 
 ## Example
 

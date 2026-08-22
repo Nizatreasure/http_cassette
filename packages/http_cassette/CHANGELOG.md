@@ -50,4 +50,6 @@
   pipelines.
 - Added immutable sanitised cassette interaction values with validated arrival
   indices and persisted matching exclusions.
+- Added immutable current-version cassettes with contiguous ordered interaction
+  validation.
 - Record/replay behaviour is not available yet.
