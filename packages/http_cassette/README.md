@@ -156,7 +156,9 @@ uninspectable claimed JSON. Non-JSON bodies are opaque to built-in sanitisation
 and remain unchanged; projects must use a future custom body sanitiser when
 those bytes may contain sensitive data. The explicit unsafe no-built-ins
 configuration also disables this claimed-JSON inspection guarantee. Integration
-with the recording pipeline is not implemented yet.
+with the recording pipeline is not implemented yet. The internal composition
+layer now applies these built-ins to complete canonical requests and responses,
+and carries every changed request location into matching exclusions.
 
 ## Example
 
