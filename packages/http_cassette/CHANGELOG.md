@@ -62,4 +62,5 @@
   body encodings.
 - Added payload-derived header correction with changed-name reporting for
   request matching exclusions.
+- Added deterministic canonical URI construction for persisted requests.
 - Record/replay behaviour is not available yet.

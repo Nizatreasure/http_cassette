@@ -212,6 +212,11 @@ For requests, every changed header name must be added to that interaction's
 matching exclusions. Weak ETags are also removed until an explicit validation
 policy is introduced.
 
+The encoder foundation canonicalises persisted request URIs independently of
+their adapter-observed spelling. It normalises origin, default ports, paths,
+percent escapes and query-name order, preserves repeated-query value order and
+equals-sign state, and omits fragments.
+
 ## Example
 
 The example constructs body and matching configuration with canonical HTTP
