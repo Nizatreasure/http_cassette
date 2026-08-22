@@ -5,8 +5,10 @@ import '../json/value.dart';
 import '../matching/exclusions.dart';
 import '../matching/uri_component.dart';
 import '../model/headers.dart';
+import '../model/http_message.dart';
 import '../model/http_syntax.dart';
 import 'body_codec.dart';
+import 'request_encoding.dart';
 
 /// The schema version understood by the current cassette decoder.
 ///
@@ -77,6 +79,20 @@ final class CassetteV1Envelope {
 
   /// Raw immutable interaction values in persisted order.
   final List<Object?> interactions;
+}
+
+/// A strictly reconstructed V1 request and its persisted exclusions.
+final class DecodedCassetteRequestV1 {
+  const DecodedCassetteRequestV1._({
+    required this.request,
+    required this.matchingExclusions,
+  });
+
+  /// The canonical request reconstructed from persisted values.
+  final CassetteRequest request;
+
+  /// Locations excluded because recording sanitised their values.
+  final MatchingExclusions matchingExclusions;
 }
 
 /// Decodes UTF-8 [bytes] and validates the exact V1 root envelope.
@@ -284,6 +300,84 @@ MatchingExclusions decodeMatchingExclusionsV1(
   } on ArgumentError {
     _invalidStructure(location);
   }
+}
+
+/// Strictly reconstructs one complete V1 request at [location].
+DecodedCassetteRequestV1 decodeCassetteRequestV1(
+  Object? value, {
+  required String location,
+}) {
+  if (value is! Map<String, Object?> ||
+      !_keysEqual(value.keys, const <String>[
+        'method',
+        'uri',
+        'headers',
+        'body',
+        'matchingExclusions',
+      ])) {
+    _invalidStructure(location);
+  }
+
+  final method = value['method'];
+  if (method is! String ||
+      method != method.toUpperCase() ||
+      !isHttpToken(method)) {
+    _invalidStructure('$location/method');
+  }
+  final uriText = value['uri'];
+  if (uriText is! String) {
+    _invalidStructure('$location/uri');
+  }
+  final headers = decodeCassetteHeadersV1(
+    value['headers'],
+    location: '$location/headers',
+  );
+  final persistedBody = decodePersistedBodyV1(
+    value['body'],
+    location: '$location/body',
+  );
+  final matchingExclusions = decodeMatchingExclusionsV1(
+    value['matchingExclusions'],
+    location: '$location/matchingExclusions',
+  );
+
+  late final Uri uri;
+  try {
+    uri = Uri.parse(uriText);
+  } on FormatException {
+    _invalidStructure('$location/uri');
+  }
+  if (!uri.hasScheme || uri.host.isEmpty) {
+    _invalidStructure('$location/uri');
+  }
+
+  late final CassetteRequest request;
+  request = CassetteRequest(
+    method: method,
+    uri: uri,
+    headers: headers,
+    body: persistedBody.reconstruct(),
+  );
+  try {
+    if (canonicalisePersistedRequestUri(request) != uriText) {
+      _invalidStructure('$location/uri');
+    }
+  } on ArgumentError {
+    _invalidStructure('$location/uri');
+  }
+
+  final prepared = preparePersistedBody(headers, request.body);
+  if (prepared.body != persistedBody) {
+    _invalidStructure('$location/body');
+  }
+  if (prepared.headers != headers || prepared.changedHeaderNames.isNotEmpty) {
+    _invalidStructure('$location/headers');
+  }
+
+  return DecodedCassetteRequestV1._(
+    request: request,
+    matchingExclusions: matchingExclusions,
+  );
 }
 
 List<String> _decodeCanonicalStringList(Object? value, String location) {

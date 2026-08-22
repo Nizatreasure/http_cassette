@@ -69,4 +69,5 @@
 - Added strict V1 root-envelope and schema-version decoding.
 - Added strict decoding for every V1 persisted body representation.
 - Added strict V1 header and request matching-exclusion decoding.
+- Added strict reconstruction of complete canonical V1 requests.
 - Record/replay behaviour is not available yet.
