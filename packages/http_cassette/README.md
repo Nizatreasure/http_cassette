@@ -180,8 +180,10 @@ Custom request sanitisers now execute internally in that order, with each output
 feeding the next. Each changed request is checked against the exclusions
 reported by that sanitiser; incomplete exclusions or changes to fixed request
 identity fail without retaining changed values in diagnostics. Response
-execution and complete custom-then-built-in pipeline composition are not
-implemented yet.
+sanitisers also execute internally in registration order, with each canonical
+output feeding the next. Responses need no matching exclusions because they do
+not select recorded interactions. Complete custom-then-built-in pipeline
+composition is not implemented yet.
 
 ## Example
 

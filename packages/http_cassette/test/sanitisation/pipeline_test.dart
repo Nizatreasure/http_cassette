@@ -153,6 +153,72 @@ void main() {
       expect(laterCalled, isFalse);
     });
   });
+
+  group('sanitiseCustomResponse', () {
+    test('runs in registration order and passes each output onwards', () {
+      final calls = <String>[];
+      final configuration = SanitisationConfiguration(
+        responseSanitisers: <ResponseSanitiser>[
+          _ResponseSanitiser((response) {
+            calls.add('headers');
+            return _copyResponse(
+              response,
+              headers: CassetteHeaders(<String, Iterable<String>>{
+                'x-safe': <String>['first'],
+              }),
+            );
+          }),
+          _ResponseSanitiser((response) {
+            calls.add('body');
+            expect(response.headers.values('x-safe'), <String>['first']);
+            return _copyResponse(response, body: utf8.encode('[SAFE]'));
+          }),
+        ],
+      );
+
+      final result = sanitiseCustomResponse(
+        CassetteResponse(statusCode: 200, body: utf8.encode('secret')),
+        configuration,
+      );
+
+      expect(calls, <String>['headers', 'body']);
+      expect(result.headers.values('x-safe'), <String>['first']);
+      expect(utf8.decode(result.body), '[SAFE]');
+    });
+
+    test('returns the original response when none are registered', () {
+      final response = CassetteResponse(statusCode: 204);
+
+      final result = sanitiseCustomResponse(
+        response,
+        SanitisationConfiguration(),
+      );
+
+      expect(result, same(response));
+    });
+
+    test('stops when a sanitiser throws', () {
+      var laterCalled = false;
+      final configuration = SanitisationConfiguration(
+        responseSanitisers: <ResponseSanitiser>[
+          _ResponseSanitiser((response) => throw const _SyntheticFailure()),
+          _ResponseSanitiser((response) {
+            laterCalled = true;
+            return response;
+          }),
+        ],
+      );
+
+      expect(
+        () => sanitiseCustomResponse(
+          CassetteResponse(statusCode: 200),
+          configuration,
+        ),
+        throwsA(isA<_SyntheticFailure>()),
+      );
+      expect(laterCalled, isFalse);
+    });
+  });
 }
 
 final class _RequestSanitiser implements RequestSanitiser {
@@ -162,6 +228,15 @@ final class _RequestSanitiser implements RequestSanitiser {
 
   @override
   SanitisedRequest sanitise(CassetteRequest request) => _sanitise(request);
+}
+
+final class _ResponseSanitiser implements ResponseSanitiser {
+  const _ResponseSanitiser(this._sanitise);
+
+  final CassetteResponse Function(CassetteResponse response) _sanitise;
+
+  @override
+  CassetteResponse sanitise(CassetteResponse response) => _sanitise(response);
 }
 
 final class _SyntheticFailure implements Exception {
@@ -188,4 +263,16 @@ CassetteRequest _copyRequest(
       uri: uri ?? request.uri,
       headers: request.headers,
       body: body ?? request.body,
+    );
+
+CassetteResponse _copyResponse(
+  CassetteResponse response, {
+  CassetteHeaders? headers,
+  List<int>? body,
+}) =>
+    CassetteResponse(
+      statusCode: response.statusCode,
+      headers: headers ?? response.headers,
+      body: body ?? response.body,
+      reasonPhrase: response.reasonPhrase,
     );

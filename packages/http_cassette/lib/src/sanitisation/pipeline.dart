@@ -45,6 +45,21 @@ CustomRequestSanitisationResult sanitiseCustomRequest(
   );
 }
 
+/// Runs configured custom response sanitisers in registration order.
+///
+/// Each sanitiser receives the preceding sanitiser's canonical response. If a
+/// sanitiser throws, later sanitisers are not invoked.
+CassetteResponse sanitiseCustomResponse(
+  CassetteResponse response,
+  SanitisationConfiguration configuration,
+) {
+  var current = response;
+  for (final sanitiser in configuration.responseSanitisers) {
+    current = sanitiser.sanitise(current);
+  }
+  return current;
+}
+
 void _validateRequestChange(
   CassetteRequest before,
   CassetteRequest after,

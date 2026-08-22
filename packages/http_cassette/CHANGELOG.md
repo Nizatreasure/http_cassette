@@ -45,4 +45,5 @@
   non-empty body presence.
 - Added ordered custom request-sanitiser execution with value-free exclusion
   coverage validation.
+- Added ordered custom response-sanitiser execution.
 - Record/replay behaviour is not available yet.
