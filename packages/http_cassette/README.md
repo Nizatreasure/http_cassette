@@ -206,7 +206,11 @@ compact UTF-8 JSON. Each representation reconstructs immutable replay bytes.
 The internal selector now applies the fixed precedence: empty, valid
 media-type JSON, readable UTF-8 text, then Base64. Non-empty content-encoded
 bytes always select Base64. Callers and adapters do not select representations.
-Payload-derived header correction is not implemented yet.
+Payload preparation updates an existing `content-length`, removes digest and
+ETag validators, and removes `content-encoding` when no encoded bytes remain.
+For requests, every changed header name must be added to that interaction's
+matching exclusions. Weak ETags are also removed until an explicit validation
+policy is introduced.
 
 ## Example
 

@@ -6,6 +6,102 @@ import 'package:http_cassette/src/matching/json.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('preparePersistedBody', () {
+    test('corrects JSON length and removes representation validators', () {
+      final prepared = preparePersistedBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-length': <String>['999', '1000'],
+          'content-md5': <String>['synthetic-md5'],
+          'digest': <String>['sha-256=synthetic'],
+          'content-digest': <String>['sha-256=:synthetic:'],
+          'etag': <String>['W/"synthetic"'],
+          'x-retained': <String>['value'],
+        }),
+        utf8.encode('{ "b" : 2, "a" : 1 }'),
+      );
+
+      expect(prepared.body, isA<PersistedJsonBody>());
+      expect(utf8.decode(prepared.body.reconstruct()), '{"a":1,"b":2}');
+      expect(prepared.headers.values('content-length'), <String>['13']);
+      expect(prepared.headers.contains('content-md5'), isFalse);
+      expect(prepared.headers.contains('digest'), isFalse);
+      expect(prepared.headers.contains('content-digest'), isFalse);
+      expect(prepared.headers.contains('etag'), isFalse);
+      expect(prepared.headers.values('x-retained'), <String>['value']);
+      expect(
+        prepared.changedHeaderNames,
+        <String>{
+          'content-digest',
+          'content-length',
+          'content-md5',
+          'digest',
+          'etag',
+        },
+      );
+    });
+
+    test('does not add an absent content-length header', () {
+      final headers = _headers(contentType: 'text/plain');
+
+      final prepared = preparePersistedBody(headers, utf8.encode('text'));
+
+      expect(prepared.headers, same(headers));
+      expect(prepared.headers.contains('content-length'), isFalse);
+      expect(prepared.changedHeaderNames, isEmpty);
+    });
+
+    test('retains content encoding with opaque Base64 bytes', () {
+      final headers = _headers(
+        contentType: 'application/json',
+        contentEncoding: 'gzip',
+      );
+
+      final prepared = preparePersistedBody(headers, <int>[0x1f, 0x8b]);
+
+      expect(prepared.body, isA<PersistedBase64Body>());
+      expect(prepared.headers.values('content-encoding'), <String>['gzip']);
+      expect(prepared.changedHeaderNames, isEmpty);
+    });
+
+    test('removes content encoding from an empty body', () {
+      final prepared = preparePersistedBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-encoding': <String>['gzip'],
+          'content-length': <String>['12'],
+        }),
+        const <int>[],
+      );
+
+      expect(prepared.body, isA<PersistedEmptyBody>());
+      expect(prepared.headers.contains('content-encoding'), isFalse);
+      expect(prepared.headers.values('content-length'), <String>['0']);
+      expect(
+        prepared.changedHeaderNames,
+        <String>{'content-encoding', 'content-length'},
+      );
+    });
+
+    test('reports immutable names for request matching exclusions', () {
+      final prepared = preparePersistedBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'etag': <String>['"strong"'],
+        }),
+        utf8.encode('body'),
+      );
+
+      final exclusions = MatchingExclusions(
+        headers: prepared.changedHeaderNames,
+      );
+
+      expect(exclusions.headers, <String>{'etag'});
+      expect(
+        () => prepared.changedHeaderNames.add('another'),
+        throwsUnsupportedError,
+      );
+    });
+  });
+
   group('selectPersistedBody', () {
     test('selects empty before every other representation', () {
       final body = selectPersistedBody(

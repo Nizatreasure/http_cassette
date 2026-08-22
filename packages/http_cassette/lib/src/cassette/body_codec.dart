@@ -13,6 +13,72 @@ sealed class PersistedBody {
   Uint8List reconstruct();
 }
 
+/// An immutable persisted body with payload-consistent headers.
+final class PreparedPersistedBody {
+  PreparedPersistedBody._({
+    required this.body,
+    required this.headers,
+    required Iterable<String> changedHeaderNames,
+  }) : changedHeaderNames = Set<String>.unmodifiable(changedHeaderNames);
+
+  /// The selected persisted body representation.
+  final PersistedBody body;
+
+  /// Headers corrected for [body]'s reconstructed bytes.
+  final CassetteHeaders headers;
+
+  /// Canonical names of headers whose values or presence changed.
+  ///
+  /// A persisted request must add these names to its matching exclusions.
+  final Set<String> changedHeaderNames;
+}
+
+/// Selects a persisted body and corrects payload-derived [headers].
+PreparedPersistedBody preparePersistedBody(
+  CassetteHeaders headers,
+  List<int> bytes,
+) {
+  final body = selectPersistedBody(headers, bytes);
+  final reconstructedLength = body.reconstruct().length;
+  final changedNames = <String>{};
+  final corrected = <String, Iterable<String>>{};
+
+  for (final name in headers.names) {
+    final values = headers.values(name)!;
+    if (_alwaysRemovedPayloadHeaders.contains(name)) {
+      changedNames.add(name);
+      continue;
+    }
+    if (name == 'content-encoding' && body is! PersistedBase64Body) {
+      changedNames.add(name);
+      continue;
+    }
+    if (name == 'content-length') {
+      final replacement = <String>['$reconstructedLength'];
+      corrected[name] = replacement;
+      if (!_stringListsEqual(values, replacement)) {
+        changedNames.add(name);
+      }
+      continue;
+    }
+    corrected[name] = values;
+  }
+
+  final sortedChangedNames = changedNames.toList()..sort();
+  return PreparedPersistedBody._(
+    body: body,
+    headers: changedNames.isEmpty ? headers : CassetteHeaders(corrected),
+    changedHeaderNames: sortedChangedNames,
+  );
+}
+
+const _alwaysRemovedPayloadHeaders = <String>{
+  'content-md5',
+  'digest',
+  'content-digest',
+  'etag',
+};
+
 /// Selects the V1 persisted representation for canonical [bytes].
 ///
 /// Selection uses empty, JSON, readable UTF-8 text and Base64 precedence.
@@ -200,6 +266,18 @@ Object? _copyJsonValue(Object? value) {
 }
 
 bool _bytesEqual(Uint8List first, Uint8List second) {
+  if (first.length != second.length) {
+    return false;
+  }
+  for (var index = 0; index < first.length; index += 1) {
+    if (first[index] != second[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _stringListsEqual(List<String> first, List<String> second) {
   if (first.length != second.length) {
     return false;
   }

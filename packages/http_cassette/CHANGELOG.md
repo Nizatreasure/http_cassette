@@ -60,4 +60,6 @@
   sanitisation.
 - Added deterministic core selection of empty, JSON, text and Base64 persisted
   body encodings.
+- Added payload-derived header correction with changed-name reporting for
+  request matching exclusions.
 - Record/replay behaviour is not available yet.
