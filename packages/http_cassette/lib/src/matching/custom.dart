@@ -23,12 +23,14 @@ abstract final class MatchContext {
     Iterable<String> excludedQueryParameters = const <String>[],
     Iterable<String> excludedJsonPointers = const <String>[],
     bool uriUserInformationExcluded = false,
+    bool bodyExcluded = false,
   }) {
     final exclusions = MatchingExclusions(
       headers: excludedHeaders,
       queryParameters: excludedQueryParameters,
       jsonPointers: excludedJsonPointers,
       uriUserInformation: uriUserInformationExcluded,
+      body: bodyExcluded,
     );
     return _MatchContext(exclusions);
   }
@@ -44,6 +46,11 @@ abstract final class MatchContext {
 
   /// Whether URI user information is excluded from value matching.
   bool get uriUserInformationExcluded;
+
+  /// Whether the complete request body value is excluded from matching.
+  ///
+  /// Body presence remains significant.
+  bool get bodyExcluded;
 }
 
 /// An immutable safe result returned by a custom matcher component.
@@ -98,6 +105,9 @@ final class _MatchContext implements MatchContext {
 
   @override
   bool get uriUserInformationExcluded => _exclusions.uriUserInformation;
+
+  @override
+  bool get bodyExcluded => _exclusions.body;
 }
 
 final class _MatchComponentResult implements MatchComponentResult {

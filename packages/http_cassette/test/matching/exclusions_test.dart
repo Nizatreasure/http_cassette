@@ -9,12 +9,14 @@ void main() {
         queryParameters: <String>['token', 'request%5fid'],
         jsonPointers: <String>['/z', '/a~1b/m~0n', '/z'],
         uriUserInformation: true,
+        body: true,
       );
 
       expect(exclusions.headers, <String>{'accept', 'x-trace'});
       expect(exclusions.queryParameters, <String>{'request_id', 'token'});
       expect(exclusions.jsonPointers, <String>{'/a~1b/m~0n', '/z'});
       expect(exclusions.uriUserInformation, isTrue);
+      expect(exclusions.body, isTrue);
     });
 
     test('rejects invalid header names safely', () {
@@ -59,6 +61,15 @@ void main() {
         () => exclusions.headers.add('content-type'),
         throwsUnsupportedError,
       );
+    });
+
+    test('unions boolean exclusions', () {
+      final exclusions = MatchingExclusions(
+        uriUserInformation: true,
+      ).mergedWith(MatchingExclusions(body: true));
+
+      expect(exclusions.uriUserInformation, isTrue);
+      expect(exclusions.body, isTrue);
     });
   });
 }

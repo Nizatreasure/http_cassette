@@ -23,6 +23,7 @@ enum RequestMatchComponent {
 enum RequestMatchComponentState {
   matched,
   different,
+  excluded,
   unavailable,
   notConfigured
 }
@@ -69,6 +70,7 @@ final class CustomComponentMatchResult {
 /// The comparison strategy used for the request body.
 enum RequestBodyComparisonKind {
   notConfigured,
+  valueExcluded,
   structuralJson,
   exactBytes,
   exactBytesJsonUnavailable,
@@ -219,6 +221,7 @@ final class DefaultRequestMatcher {
       excludedQueryParameters: effectiveExclusions.queryParameters,
       excludedJsonPointers: effectiveExclusions.jsonPointers,
       uriUserInformationExcluded: effectiveExclusions.uriUserInformation,
+      bodyExcluded: effectiveExclusions.body,
     );
     final customComponents = <CustomComponentMatchResult>[];
     for (final component in configuration.customComponents) {
@@ -275,6 +278,8 @@ final class DefaultRequestMatcher {
           state: switch (body.kind) {
             RequestBodyComparisonKind.notConfigured =>
               RequestMatchComponentState.notConfigured,
+            RequestBodyComparisonKind.valueExcluded when body.matches =>
+              RequestMatchComponentState.excluded,
             RequestBodyComparisonKind.exactBytesJsonUnavailable =>
               RequestMatchComponentState.unavailable,
             _ => _state(body.matches),
@@ -316,6 +321,20 @@ RequestBodyMatchResult _compareRequestBodies(
       kind: RequestBodyComparisonKind.notConfigured,
       matches: true,
       differences: _emptyDifferences(),
+    );
+  }
+
+  if (exclusions.body) {
+    final presenceMatches = expected.body.isEmpty == actual.body.isEmpty;
+    return RequestBodyMatchResult._(
+      kind: RequestBodyComparisonKind.valueExcluded,
+      matches: presenceMatches,
+      differences: _singleDifference(
+        matches: presenceMatches,
+        kind: MatchDifferenceKind.differentMultiplicity,
+        location: 'body',
+        maximumRetained: maximumRetained,
+      ),
     );
   }
 

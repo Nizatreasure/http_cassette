@@ -90,6 +90,32 @@ void main() {
       expect(result.body.exactComparison!.firstDifferenceOffset, 0);
     });
 
+    test('excludes a complete body value while preserving its presence', () {
+      final replaced = _compare(
+        _request('POST', 'https://example.test/', body: <int>[1, 2]),
+        _request('POST', 'https://example.test/', body: <int>[3]),
+        exclusions: MatchingExclusions(body: true),
+      );
+
+      expect(replaced.matches, isTrue);
+      expect(replaced.body.kind, RequestBodyComparisonKind.valueExcluded);
+      expect(
+        replaced.components.last.state,
+        RequestMatchComponentState.excluded,
+      );
+
+      final missing = _compare(
+        _request('POST', 'https://example.test/'),
+        _request('POST', 'https://example.test/', body: <int>[3]),
+        exclusions: MatchingExclusions(body: true),
+      );
+
+      expect(missing.matches, isFalse);
+      expect(missing.body.kind, RequestBodyComparisonKind.valueExcluded);
+      expect(
+          missing.components.last.state, RequestMatchComponentState.different);
+    });
+
     test('compares two valid JSON bodies structurally', () {
       final result = _compare(
         _jsonRequest('{"first":1,"ignored":"old"}'),
@@ -247,6 +273,7 @@ void main() {
         expect(context.excludedQueryParameters, <String>{'token'});
         expect(context.excludedJsonPointers, <String>{'/secret'});
         expect(context.uriUserInformationExcluded, isTrue);
+        expect(context.bodyExcluded, isTrue);
         return MatchComponentResult(matches: true);
       });
       final second = _TestComponent('second', (
@@ -279,6 +306,7 @@ void main() {
         exclusions: MatchingExclusions(
           headers: <String>{'x-secret'},
           uriUserInformation: true,
+          body: true,
         ),
       );
 

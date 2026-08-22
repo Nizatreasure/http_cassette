@@ -95,7 +95,10 @@ compare as exact bytes; differences retain only safe length, empty-state and
 first-offset facts. Adapters must supply internationalised hosts in canonical
 ASCII form. Matching exclusions validate header names and exact JSON Pointers.
 Excluded query values retain their parameter names, multiplicity, order and
-equals-sign state.
+equals-sign state. A whole-body exclusion is available for custom sanitisers
+that replace an opaque body or the complete body structure. It ignores the body
+value only: an empty body still does not match a non-empty body. Use exact JSON
+Pointers when only selected JSON locations changed.
 
 The transport-neutral custom matcher contract supports additional safe matching
 requirements. Registered components run after the built-in components in their
@@ -167,7 +170,8 @@ contracts. A request sanitiser returns a `SanitisedRequest` containing valid
 canonical data and a validated `MatchingExclusions` value for every changed
 location that affects matching. A response sanitiser returns a valid canonical
 response. Implementations must be deterministic and must not log their raw
-input.
+input. If a request sanitiser replaces the complete body, it may report a
+whole-body exclusion; body presence remains significant.
 
 Custom sanitisers may be registered through `SanitisationConfiguration` and are
 retained in explicit order. Registration is immutable and defensively copied.

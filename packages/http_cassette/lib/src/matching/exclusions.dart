@@ -13,6 +13,7 @@ final class MatchingExclusions {
     Iterable<String> queryParameters = const <String>[],
     Iterable<String> jsonPointers = const <String>[],
     bool uriUserInformation = false,
+    bool body = false,
   }) {
     final canonicalQueryParameters = <String>{};
     for (final name in queryParameters) {
@@ -33,6 +34,7 @@ final class MatchingExclusions {
       queryParameters: _sortedSet(canonicalQueryParameters),
       jsonPointers: _sortedSet(validatedPointers),
       uriUserInformation: uriUserInformation,
+      body: body,
     );
   }
 
@@ -41,6 +43,7 @@ final class MatchingExclusions {
     required this.queryParameters,
     required this.jsonPointers,
     required this.uriUserInformation,
+    required this.body,
   });
 
   /// An empty exclusion set.
@@ -49,6 +52,7 @@ final class MatchingExclusions {
     queryParameters: <String>{},
     jsonPointers: <String>{},
     uriUserInformation: false,
+    body: false,
   );
 
   /// Canonical lower-case header names excluded from value matching.
@@ -63,6 +67,12 @@ final class MatchingExclusions {
   /// Whether the complete URI user-information value is excluded.
   final bool uriUserInformation;
 
+  /// Whether the complete request body value is excluded.
+  ///
+  /// Body presence remains significant, so an empty body does not match a
+  /// non-empty body.
+  final bool body;
+
   /// Returns the union of this exclusion set and [other].
   MatchingExclusions mergedWith(MatchingExclusions other) => MatchingExclusions(
         headers: <String>{...headers, ...other.headers},
@@ -72,6 +82,7 @@ final class MatchingExclusions {
         },
         jsonPointers: <String>{...jsonPointers, ...other.jsonPointers},
         uriUserInformation: uriUserInformation || other.uriUserInformation,
+        body: body || other.body,
       );
 }
 

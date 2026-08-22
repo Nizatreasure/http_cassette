@@ -41,4 +41,6 @@
 - Added composed built-in request and response sanitisation.
 - Added public transport-neutral custom sanitiser contracts.
 - Added immutable ordered custom sanitiser registration.
+- Added whole-request-body matching exclusions that retain empty versus
+  non-empty body presence.
 - Record/replay behaviour is not available yet.

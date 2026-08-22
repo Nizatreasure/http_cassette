@@ -9,12 +9,14 @@ void main() {
         excludedQueryParameters: <String>['request%5fid'],
         excludedJsonPointers: <String>['/secret'],
         uriUserInformationExcluded: true,
+        bodyExcluded: true,
       );
 
       expect(context.excludedHeaders, <String>{'x-secret'});
       expect(context.excludedQueryParameters, <String>{'request_id'});
       expect(context.excludedJsonPointers, <String>{'/secret'});
       expect(context.uriUserInformationExcluded, isTrue);
+      expect(context.bodyExcluded, isTrue);
       expect(
         () => context.excludedHeaders.add('another'),
         throwsUnsupportedError,
