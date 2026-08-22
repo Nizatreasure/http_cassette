@@ -9,6 +9,8 @@ import '../model/http_message.dart';
 import '../model/http_syntax.dart';
 import '../model/outcome.dart';
 import 'body_codec.dart';
+import 'cassette.dart';
+import 'interaction.dart';
 import 'request_encoding.dart';
 
 /// The schema version understood by the current cassette decoder.
@@ -158,6 +160,45 @@ CassetteEnvelopeV1 decodeCassetteEnvelopeV1(List<int> bytes) {
     _invalidStructure('/interactions');
   }
   return CassetteEnvelopeV1._(interactions);
+}
+
+/// Strictly decodes one complete V1 cassette from UTF-8 [bytes].
+Cassette decodeCassetteV1(List<int> bytes) {
+  final envelope = decodeCassetteEnvelopeV1(bytes);
+  final interactions = <CassetteInteraction>[];
+  for (var position = 0; position < envelope.interactions.length; position++) {
+    final location = '/interactions/$position';
+    final value = envelope.interactions[position];
+    if (value is! Map<String, Object?> ||
+        !_keysEqual(
+            value.keys, const <String>['index', 'request', 'outcome'])) {
+      _invalidStructure(location);
+    }
+
+    final index = value['index'];
+    if (index is! ParsedJsonNumber ||
+        !index.isInteger ||
+        BigInt.parse(index.source) != BigInt.from(position)) {
+      _invalidStructure('$location/index');
+    }
+    final decodedRequest = decodeCassetteRequestV1(
+      value['request'],
+      location: '$location/request',
+    );
+    final outcome = decodeCassetteOutcomeV1(
+      value['outcome'],
+      location: '$location/outcome',
+    );
+    interactions.add(
+      CassetteInteraction(
+        index: position,
+        request: decodedRequest.request,
+        matchingExclusions: decodedRequest.matchingExclusions,
+        outcome: outcome,
+      ),
+    );
+  }
+  return Cassette(interactions: interactions);
 }
 
 /// Strictly decodes one V1 persisted body at [location].
