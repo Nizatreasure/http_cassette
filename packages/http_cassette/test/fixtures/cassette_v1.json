@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "interactions": [
+    {
+      "index": 0,
+      "request": {
+        "method": "POST",
+        "uri": "https://example.test/items?page=2&tag=first&tag=second",
+        "headers": {
+          "content-type": [
+            "application/json"
+          ],
+          "x-trace": [
+            "one",
+            "two"
+          ]
+        },
+        "body": {
+          "encoding": "json",
+          "content": {
+            "a": "line\n\"quoted\" £",
+            "z": 1e+02
+          }
+        },
+        "matchingExclusions": {
+          "uriUserInformation": false,
+          "body": false,
+          "headers": [
+            "authorization"
+          ],
+          "queryParameters": [
+            "token"
+          ],
+          "jsonPointers": [
+            "/z"
+          ]
+        }
+      },
+      "outcome": {
+        "type": "response",
+        "statusCode": 201,
+        "reasonPhrase": "Created",
+        "headers": {
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ]
+        },
+        "body": {
+          "encoding": "text",
+          "content": "saved"
+        }
+      }
+    },
+    {
+      "index": 1,
+      "request": {
+        "method": "GET",
+        "uri": "https://example.test/failure",
+        "headers": {},
+        "body": {
+          "encoding": "empty"
+        },
+        "matchingExclusions": {
+          "uriUserInformation": false,
+          "body": false,
+          "headers": [],
+          "queryParameters": [],
+          "jsonPointers": []
+        }
+      },
+      "outcome": {
+        "type": "transportFailure",
+        "category": "timeout",
+        "message": "The operation timed out."
+      }
+    }
+  ]
+}

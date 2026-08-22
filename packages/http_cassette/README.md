@@ -221,8 +221,11 @@ The internal persistence foundation now projects a complete cassette into the
 exact V1 field order. Projection prepares request and response bodies, corrects
 payload-derived headers, adds changed request header names to matching
 exclusions, and selects the response or transport-failure schema shape. The
-result is a deeply immutable schema tree. Deterministic JSON byte writing and
-reading persisted cassettes are not implemented yet.
+result is a deeply immutable schema tree. The internal encoder writes that tree
+as deterministic UTF-8 JSON with exact schema ordering, two-space indentation,
+LF line endings and one final line feed. It preserves lossless JSON number
+spelling and has a reviewed complete golden fixture. Reading persisted
+cassettes is not implemented yet.
 
 ## Example
 

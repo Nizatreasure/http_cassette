@@ -64,4 +64,5 @@
   request matching exclusions.
 - Added deterministic canonical URI construction for persisted requests.
 - Added immutable, exactly ordered projection into the V1 cassette schema.
+- Added deterministic pretty-printed V1 cassette encoding with golden coverage.
 - Record/replay behaviour is not available yet.
