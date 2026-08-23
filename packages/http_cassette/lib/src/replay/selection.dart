@@ -27,6 +27,23 @@ final class ReplayGroupExhausted extends ReplaySelectionResult {
   const ReplayGroupExhausted();
 }
 
+/// An immutable point-in-time snapshot of distinct replay usage.
+final class ReplayUsageSnapshot {
+  /// Creates a canonical usage snapshot from [usedRecordedIndices].
+  factory ReplayUsageSnapshot(Iterable<int> usedRecordedIndices) {
+    final copied = usedRecordedIndices.toSet().toList()..sort();
+    if (copied.any((index) => index < 0)) {
+      throw ArgumentError('Used recorded indices must not be negative.');
+    }
+    return ReplayUsageSnapshot._(List<int>.unmodifiable(copied));
+  }
+
+  const ReplayUsageSnapshot._(this.usedRecordedIndices);
+
+  /// Distinct used interaction indices in ascending recorded order.
+  final List<int> usedRecordedIndices;
+}
+
 /// Isolate-local synchronous selection state for one matching group.
 final class ReplaySelectionState {
   /// Creates strict selection state for [matchingInteractions].
@@ -75,6 +92,10 @@ final class ReplaySelectionState {
 
   /// The number of distinct interactions used by successful selections.
   int get consumedCount => _usedRecordedIndices.length;
+
+  /// An immutable point-in-time snapshot of distinct interaction usage.
+  ReplayUsageSnapshot get usageSnapshot =>
+      ReplayUsageSnapshot(_usedRecordedIndices);
 
   /// Selects an interaction and updates policy state synchronously.
   ReplaySelectionResult select() {

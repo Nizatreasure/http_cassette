@@ -116,6 +116,13 @@ wraps from the final match to the first and continues indefinitely. It also
 returns no-match for an empty group and never exhausts. Matching and selection
 are still not connected to a public replay operation.
 
+Replay selection state can now produce immutable point-in-time snapshots of
+the distinct recorded indices it has used. An internal cassette-wide verifier
+combines snapshots from independent matching groups and, when explicitly
+enabled, returns either success or every unused index in recorded order.
+Verification is disabled by default and is not yet connected to session close
+or public diagnostics.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.

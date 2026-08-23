@@ -103,4 +103,6 @@
 - Added deterministic reusable first- and last-match replay selection.
 - Added progressive sequence replay selection with final-match reuse.
 - Added wrapping cycle replay selection with stable distinct-use tracking.
+- Added immutable replay usage snapshots and optional cassette-wide unused
+  interaction verification.
 - Record/replay behaviour is not available yet.
