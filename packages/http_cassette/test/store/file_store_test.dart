@@ -106,7 +106,7 @@ void main() {
     expect(snapshot.bytes, <int>[0xff, 0x00]);
   });
 
-  test('reports every write operation as unsupported', () async {
+  test('reports replacement operations as unsupported', () async {
     final store = FileCassetteStore(root);
     final name = CassetteName('checkout');
     final snapshot = CassetteSnapshot(
@@ -116,7 +116,6 @@ void main() {
     );
 
     for (final entry in <(CassetteStoreOperation, Future<void> Function())>[
-      (CassetteStoreOperation.create, () => store.create(name, const <int>[])),
       (
         CassetteStoreOperation.replace,
         () => store.replace(name, const <int>[]),

@@ -68,7 +68,9 @@ Reads are bounded and format-neutral: the store returns exact immutable bytes
 without decoding UTF-8, parsing JSON or validating a schema. The core codec
 owns those later steps. A missing root behaves as an empty store. Path
 resolution rejects symbolic-link escapes without exposing absolute paths. File
-writes remain unsupported, and the primary library does not import `dart:io`.
+creation is supported and never replaces an existing target. Explicit and
+conditional replacement remain unsupported. The primary library does not
+import `dart:io`.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without

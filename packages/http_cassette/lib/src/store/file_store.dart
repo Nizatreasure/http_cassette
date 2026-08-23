@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -42,12 +43,15 @@ final class FileCassetteStore implements CassetteStore {
 
   final Directory _root;
   final FileCassettePathResolver _resolver;
+  final Map<CassetteName, Future<void>> _writeTails =
+      <CassetteName, Future<void>>{};
 
   /// The maximum encoded cassette bytes accepted by one read.
   final int maximumBytes;
 
   @override
   Future<bool> exists(CassetteName name) async {
+    await _waitForWrites(name);
     if (!await _rootExists(name, CassetteStoreOperation.exists)) {
       return false;
     }
@@ -60,6 +64,7 @@ final class FileCassetteStore implements CassetteStore {
 
   @override
   Future<CassetteSnapshot> read(CassetteName name) async {
+    await _waitForWrites(name);
     if (!await _rootExists(name, CassetteStoreOperation.read)) {
       throw CassetteStoreException.notFound(
         name: name,
@@ -101,12 +106,14 @@ final class FileCassetteStore implements CassetteStore {
   }
 
   @override
-  Future<void> create(CassetteName name, List<int> bytes) => Future<void>.error(
-        CassetteStoreException.unsupported(
-          name: name,
-          operation: CassetteStoreOperation.create,
-        ),
-      );
+  Future<void> create(CassetteName name, List<int> bytes) {
+    final copied = _copyWriteBytes(
+      name,
+      bytes,
+      operation: CassetteStoreOperation.create,
+    );
+    return _serialiseWrite(name, () => _create(name, copied));
+  }
 
   @override
   Future<void> replace(CassetteName name, List<int> bytes) =>
@@ -160,5 +167,162 @@ final class FileCassetteStore implements CassetteStore {
       builder.add(chunk);
     }
     return builder.takeBytes();
+  }
+
+  Uint8List _copyWriteBytes(
+    CassetteName name,
+    List<int> bytes, {
+    required CassetteStoreOperation operation,
+  }) {
+    if (bytes.length > maximumBytes) {
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: operation,
+      );
+    }
+    for (final byte in bytes) {
+      if (byte < 0 || byte > 255) {
+        throw ArgumentError(
+          'Cassette store values must be bytes from 0 through 255.',
+        );
+      }
+    }
+    return Uint8List.fromList(bytes);
+  }
+
+  Future<void> _create(CassetteName name, Uint8List bytes) async {
+    await _ensureRoot(name, CassetteStoreOperation.create);
+    var target = await _resolver.resolve(
+      name,
+      operation: CassetteStoreOperation.create,
+    );
+
+    try {
+      await target.parent.create(recursive: true);
+      target = await _resolver.resolve(
+        name,
+        operation: CassetteStoreOperation.create,
+      );
+    } on CassetteStoreException {
+      rethrow;
+    } on FileSystemException {
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: CassetteStoreOperation.create,
+      );
+    }
+
+    var created = false;
+    RandomAccessFile? handle;
+    try {
+      await target.create(exclusive: true);
+      created = true;
+      handle = await target.open(mode: FileMode.writeOnly);
+      await handle.writeFrom(bytes);
+      await handle.flush();
+      await handle.close();
+      handle = null;
+    } on FileSystemException {
+      await _closeQuietly(handle);
+      if (created) {
+        await _deleteQuietly(target);
+        throw CassetteStoreException.operationFailed(
+          name: name,
+          operation: CassetteStoreOperation.create,
+        );
+      }
+      final type = await FileSystemEntity.type(
+        target.path,
+        followLinks: false,
+      );
+      if (type != FileSystemEntityType.notFound) {
+        throw CassetteStoreException.alreadyExists(name);
+      }
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: CassetteStoreOperation.create,
+      );
+    } catch (_) {
+      await _closeQuietly(handle);
+      if (created) {
+        await _deleteQuietly(target);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _ensureRoot(
+    CassetteName name,
+    CassetteStoreOperation operation,
+  ) async {
+    final type = await FileSystemEntity.type(_root.path);
+    if (type == FileSystemEntityType.notFound) {
+      try {
+        await _root.create(recursive: true);
+      } on FileSystemException {
+        throw CassetteStoreException.operationFailed(
+          name: name,
+          operation: operation,
+        );
+      }
+      return;
+    }
+    if (type != FileSystemEntityType.directory) {
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: operation,
+      );
+    }
+  }
+
+  Future<void> _waitForWrites(CassetteName name) async {
+    final pending = _writeTails[name];
+    if (pending == null) {
+      return;
+    }
+    try {
+      await pending;
+    } on Object {
+      // A later operation must observe the resulting file-system state even
+      // when the preceding write failed.
+    }
+  }
+
+  Future<void> _serialiseWrite(
+    CassetteName name,
+    Future<void> Function() operation,
+  ) {
+    final previous = _writeTails[name] ?? Future<void>.value();
+    final next = previous.catchError((Object _) {}).then((_) => operation());
+    _writeTails[name] = next;
+    return next.whenComplete(() {
+      if (identical(_writeTails[name], next)) {
+        final completed = _writeTails.remove(name);
+        if (completed != null) {
+          unawaited(completed);
+        }
+      }
+    });
+  }
+}
+
+Future<void> _closeQuietly(RandomAccessFile? handle) async {
+  if (handle == null) {
+    return;
+  }
+  try {
+    await handle.close();
+  } on FileSystemException {
+    // The original write failure remains authoritative.
+  }
+}
+
+Future<void> _deleteQuietly(File file) async {
+  try {
+    if (await file.exists()) {
+      await file.delete();
+    }
+  } on FileSystemException {
+    // Cleanup is best effort after a failed create.
   }
 }

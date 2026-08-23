@@ -87,4 +87,6 @@
   containment checks.
 - Added the `dart:io` file-store library with safe existence checks and bounded,
   format-neutral reads.
+- Added exclusive create-only file writes with defensive input copying,
+  same-instance ordering and best-effort failed-write cleanup.
 - Record/replay behaviour is not available yet.
