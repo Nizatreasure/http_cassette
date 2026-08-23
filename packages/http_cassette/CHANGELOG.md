@@ -74,4 +74,6 @@
 - Added strict reconstruction of V1 response and transport-failure outcomes.
 - Added strict reconstruction of complete immutable V1 cassettes.
 - Added reviewed invalid V1 fixtures and complete-cassette round-trip coverage.
+- Added a reproducible cassette-size probe and selected a planned 64 MiB
+  default total-file limit.
 - Record/replay behaviour is not available yet.
