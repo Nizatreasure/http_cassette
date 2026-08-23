@@ -108,4 +108,5 @@
 - Added immutable value-free replay exhaustion facts for later diagnostics.
 - Added immutable value-free replay request and cassette diagnostic context.
 - Added internal structured replay exhaustion diagnostic assembly.
+- Added bounded deterministic formatting for replay exhaustion diagnostics.
 - Record/replay behaviour is not available yet.

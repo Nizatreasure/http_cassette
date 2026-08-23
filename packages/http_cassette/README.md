@@ -134,8 +134,10 @@ than truncated. The summary does not retain URI, query, header or body values.
 The context and verified exhaustion facts now assemble into an internal
 structured exhaustion diagnostic with a fixed exhaustion category, safe
 summary and disabled-network status. It cannot be mislabelled as a request
-mismatch. Public replay integration and specialised formatting are not
-implemented yet.
+mismatch. Its internal deterministic plain-text formatter shows the safe
+request facts, consumption state and policy without logging. Cassette names are
+explicitly truncated after 128 characters and at most 16 recorded indices are
+shown with an omitted count. Public replay integration is not implemented yet.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
