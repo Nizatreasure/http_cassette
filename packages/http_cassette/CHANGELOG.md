@@ -100,4 +100,5 @@
 - Added deterministic immutable replay matching-group construction.
 - Added synchronous strict replay selection with distinct no-match and
   exhausted results.
+- Added deterministic reusable first- and last-match replay selection.
 - Record/replay behaviour is not available yet.

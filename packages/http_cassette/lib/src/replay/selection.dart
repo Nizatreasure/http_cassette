@@ -36,31 +36,64 @@ final class ReplaySelectionState {
   /// separate consumable entries.
   ReplaySelectionState.strict(
     Iterable<CassetteInteraction> matchingInteractions,
-  )   : policy = ReplayPolicy.strict,
-        _matchingInteractions = _prepareGroup(matchingInteractions);
+  ) : this._(ReplayPolicy.strict, matchingInteractions);
+
+  /// Creates reusable first-match selection state for [matchingInteractions].
+  ReplaySelectionState.first(
+    Iterable<CassetteInteraction> matchingInteractions,
+  ) : this._(ReplayPolicy.first, matchingInteractions);
+
+  /// Creates reusable last-match selection state for [matchingInteractions].
+  ReplaySelectionState.last(
+    Iterable<CassetteInteraction> matchingInteractions,
+  ) : this._(ReplayPolicy.last, matchingInteractions);
+
+  ReplaySelectionState._(
+    this.policy,
+    Iterable<CassetteInteraction> matchingInteractions,
+  ) : _matchingInteractions = _prepareGroup(matchingInteractions);
 
   /// The policy controlling this state.
   final ReplayPolicy policy;
 
   final List<CassetteInteraction> _matchingInteractions;
-  var _consumedCount = 0;
+  final Set<int> _usedRecordedIndices = <int>{};
+  var _nextPosition = 0;
 
   /// Immutable matching interactions in recorded-index order.
   List<CassetteInteraction> get matchingInteractions => _matchingInteractions;
 
-  /// The number of interactions consumed by successful selections.
-  int get consumedCount => _consumedCount;
+  /// The number of distinct interactions used by successful selections.
+  int get consumedCount => _usedRecordedIndices.length;
 
-  /// Selects and consumes the next strict interaction synchronously.
+  /// Selects an interaction and updates policy state synchronously.
   ReplaySelectionResult select() {
     if (_matchingInteractions.isEmpty) {
       return const ReplayNoMatch();
     }
-    if (_consumedCount == _matchingInteractions.length) {
+    return switch (policy) {
+      ReplayPolicy.strict => _selectStrict(),
+      ReplayPolicy.first => _selectReusable(0),
+      ReplayPolicy.last => _selectReusable(_matchingInteractions.length - 1),
+      ReplayPolicy.sequence ||
+      ReplayPolicy.cycle =>
+        throw StateError('The replay policy is not implemented yet.'),
+    };
+  }
+
+  ReplaySelectionResult _selectStrict() {
+    if (_nextPosition == _matchingInteractions.length) {
       return const ReplayGroupExhausted();
     }
-    final interaction = _matchingInteractions[_consumedCount];
-    _consumedCount++;
+    final interaction = _matchingInteractions[_nextPosition];
+    _nextPosition++;
+    _usedRecordedIndices.add(interaction.index);
+    return ReplayInteractionSelected(interaction);
+  }
+
+  ReplaySelectionResult _selectReusable(int position) {
+    final interaction = _matchingInteractions[position];
+    _usedRecordedIndices.add(interaction.index);
     return ReplayInteractionSelected(interaction);
   }
 }

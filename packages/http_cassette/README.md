@@ -102,6 +102,11 @@ from a group exhausted by earlier selections. Replay diagnostics and engine
 integration remain unimplemented, so exhaustion is not yet exposed through a
 public replay operation.
 
+Internal `first` and `last` replay state now reuse the lowest or highest
+recorded-index match respectively. Empty groups remain no-match results and
+these reusable policies never exhaust. Distinct-use tracking counts the reused
+interaction once for future unused-interaction verification.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
