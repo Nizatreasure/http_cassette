@@ -98,4 +98,6 @@
   revision rejection.
 - Added immutable replay policy and session-option configuration.
 - Added deterministic immutable replay matching-group construction.
+- Added synchronous strict replay selection with distinct no-match and
+  exhausted results.
 - Record/replay behaviour is not available yet.

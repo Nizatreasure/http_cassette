@@ -96,6 +96,12 @@ persisted exclusions, preserves recorded indices and identical interactions,
 and excludes mismatches. Policy selection and consumption are still not
 implemented, so this does not yet make requests replayable.
 
+Internal strict replay state now selects the lowest recorded-index unconsumed
+match and consumes each match once. It distinguishes an empty matching group
+from a group exhausted by earlier selections. Replay diagnostics and engine
+integration remain unimplemented, so exhaustion is not yet exposed through a
+public replay operation.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
