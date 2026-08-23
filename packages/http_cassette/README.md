@@ -53,6 +53,12 @@ Creation never replaces an existing cassette. `replace` is explicit, while
 `replaceIfUnchanged` rejects a stale snapshot. Directly supplied bytes must
 already be sanitised, validated and encoded.
 
+File-backed storage is not available yet. Its internal path-safety foundation
+now maps validated logical names beneath an existing canonical root and rejects
+symbolic-link escapes without exposing absolute paths. The primary library does
+not import `dart:io`; the public platform library and file reads remain later
+stages.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.

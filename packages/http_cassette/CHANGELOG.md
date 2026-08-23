@@ -83,4 +83,6 @@
 - Added safe structured cassette-store failure and operation categories.
 - Added the public transport-neutral cassette-store contract.
 - Added isolate-local in-memory cassette storage with conditional replacement.
+- Added the internal file-store path resolver with per-operation symbolic-link
+  containment checks.
 - Record/replay behaviour is not available yet.
