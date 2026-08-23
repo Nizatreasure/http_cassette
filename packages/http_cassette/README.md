@@ -34,6 +34,13 @@ file path, encoded bytes, revision value or platform exception. The current
 categories distinguish missing and existing targets, changed revisions,
 unsupported operations and other operation failures.
 
+`CassetteStore` is the public transport-neutral persistence contract. It
+supports existence checks, immutable snapshot reads, create-only writes,
+explicit replacement and revision-checked replacement. Implementations must
+copy byte input and must not decode, match, sanitise or migrate cassette data.
+Direct callers are responsible for supplying sanitised, validated and encoded
+cassette bytes. No concrete store is available yet.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.

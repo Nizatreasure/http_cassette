@@ -26,3 +26,4 @@ export 'src/store/exception.dart'
         CassetteStoreFailureKind,
         CassetteStoreOperation;
 export 'src/store/snapshot.dart' show CassetteRevision, CassetteSnapshot;
+export 'src/store/store.dart' show CassetteStore;

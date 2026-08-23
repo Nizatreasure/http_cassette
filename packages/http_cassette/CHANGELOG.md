@@ -81,4 +81,5 @@
 - Added immutable encoded cassette snapshots with opaque identity-only
   revisions.
 - Added safe structured cassette-store failure and operation categories.
+- Added the public transport-neutral cassette-store contract.
 - Record/replay behaviour is not available yet.
