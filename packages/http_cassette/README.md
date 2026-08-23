@@ -28,6 +28,12 @@ It defensively copies its bytes and carries an identity-only
 string form and exists only for conditional replacement. The store contract
 and store implementations are not available yet.
 
+`CassetteStoreException` provides stable store failure and operation enums for
+programmatic handling. It retains only the logical cassette name and never a
+file path, encoded bytes, revision value or platform exception. The current
+categories distinguish missing and existing targets, changed revisions,
+unsupported operations and other operation failures.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.

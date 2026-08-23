@@ -80,4 +80,5 @@
   parsing.
 - Added immutable encoded cassette snapshots with opaque identity-only
   revisions.
+- Added safe structured cassette-store failure and operation categories.
 - Record/replay behaviour is not available yet.
