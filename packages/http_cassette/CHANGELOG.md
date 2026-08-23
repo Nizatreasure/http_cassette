@@ -105,4 +105,5 @@
 - Added wrapping cycle replay selection with stable distinct-use tracking.
 - Added immutable replay usage snapshots and optional cassette-wide unused
   interaction verification.
+- Added immutable value-free replay exhaustion facts for later diagnostics.
 - Record/replay behaviour is not available yet.

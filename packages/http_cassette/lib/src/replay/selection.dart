@@ -23,8 +23,13 @@ final class ReplayNoMatch extends ReplaySelectionResult {
 
 /// A replay-selection result for a fully consumed matching group.
 final class ReplayGroupExhausted extends ReplaySelectionResult {
-  /// Creates an exhausted-group result.
-  const ReplayGroupExhausted();
+  ReplayGroupExhausted._(this._stateIdentity);
+
+  final Object _stateIdentity;
+
+  /// Whether this result was produced by [state].
+  bool wasProducedBy(ReplaySelectionState state) =>
+      identical(_stateIdentity, state._identity);
 }
 
 /// An immutable point-in-time snapshot of distinct replay usage.
@@ -84,6 +89,7 @@ final class ReplaySelectionState {
   final ReplayPolicy policy;
 
   final List<CassetteInteraction> _matchingInteractions;
+  final Object _identity = Object();
   final Set<int> _usedRecordedIndices = <int>{};
   var _nextPosition = 0;
 
@@ -92,6 +98,12 @@ final class ReplaySelectionState {
 
   /// The number of distinct interactions used by successful selections.
   int get consumedCount => _usedRecordedIndices.length;
+
+  /// Whether strict selection has consumed a non-empty matching group.
+  bool get isExhausted =>
+      policy == ReplayPolicy.strict &&
+      _matchingInteractions.isNotEmpty &&
+      _nextPosition == _matchingInteractions.length;
 
   /// An immutable point-in-time snapshot of distinct interaction usage.
   ReplayUsageSnapshot get usageSnapshot =>
@@ -113,7 +125,7 @@ final class ReplaySelectionState {
 
   ReplaySelectionResult _selectStrict() {
     if (_nextPosition == _matchingInteractions.length) {
-      return const ReplayGroupExhausted();
+      return ReplayGroupExhausted._(_identity);
     }
     final interaction = _matchingInteractions[_nextPosition];
     _nextPosition++;

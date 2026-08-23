@@ -123,6 +123,12 @@ enabled, returns either success or every unused index in recorded order.
 Verification is disabled by default and is not yet connected to session close
 or public diagnostics.
 
+Actual strict exhaustion can now be projected into immutable value-free facts:
+the active policy, matching-group size, distinct used count, recorded indices
+and disabled-network status. These facts retain no requests or outcomes. They
+are not yet a complete diagnostic because the required safe request summary and
+logical cassette context still need their own bounded models.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
