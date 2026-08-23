@@ -6,6 +6,7 @@ import '../cassette/name.dart';
 import '../configuration/cassette_size_limit.dart';
 import 'exception.dart';
 import 'file_path_resolver.dart';
+import 'file_revision.dart';
 import 'snapshot.dart';
 import 'store.dart';
 import 'temporary_file_writer.dart';
@@ -47,6 +48,8 @@ final class FileCassetteStore implements CassetteStore {
   final FileCassettePathResolver _resolver;
   final SameDirectoryTemporaryFileWriter _temporaryFileWriter =
       SameDirectoryTemporaryFileWriter();
+  final Expando<FileCassetteRevision> _fileRevisions =
+      Expando<FileCassetteRevision>();
   final Map<CassetteName, Future<void>> _writeTails =
       <CassetteName, Future<void>>{};
 
@@ -88,10 +91,12 @@ final class FileCassetteStore implements CassetteStore {
 
     try {
       final bytes = await _readBounded(file, name);
+      final fileRevision = FileCassetteRevision.takeOwnership(bytes);
+      _fileRevisions[fileRevision.opaque] = fileRevision;
       return CassetteSnapshot(
         name: name,
         bytes: bytes,
-        revision: CassetteRevision(),
+        revision: fileRevision.opaque,
       );
     } on CassetteStoreException {
       rethrow;

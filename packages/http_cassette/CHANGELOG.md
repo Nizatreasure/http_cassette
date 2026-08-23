@@ -93,4 +93,5 @@
   for atomic file replacement.
 - Added explicit atomic file replacement on supported file systems, including
   same-instance ordering and safe missing-target behaviour.
+- Added private content snapshots behind opaque file-store revisions.
 - Record/replay behaviour is not available yet.

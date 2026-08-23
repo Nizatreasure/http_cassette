@@ -74,7 +74,9 @@ same-directory temporary file followed by replacement rename. It is atomic
 where the file system supports atomic replacement rename; no delete-and-rename
 fallback is used. Cross-process locking and directory durability across sudden
 power loss are not provided. Conditional replacement remains unsupported. The
-primary library does not import `dart:io`.
+file store revisions returned by reads privately retain the exact bounded bytes
+needed for later content-based conditional replacement; they expose only an
+opaque identity. The primary library does not import `dart:io`.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without

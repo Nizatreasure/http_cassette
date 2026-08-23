@@ -75,6 +75,20 @@ void main() {
     expect(() => snapshot.bytes[0] = 9, throwsUnsupportedError);
   });
 
+  test('returns a new opaque revision for each observed file snapshot',
+      () async {
+    await File('${root.path}/revision.json').writeAsBytes(<int>[1, 2, 3]);
+    final store = FileCassetteStore(root);
+    final name = CassetteName('revision');
+
+    final first = await store.read(name);
+    final second = await store.read(name);
+
+    expect(first.revision, isNot(second.revision));
+    expect(first.revision.toString(), 'CassetteRevision(<opaque>)');
+    expect(second.revision.toString(), 'CassetteRevision(<opaque>)');
+  });
+
   test('accepts a file exactly at a custom byte limit', () async {
     await File('${root.path}/boundary.json').writeAsBytes(<int>[1, 2, 3]);
     final store = FileCassetteStore(root, maximumBytes: 3);
