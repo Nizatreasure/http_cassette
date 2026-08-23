@@ -97,4 +97,5 @@
 - Added content-checked conditional file replacement with stale and foreign
   revision rejection.
 - Added immutable replay policy and session-option configuration.
+- Added deterministic immutable replay matching-group construction.
 - Record/replay behaviour is not available yet.

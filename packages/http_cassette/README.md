@@ -90,6 +90,12 @@ engine default, which will be `strict`. These values are configuration only:
 matching-group selection, consumption and replay sessions are not implemented
 yet.
 
+The internal replay foundation can now build an immutable matching group from
+a validated cassette. It applies the configured matcher and each interaction's
+persisted exclusions, preserves recorded indices and identical interactions,
+and excludes mismatches. Policy selection and consumption are still not
+implemented, so this does not yet make requests replayable.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
