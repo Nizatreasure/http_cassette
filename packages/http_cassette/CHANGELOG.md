@@ -101,4 +101,5 @@
 - Added synchronous strict replay selection with distinct no-match and
   exhausted results.
 - Added deterministic reusable first- and last-match replay selection.
+- Added progressive sequence replay selection with final-match reuse.
 - Record/replay behaviour is not available yet.

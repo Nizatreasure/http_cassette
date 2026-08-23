@@ -48,6 +48,11 @@ final class ReplaySelectionState {
     Iterable<CassetteInteraction> matchingInteractions,
   ) : this._(ReplayPolicy.last, matchingInteractions);
 
+  /// Creates advancing sequence selection state for [matchingInteractions].
+  ReplaySelectionState.sequence(
+    Iterable<CassetteInteraction> matchingInteractions,
+  ) : this._(ReplayPolicy.sequence, matchingInteractions);
+
   ReplaySelectionState._(
     this.policy,
     Iterable<CassetteInteraction> matchingInteractions,
@@ -75,7 +80,7 @@ final class ReplaySelectionState {
       ReplayPolicy.strict => _selectStrict(),
       ReplayPolicy.first => _selectReusable(0),
       ReplayPolicy.last => _selectReusable(_matchingInteractions.length - 1),
-      ReplayPolicy.sequence ||
+      ReplayPolicy.sequence => _selectSequence(),
       ReplayPolicy.cycle =>
         throw StateError('The replay policy is not implemented yet.'),
     };
@@ -93,6 +98,15 @@ final class ReplaySelectionState {
 
   ReplaySelectionResult _selectReusable(int position) {
     final interaction = _matchingInteractions[position];
+    _usedRecordedIndices.add(interaction.index);
+    return ReplayInteractionSelected(interaction);
+  }
+
+  ReplaySelectionResult _selectSequence() {
+    final interaction = _matchingInteractions[_nextPosition];
+    if (_nextPosition < _matchingInteractions.length - 1) {
+      _nextPosition++;
+    }
     _usedRecordedIndices.add(interaction.index);
     return ReplayInteractionSelected(interaction);
   }
