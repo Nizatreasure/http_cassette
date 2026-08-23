@@ -18,8 +18,14 @@ import 'request_encoding.dart';
 /// Readable-version policy is deliberately separate from the writable version.
 const int currentReadableCassetteSchemaVersion = 1;
 
+/// The default maximum encoded V1 cassette size of 64 MiB.
+const int defaultMaximumCassetteBytesV1 = 64 * 1024 * 1024;
+
 /// The safe category of an internal cassette decode failure.
 enum CassetteDecodeFailureKind {
+  /// Input exceeds the configured total cassette byte limit.
+  inputTooLarge,
+
   /// Input bytes are not valid UTF-8.
   invalidUtf8,
 
@@ -48,6 +54,7 @@ final class CassetteDecodeException implements Exception {
     this.line,
     this.column,
     this.observedSchemaVersion,
+    this.maximumBytes,
   });
 
   /// The failure category.
@@ -64,6 +71,10 @@ final class CassetteDecodeException implements Exception {
 
   /// The unsupported integer version when it fits safely in an [int].
   final int? observedSchemaVersion;
+
+  /// The configured total byte limit when [kind] is
+  /// [CassetteDecodeFailureKind.inputTooLarge].
+  final int? maximumBytes;
 
   /// The schema version supported by this decoder.
   int get supportedSchemaVersion => currentReadableCassetteSchemaVersion;
@@ -100,8 +111,23 @@ final class DecodedCassetteRequestV1 {
 
 /// Decodes UTF-8 [bytes] and validates the exact V1 root envelope.
 ///
+/// [maximumBytes] must be positive. Input exceeding it is rejected before
+/// UTF-8 decoding or JSON parsing.
+///
 /// Interaction contents are intentionally deferred to later decoder stages.
-CassetteEnvelopeV1 decodeCassetteEnvelopeV1(List<int> bytes) {
+CassetteEnvelopeV1 decodeCassetteEnvelopeV1(
+  List<int> bytes, {
+  int maximumBytes = defaultMaximumCassetteBytesV1,
+}) {
+  _validateMaximumCassetteBytes(maximumBytes);
+  if (bytes.length > maximumBytes) {
+    throw CassetteDecodeException(
+      kind: CassetteDecodeFailureKind.inputTooLarge,
+      location: '',
+      maximumBytes: maximumBytes,
+    );
+  }
+
   late final String source;
   try {
     source = utf8.decode(bytes, allowMalformed: false);
@@ -163,8 +189,17 @@ CassetteEnvelopeV1 decodeCassetteEnvelopeV1(List<int> bytes) {
 }
 
 /// Strictly decodes one complete V1 cassette from UTF-8 [bytes].
-Cassette decodeCassetteV1(List<int> bytes) {
-  final envelope = decodeCassetteEnvelopeV1(bytes);
+///
+/// [maximumBytes] must be positive. Input exceeding it is rejected before
+/// UTF-8 decoding or JSON parsing.
+Cassette decodeCassetteV1(
+  List<int> bytes, {
+  int maximumBytes = defaultMaximumCassetteBytesV1,
+}) {
+  final envelope = decodeCassetteEnvelopeV1(
+    bytes,
+    maximumBytes: maximumBytes,
+  );
   final interactions = <CassetteInteraction>[];
   for (var position = 0; position < envelope.interactions.length; position++) {
     final location = '/interactions/$position';
@@ -199,6 +234,12 @@ Cassette decodeCassetteV1(List<int> bytes) {
     );
   }
   return Cassette(interactions: interactions);
+}
+
+void _validateMaximumCassetteBytes(int maximumBytes) {
+  if (maximumBytes <= 0) {
+    throw ArgumentError('Maximum cassette byte count must be positive.');
+  }
 }
 
 /// Strictly decodes one V1 persisted body at [location].

@@ -5,6 +5,72 @@ import 'package:test/test.dart';
 
 void main() {
   group('decodeCassetteEnvelopeV1', () {
+    test('uses the measured 64 MiB default', () {
+      expect(defaultMaximumCassetteBytesV1, 64 * 1024 * 1024);
+    });
+
+    test('accepts input exactly at a custom byte limit', () {
+      final bytes = utf8.encode('{"schemaVersion":1,"interactions":[]}');
+
+      final envelope = decodeCassetteEnvelopeV1(
+        bytes,
+        maximumBytes: bytes.length,
+      );
+
+      expect(envelope.interactions, isEmpty);
+    });
+
+    test('rejects input over the limit before UTF-8 decoding', () {
+      final error = _captureFailure(
+        () => decodeCassetteEnvelopeV1(
+          <int>[0xff, 0xff],
+          maximumBytes: 1,
+        ),
+      );
+
+      expect(error.kind, CassetteDecodeFailureKind.inputTooLarge);
+      expect(error.location, '');
+      expect(error.maximumBytes, 1);
+      expect(error.line, isNull);
+      expect(error.column, isNull);
+    });
+
+    test('decodes input at the limit before reporting invalid UTF-8', () {
+      _expectFailure(
+        () => decodeCassetteEnvelopeV1(
+          <int>[0xff, 0xff],
+          maximumBytes: 2,
+        ),
+        CassetteDecodeFailureKind.invalidUtf8,
+        location: '',
+      );
+    });
+
+    test('requires a positive custom byte limit', () {
+      for (final maximumBytes in <int>[0, -1]) {
+        expect(
+          () => decodeCassetteEnvelopeV1(
+            const <int>[],
+            maximumBytes: maximumBytes,
+          ),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test('complete decoding forwards a custom byte limit', () {
+      final bytes = utf8.encode('{"schemaVersion":1,"interactions":[]}');
+      final error = _captureFailure(
+        () => decodeCassetteV1(
+          bytes,
+          maximumBytes: bytes.length - 1,
+        ),
+      );
+
+      expect(error.kind, CassetteDecodeFailureKind.inputTooLarge);
+      expect(error.maximumBytes, bytes.length - 1);
+    });
+
     test('accepts the exact root and exposes immutable interactions', () {
       final envelope = _decode(
         '{"schemaVersion":1,"interactions":[{"pending":true}]}',

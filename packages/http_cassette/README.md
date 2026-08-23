@@ -233,10 +233,11 @@ indices. Decode failures report only a safe category and bounded structural
 location; they do not quote recorded values. The codec remains internal while
 storage and session integration are unfinished; replay is not available yet.
 
-A reproducible encoder probe supports a planned 64 MiB default total cassette
-limit, separate from the 2 MiB request and 5 MiB response body limits. The
-total limit is not enforced yet; bounded decoder input is the next persistence
-stage.
+A reproducible encoder probe supports a 64 MiB default total cassette limit,
+separate from the 2 MiB request and 5 MiB response body limits. The internal
+decoder enforces the total limit before UTF-8 decoding or JSON parsing and
+accepts an explicit positive override. Storage integration is not implemented
+yet.
 
 ## Example
 
