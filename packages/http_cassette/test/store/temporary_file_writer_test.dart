@@ -93,6 +93,40 @@ void main() {
       ),
     );
   });
+
+  test('replaces a target with a prepared candidate', () async {
+    final target = File('${sandbox.path}${Platform.pathSeparator}example.json');
+    await target.writeAsBytes(<int>[1]);
+    final writer = SameDirectoryTemporaryFileWriter(random: Random(6));
+    final candidate = await writer.write(target, <int>[2, 3]);
+
+    await writer.replaceTarget(candidate, target);
+
+    expect(await target.readAsBytes(), <int>[2, 3]);
+    expect(await candidate.exists(), isFalse);
+  });
+
+  test('removes a candidate and preserves a rename failure', () async {
+    final target = File('${sandbox.path}${Platform.pathSeparator}example.json');
+    await target.writeAsBytes(<int>[1]);
+    final io = _ControlledTemporaryFileIo(failRename: true);
+    final writer = SameDirectoryTemporaryFileWriter(io: io, random: Random(7));
+    final candidate = await writer.write(target, <int>[2]);
+
+    await expectLater(
+      writer.replaceTarget(candidate, target),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'rename failed',
+        ),
+      ),
+    );
+
+    expect(await target.readAsBytes(), <int>[1]);
+    expect(await candidate.exists(), isFalse);
+  });
 }
 
 enum _FailurePoint { open, write, flush, close }
@@ -102,11 +136,13 @@ final class _ControlledTemporaryFileIo implements TemporaryFileIo {
     this.collideOnce = false,
     this.failurePoint,
     this.failCleanup = false,
+    this.failRename = false,
   });
 
   final bool collideOnce;
   final _FailurePoint? failurePoint;
   final bool failCleanup;
+  final bool failRename;
   final DartTemporaryFileIo _delegate = const DartTemporaryFileIo();
   var createCalls = 0;
 
@@ -158,6 +194,14 @@ final class _ControlledTemporaryFileIo implements TemporaryFileIo {
       throw StateError('delete failed');
     }
     await _delegate.delete(file);
+  }
+
+  @override
+  Future<void> rename(File source, String targetPath) async {
+    if (failRename) {
+      throw StateError('rename failed');
+    }
+    await _delegate.rename(source, targetPath);
   }
 
   @override

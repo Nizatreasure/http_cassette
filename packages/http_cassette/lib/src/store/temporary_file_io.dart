@@ -20,6 +20,9 @@ abstract interface class TemporaryFileIo {
   /// Deletes [file].
   Future<void> delete(File file);
 
+  /// Renames [source] to [targetPath].
+  Future<void> rename(File source, String targetPath);
+
   /// Returns the kind of entry at [path] without following symbolic links.
   Future<FileSystemEntityType> type(String path);
 }
@@ -48,6 +51,11 @@ final class DartTemporaryFileIo implements TemporaryFileIo {
 
   @override
   Future<void> delete(File file) => file.delete();
+
+  @override
+  Future<void> rename(File source, String targetPath) async {
+    await source.rename(targetPath);
+  }
 
   @override
   Future<FileSystemEntityType> type(String path) =>

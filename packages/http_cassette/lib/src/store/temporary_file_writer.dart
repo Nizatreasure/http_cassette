@@ -71,6 +71,26 @@ final class SameDirectoryTemporaryFileWriter {
     throw StateError('Temporary-file creation attempts were exhausted.');
   }
 
+  /// Atomically replaces [target] with a prepared [candidate] where supported.
+  ///
+  /// Both files must have the same parent. A failed rename removes [candidate]
+  /// where safe without changing the original failure.
+  Future<void> replaceTarget(File candidate, File target) async {
+    if (candidate.parent.path != target.parent.path) {
+      await discard(candidate);
+      throw ArgumentError('A replacement candidate must be beside its target.');
+    }
+    try {
+      await _io.rename(candidate, target.path);
+    } on Object catch (error, stackTrace) {
+      await discard(candidate);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  /// Removes an unused prepared [candidate] where safe.
+  Future<void> discard(File candidate) => _deleteQuietly(candidate);
+
   String _randomSuffix() {
     final buffer = StringBuffer();
     for (var index = 0; index < 8; index++) {

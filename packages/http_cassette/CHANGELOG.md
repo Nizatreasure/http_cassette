@@ -91,4 +91,6 @@
   same-instance ordering and best-effort failed-write cleanup.
 - Added the internal failure-safe same-directory temporary-file writer needed
   for atomic file replacement.
+- Added explicit atomic file replacement on supported file systems, including
+  same-instance ordering and safe missing-target behaviour.
 - Record/replay behaviour is not available yet.

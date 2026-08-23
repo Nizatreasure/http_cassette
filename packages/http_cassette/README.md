@@ -53,7 +53,7 @@ Creation never replaces an existing cassette. `replace` is explicit, while
 `replaceIfUnchanged` rejects a stale snapshot. Directly supplied bytes must
 already be sanitised, validated and encoded.
 
-Read-only file-backed storage is available from
+File-backed storage is available from
 `package:http_cassette/file.dart` on platforms supporting `dart:io`:
 
 ```dart
@@ -68,9 +68,13 @@ Reads are bounded and format-neutral: the store returns exact immutable bytes
 without decoding UTF-8, parsing JSON or validating a schema. The core codec
 owns those later steps. A missing root behaves as an empty store. Path
 resolution rejects symbolic-link escapes without exposing absolute paths. File
-creation is supported and never replaces an existing target. Explicit and
-conditional replacement remain unsupported. The primary library does not
-import `dart:io`.
+creation is supported and never replaces an existing target. Explicit
+replacement requires an existing regular file and uses a flushed,
+same-directory temporary file followed by replacement rename. It is atomic
+where the file system supports atomic replacement rename; no delete-and-rename
+fallback is used. Cross-process locking and directory durability across sudden
+power loss are not provided. Conditional replacement remains unsupported. The
+primary library does not import `dart:io`.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without

@@ -106,7 +106,7 @@ void main() {
     expect(snapshot.bytes, <int>[0xff, 0x00]);
   });
 
-  test('reports replacement operations as unsupported', () async {
+  test('reports conditional replacement as unsupported', () async {
     final store = FileCassetteStore(root);
     final name = CassetteName('checkout');
     final snapshot = CassetteSnapshot(
@@ -115,21 +115,12 @@ void main() {
       revision: CassetteRevision(),
     );
 
-    for (final entry in <(CassetteStoreOperation, Future<void> Function())>[
-      (
-        CassetteStoreOperation.replace,
-        () => store.replace(name, const <int>[]),
-      ),
-      (
-        CassetteStoreOperation.replaceIfUnchanged,
-        () => store.replaceIfUnchanged(snapshot, const <int>[]),
-      ),
-    ]) {
-      final error = await _capture(entry.$2);
-      expect(error.kind, CassetteStoreFailureKind.unsupportedOperation);
-      expect(error.operation, entry.$1);
-      expect(error.name, name);
-    }
+    final error = await _capture(
+      () => store.replaceIfUnchanged(snapshot, const <int>[]),
+    );
+    expect(error.kind, CassetteStoreFailureKind.unsupportedOperation);
+    expect(error.operation, CassetteStoreOperation.replaceIfUnchanged);
+    expect(error.name, name);
   });
 }
 

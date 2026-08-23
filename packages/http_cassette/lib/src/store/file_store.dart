@@ -8,12 +8,14 @@ import 'exception.dart';
 import 'file_path_resolver.dart';
 import 'snapshot.dart';
 import 'store.dart';
+import 'temporary_file_writer.dart';
 
-/// A read-capable file-backed store for encoded cassette bytes.
+/// A file-backed store for encoded cassette bytes.
 ///
 /// The store is format-neutral: reads enforce [maximumBytes] but do not decode
-/// UTF-8, parse JSON or validate a cassette schema. Write operations remain
-/// unsupported until atomic file writes are implemented.
+/// UTF-8, parse JSON or validate a cassette schema. Creation is exclusive and
+/// explicit replacement is atomic where the file system supports replacement
+/// rename. Conditional replacement is not implemented yet.
 final class FileCassetteStore implements CassetteStore {
   /// Creates a file store rooted at [root].
   ///
@@ -43,6 +45,8 @@ final class FileCassetteStore implements CassetteStore {
 
   final Directory _root;
   final FileCassettePathResolver _resolver;
+  final SameDirectoryTemporaryFileWriter _temporaryFileWriter =
+      SameDirectoryTemporaryFileWriter();
   final Map<CassetteName, Future<void>> _writeTails =
       <CassetteName, Future<void>>{};
 
@@ -116,13 +120,14 @@ final class FileCassetteStore implements CassetteStore {
   }
 
   @override
-  Future<void> replace(CassetteName name, List<int> bytes) =>
-      Future<void>.error(
-        CassetteStoreException.unsupported(
-          name: name,
-          operation: CassetteStoreOperation.replace,
-        ),
-      );
+  Future<void> replace(CassetteName name, List<int> bytes) {
+    final copied = _copyWriteBytes(
+      name,
+      bytes,
+      operation: CassetteStoreOperation.replace,
+    );
+    return _serialiseWrite(name, () => _replace(name, copied));
+  }
 
   @override
   Future<void> replaceIfUnchanged(
@@ -248,6 +253,72 @@ final class FileCassetteStore implements CassetteStore {
         await _deleteQuietly(target);
       }
       rethrow;
+    }
+  }
+
+  Future<void> _replace(CassetteName name, Uint8List bytes) async {
+    if (!await _rootExists(name, CassetteStoreOperation.replace)) {
+      throw CassetteStoreException.notFound(
+        name: name,
+        operation: CassetteStoreOperation.replace,
+      );
+    }
+    var target = await _resolver.resolve(
+      name,
+      operation: CassetteStoreOperation.replace,
+    );
+    await _requireReplaceableTarget(target, name);
+
+    File? candidate;
+    try {
+      candidate = await _temporaryFileWriter.write(target, bytes);
+      target = await _resolver.resolve(
+        name,
+        operation: CassetteStoreOperation.replace,
+      );
+      await _requireReplaceableTarget(target, name);
+      await _temporaryFileWriter.replaceTarget(candidate, target);
+      candidate = null;
+    } on CassetteStoreException {
+      if (candidate != null) {
+        await _temporaryFileWriter.discard(candidate);
+      }
+      rethrow;
+    } on Object {
+      if (candidate != null) {
+        await _temporaryFileWriter.discard(candidate);
+      }
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: CassetteStoreOperation.replace,
+      );
+    }
+  }
+
+  Future<void> _requireReplaceableTarget(
+    File target,
+    CassetteName name,
+  ) async {
+    FileSystemEntityType type;
+    try {
+      type = await FileSystemEntity.type(target.path, followLinks: false);
+    } on FileSystemException {
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: CassetteStoreOperation.replace,
+      );
+    }
+    if (type == FileSystemEntityType.notFound) {
+      throw CassetteStoreException.notFound(
+        name: name,
+        operation: CassetteStoreOperation.replace,
+      );
+    }
+    if (type != FileSystemEntityType.file) {
+      throw CassetteStoreException.operationFailed(
+        name: name,
+        operation: CassetteStoreOperation.replace,
+      );
     }
   }
 
