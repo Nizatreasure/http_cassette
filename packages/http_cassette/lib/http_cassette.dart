@@ -17,6 +17,7 @@ export 'src/matching/exclusions.dart' show MatchingExclusions;
 export 'src/model/headers.dart';
 export 'src/model/http_message.dart';
 export 'src/model/outcome.dart';
+export 'src/replay/configuration.dart' show ReplayOptions, ReplayPolicy;
 export 'src/sanitisation/configuration.dart' show SanitisationConfiguration;
 export 'src/sanitisation/custom.dart'
     show RequestSanitiser, ResponseSanitiser, SanitisedRequest;

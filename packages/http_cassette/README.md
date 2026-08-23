@@ -83,6 +83,13 @@ This detects external changes observed before the final check, but another
 process can still race after it because cross-process locking is outside V1.
 The primary library does not import `dart:io`.
 
+`ReplayPolicy` defines the agreed `strict`, `first`, `last`, `sequence` and
+`cycle` choices. `ReplayOptions` holds an optional session override and the
+future successful-close verification flag. A null policy means use the future
+engine default, which will be `strict`. These values are configuration only:
+matching-group selection, consumption and replay sessions are not implemented
+yet.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.

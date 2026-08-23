@@ -96,4 +96,5 @@
 - Added private content snapshots behind opaque file-store revisions.
 - Added content-checked conditional file replacement with stale and foreign
   revision rejection.
+- Added immutable replay policy and session-option configuration.
 - Record/replay behaviour is not available yet.

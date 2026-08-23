@@ -14,6 +14,7 @@ Future<void> main() async {
     additionalHeaders: <String>{'x-project-secret'},
     additionalJsonPointers: <String>{'/customer/account_number'},
   );
+  const replayOptions = ReplayOptions(policy: ReplayPolicy.strict);
   final headers = CassetteHeaders(<String, Iterable<String>>{
     'Accept': <String>['application/json'],
   });
@@ -47,6 +48,7 @@ Future<void> main() async {
         bodyLimits.requestBytes == 2 * 1024 * 1024 &&
         matching.includedHeaders.contains('accept') &&
         sanitisation.additionalHeaders.contains('x-project-secret') &&
+        replayOptions.policy == ReplayPolicy.strict &&
         request.method == 'GET' &&
         outcome.response.body.length == 2 &&
         snapshot.bytes.isNotEmpty &&
