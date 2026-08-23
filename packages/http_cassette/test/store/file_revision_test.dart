@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
+import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/store/file_revision.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('matches only exact captured content', () {
     final revision = FileCassetteRevision.takeOwnership(
+      CassetteName('exact'),
       Uint8List.fromList(<int>[1, 2, 3]),
     );
 
@@ -17,6 +19,7 @@ void main() {
 
   test('matches boundary byte values exactly', () {
     final revision = FileCassetteRevision.takeOwnership(
+      CassetteName('boundary'),
       Uint8List.fromList(<int>[0, 255]),
     );
 
@@ -25,10 +28,18 @@ void main() {
   });
 
   test('uses a separate opaque identity for each content snapshot', () {
-    final first = FileCassetteRevision.takeOwnership(Uint8List(0));
-    final second = FileCassetteRevision.takeOwnership(Uint8List(0));
+    final name = CassetteName('empty');
+    final first = FileCassetteRevision.takeOwnership(name, Uint8List(0));
+    final second = FileCassetteRevision.takeOwnership(name, Uint8List(0));
 
     expect(first.opaque, isNot(second.opaque));
     expect(first.opaque.toString(), 'CassetteRevision(<opaque>)');
+  });
+
+  test('retains the logical cassette associated with the revision', () {
+    final name = CassetteName('checkout/success');
+    final revision = FileCassetteRevision.takeOwnership(name, Uint8List(0));
+
+    expect(revision.name, name);
   });
 }

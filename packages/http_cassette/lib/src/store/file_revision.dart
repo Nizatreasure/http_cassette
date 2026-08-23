@@ -1,12 +1,16 @@
 import 'dart:typed_data';
 
+import '../cassette/name.dart';
 import 'snapshot.dart';
 
 /// A private content snapshot behind one opaque file-store revision.
 final class FileCassetteRevision {
   /// Takes ownership of [bytes] and creates its public opaque identity.
-  FileCassetteRevision.takeOwnership(Uint8List bytes)
+  FileCassetteRevision.takeOwnership(this.name, Uint8List bytes)
       : _bytes = bytes.asUnmodifiableView();
+
+  /// The logical cassette whose content was observed.
+  final CassetteName name;
 
   final Uint8List _bytes;
 

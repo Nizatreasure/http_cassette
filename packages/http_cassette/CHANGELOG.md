@@ -94,4 +94,6 @@
 - Added explicit atomic file replacement on supported file systems, including
   same-instance ordering and safe missing-target behaviour.
 - Added private content snapshots behind opaque file-store revisions.
+- Added content-checked conditional file replacement with stale and foreign
+  revision rejection.
 - Record/replay behaviour is not available yet.
