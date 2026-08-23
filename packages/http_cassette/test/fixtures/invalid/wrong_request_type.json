@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "interactions": [
+    {
+      "index": 0,
+      "request": false,
+      "outcome": {
+        "type": "response",
+        "statusCode": 204,
+        "headers": {},
+        "body": {
+          "encoding": "empty"
+        }
+      }
+    }
+  ]
+}

@@ -73,4 +73,5 @@
 - Standardised internal V1-specific identifiers with a `V1` suffix.
 - Added strict reconstruction of V1 response and transport-failure outcomes.
 - Added strict reconstruction of complete immutable V1 cassettes.
+- Added reviewed invalid V1 fixtures and complete-cassette round-trip coverage.
 - Record/replay behaviour is not available yet.

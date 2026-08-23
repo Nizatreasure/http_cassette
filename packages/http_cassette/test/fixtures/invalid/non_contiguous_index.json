@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "interactions": [
+    {
+      "index": 1,
+      "request": {
+        "method": "GET",
+        "uri": "https://example.test/",
+        "headers": {},
+        "body": {
+          "encoding": "empty"
+        },
+        "matchingExclusions": {
+          "uriUserInformation": false,
+          "body": false,
+          "headers": [],
+          "queryParameters": [],
+          "jsonPointers": []
+        }
+      },
+      "outcome": {
+        "type": "response",
+        "statusCode": 204,
+        "headers": {},
+        "body": {
+          "encoding": "empty"
+        }
+      }
+    }
+  ]
+}

@@ -49,6 +49,38 @@ void main() {
       expect(encodeCassetteV1(decodeCassetteV1(fixture)), fixture);
     });
 
+    test('stabilises supplementary complete-cassette body cases', () {
+      for (final body in <String>[
+        '{"encoding":"empty"}',
+        '{"encoding":"base64","content":"AAEC"}',
+      ]) {
+        final firstEncoding = encodeCassetteV1(
+          _decode(_cassetteWithResponseBodyV1(body)),
+        );
+        final secondEncoding = encodeCassetteV1(
+          decodeCassetteV1(firstEncoding),
+        );
+
+        expect(secondEncoding, firstEncoding);
+      }
+    });
+
+    test('rejects the reviewed invalid cassette fixtures safely', () {
+      for (final fixture in _invalidFixturesV1) {
+        final error = _capture(
+          () => decodeCassetteV1(_fixture(fixture.name).readAsBytesSync()),
+        );
+
+        expect(error.kind, fixture.kind, reason: fixture.name);
+        expect(error.location, fixture.location, reason: fixture.name);
+        expect(
+          error.toString(),
+          isNot(contains('private-recorded-value')),
+          reason: fixture.name,
+        );
+      }
+    });
+
     test('requires exact interaction fields in exact order', () {
       _expectInteractionFailure(
         '{"request":${_request()},"index":0,"outcome":${_outcome()}}',
@@ -98,6 +130,11 @@ String _request({String method = 'GET'}) =>
 String _outcome() => '{"type":"response","statusCode":204,"headers":{},'
     '"body":{"encoding":"empty"}}';
 
+String _cassetteWithResponseBodyV1(String body) =>
+    '{"schemaVersion":1,"interactions":['
+    '{"index":0,"request":${_request()},"outcome":'
+    '{"type":"response","statusCode":200,"headers":{},"body":$body}}]}';
+
 void _expectInteractionFailure(String interaction, String location) {
   _expectFailure(
     '{"schemaVersion":1,"interactions":[$interaction]}',
@@ -123,14 +160,74 @@ CassetteDecodeException _capture(void Function() operation) {
 }
 
 File _goldenFixture() {
+  return _fixture('cassette_v1.json');
+}
+
+File _fixture(String name) {
   for (final path in <String>[
-    'test/fixtures/cassette_v1.json',
-    'packages/http_cassette/test/fixtures/cassette_v1.json',
+    'test/fixtures/$name',
+    'packages/http_cassette/test/fixtures/$name',
   ]) {
     final file = File(path);
     if (file.existsSync()) {
       return file;
     }
   }
-  throw StateError('The V1 cassette golden fixture is missing.');
+  throw StateError('The cassette fixture is missing.');
+}
+
+const _invalidFixturesV1 = <_InvalidFixtureV1>[
+  _InvalidFixtureV1(
+    'invalid/duplicate_root_member.json',
+    CassetteDecodeFailureKind.duplicateObjectMember,
+    '',
+  ),
+  _InvalidFixtureV1(
+    'invalid/invalid_base64_body.json',
+    CassetteDecodeFailureKind.invalidStructure,
+    '/interactions/0/outcome/body/content',
+  ),
+  _InvalidFixtureV1(
+    'invalid/malformed_json.json',
+    CassetteDecodeFailureKind.malformedJson,
+    '',
+  ),
+  _InvalidFixtureV1(
+    'invalid/newer_schema_version.json',
+    CassetteDecodeFailureKind.unsupportedNewerVersion,
+    '/schemaVersion',
+  ),
+  _InvalidFixtureV1(
+    'invalid/non_contiguous_index.json',
+    CassetteDecodeFailureKind.invalidStructure,
+    '/interactions/0/index',
+  ),
+  _InvalidFixtureV1(
+    'invalid/older_schema_version.json',
+    CassetteDecodeFailureKind.unsupportedOlderVersion,
+    '/schemaVersion',
+  ),
+  _InvalidFixtureV1(
+    'invalid/unknown_root_field.json',
+    CassetteDecodeFailureKind.invalidStructure,
+    '',
+  ),
+  _InvalidFixtureV1(
+    'invalid/wrong_request_type.json',
+    CassetteDecodeFailureKind.invalidStructure,
+    '/interactions/0/request',
+  ),
+  _InvalidFixtureV1(
+    'invalid/wrong_root_order.json',
+    CassetteDecodeFailureKind.invalidStructure,
+    '',
+  ),
+];
+
+final class _InvalidFixtureV1 {
+  const _InvalidFixtureV1(this.name, this.kind, this.location);
+
+  final String name;
+  final CassetteDecodeFailureKind kind;
+  final String location;
 }

@@ -227,8 +227,11 @@ LF line endings and one final line feed. It preserves lossless JSON number
 spelling and has a reviewed complete golden fixture. Reading persisted
 cassettes now validates UTF-8, strict JSON, schema compatibility and every
 interaction field before reconstructing a complete immutable cassette. The
-codec remains internal while storage and session integration are unfinished;
-replay is not available yet.
+decoder rejects duplicate or unknown fields, non-canonical field order,
+malformed types, invalid body representations and non-contiguous interaction
+indices. Decode failures report only a safe category and bounded structural
+location; they do not quote recorded values. The codec remains internal while
+storage and session integration are unfinished; replay is not available yet.
 
 ## Example
 
