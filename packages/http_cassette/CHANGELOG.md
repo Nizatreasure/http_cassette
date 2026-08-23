@@ -82,4 +82,5 @@
   revisions.
 - Added safe structured cassette-store failure and operation categories.
 - Added the public transport-neutral cassette-store contract.
+- Added isolate-local in-memory cassette storage with conditional replacement.
 - Record/replay behaviour is not available yet.

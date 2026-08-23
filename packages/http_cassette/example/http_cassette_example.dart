@@ -1,6 +1,8 @@
+import 'dart:convert';
+
 import 'package:http_cassette/http_cassette.dart';
 
-void main() {
+Future<void> main() async {
   final cassetteName = CassetteName('profiles/current-user');
   final bodyLimits = BodyLimits();
   final matching = MatchingConfiguration(
@@ -33,6 +35,12 @@ void main() {
     summary: 'The cassette does not exist.',
     networkAccess: NetworkAccess.disabled,
   );
+  final store = MemoryCassetteStore();
+  await store.create(
+    cassetteName,
+    utf8.encode('{"schemaVersion":1,"interactions":[]}'),
+  );
+  final snapshot = await store.read(cassetteName);
 
   assert(
     cassetteName.value == 'profiles/current-user' &&
@@ -41,6 +49,7 @@ void main() {
         sanitisation.additionalHeaders.contains('x-project-secret') &&
         request.method == 'GET' &&
         outcome.response.body.length == 2 &&
+        snapshot.bytes.isNotEmpty &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',
             ),

@@ -22,11 +22,10 @@ the physical path and `.json` suffix:
 final cassetteName = CassetteName('checkout/expired-discount');
 ```
 
-`CassetteSnapshot` is the immutable encoded value returned by a future store.
+`CassetteSnapshot` is the immutable encoded value returned by a store.
 It defensively copies its bytes and carries an identity-only
 `CassetteRevision`. The revision exposes no underlying value, has a redacted
-string form and exists only for conditional replacement. The store contract
-and store implementations are not available yet.
+string form and exists only for conditional replacement.
 
 `CassetteStoreException` provides stable store failure and operation enums for
 programmatic handling. It retains only the logical cassette name and never a
@@ -39,7 +38,20 @@ supports existence checks, immutable snapshot reads, create-only writes,
 explicit replacement and revision-checked replacement. Implementations must
 copy byte input and must not decode, match, sanitise or migrate cassette data.
 Direct callers are responsible for supplying sanitised, validated and encoded
-cassette bytes. No concrete store is available yet.
+cassette bytes.
+
+`MemoryCassetteStore` provides isolate-local storage with no file-system or
+network access. Each instance owns private state:
+
+```dart
+final store = MemoryCassetteStore();
+await store.create(cassetteName, encodedSafeCassetteBytes);
+final snapshot = await store.read(cassetteName);
+```
+
+Creation never replaces an existing cassette. `replace` is explicit, while
+`replaceIfUnchanged` rejects a stale snapshot. Directly supplied bytes must
+already be sanitised, validated and encoded.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
