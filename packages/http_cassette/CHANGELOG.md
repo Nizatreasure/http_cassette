@@ -89,4 +89,6 @@
   format-neutral reads.
 - Added exclusive create-only file writes with defensive input copying,
   same-instance ordering and best-effort failed-write cleanup.
+- Added the internal failure-safe same-directory temporary-file writer needed
+  for atomic file replacement.
 - Record/replay behaviour is not available yet.
