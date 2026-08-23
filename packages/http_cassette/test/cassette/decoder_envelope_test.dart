@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http_cassette/src/cassette/decoder.dart';
+import 'package:http_cassette/src/configuration/cassette_size_limit.dart';
 import 'package:test/test.dart';
 
 void main() {

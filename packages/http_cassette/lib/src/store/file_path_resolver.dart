@@ -25,6 +25,13 @@ final class FileCassettePathResolver {
   }) async {
     try {
       final canonicalRoot = Directory(await _root.resolveSymbolicLinks());
+      final rootType = await FileSystemEntity.type(canonicalRoot.path);
+      if (rootType != FileSystemEntityType.directory) {
+        throw CassetteStoreException.operationFailed(
+          name: name,
+          operation: operation,
+        );
+      }
       var current = canonicalRoot;
       final segments = name.value.split('/');
 

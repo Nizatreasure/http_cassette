@@ -85,4 +85,6 @@
 - Added isolate-local in-memory cassette storage with conditional replacement.
 - Added the internal file-store path resolver with per-operation symbolic-link
   containment checks.
+- Added the `dart:io` file-store library with safe existence checks and bounded,
+  format-neutral reads.
 - Record/replay behaviour is not available yet.

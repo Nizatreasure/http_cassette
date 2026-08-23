@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../configuration/cassette_size_limit.dart';
 import '../json/strict_json.dart';
 import '../json/value.dart';
 import '../matching/exclusions.dart';
@@ -17,9 +18,6 @@ import 'request_encoding.dart';
 ///
 /// Readable-version policy is deliberately separate from the writable version.
 const int currentReadableCassetteSchemaVersion = 1;
-
-/// The default maximum encoded V1 cassette size of 64 MiB.
-const int defaultMaximumCassetteBytesV1 = 64 * 1024 * 1024;
 
 /// The safe category of an internal cassette decode failure.
 enum CassetteDecodeFailureKind {
