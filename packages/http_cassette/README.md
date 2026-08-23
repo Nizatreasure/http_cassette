@@ -126,8 +126,12 @@ or public diagnostics.
 Actual strict exhaustion can now be projected into immutable value-free facts:
 the active policy, matching-group size, distinct used count, recorded indices
 and disabled-network status. These facts retain no requests or outcomes. They
-are not yet a complete diagnostic because the required safe request summary and
-logical cassette context still need their own bounded models.
+can be paired with internal immutable context containing a validated logical
+cassette name and a value-free request summary. The summary retains only the
+canonical method, its character length, body presence and byte length, and
+request-arrival index. A method longer than 64 characters is omitted rather
+than truncated. The summary does not retain URI, query, header or body values.
+Final diagnostic assembly is not implemented yet.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without

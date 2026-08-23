@@ -106,4 +106,5 @@
 - Added immutable replay usage snapshots and optional cassette-wide unused
   interaction verification.
 - Added immutable value-free replay exhaustion facts for later diagnostics.
+- Added immutable value-free replay request and cassette diagnostic context.
 - Record/replay behaviour is not available yet.
