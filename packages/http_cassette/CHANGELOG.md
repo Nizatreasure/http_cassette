@@ -78,4 +78,6 @@
   total-file limit.
 - Enforced the configurable cassette byte limit before UTF-8 decoding and JSON
   parsing.
+- Added immutable encoded cassette snapshots with opaque identity-only
+  revisions.
 - Record/replay behaviour is not available yet.

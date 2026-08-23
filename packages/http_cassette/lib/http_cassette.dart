@@ -20,3 +20,4 @@ export 'src/model/outcome.dart';
 export 'src/sanitisation/configuration.dart' show SanitisationConfiguration;
 export 'src/sanitisation/custom.dart'
     show RequestSanitiser, ResponseSanitiser, SanitisedRequest;
+export 'src/store/snapshot.dart' show CassetteRevision, CassetteSnapshot;

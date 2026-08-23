@@ -22,6 +22,12 @@ the physical path and `.json` suffix:
 final cassetteName = CassetteName('checkout/expired-discount');
 ```
 
+`CassetteSnapshot` is the immutable encoded value returned by a future store.
+It defensively copies its bytes and carries an identity-only
+`CassetteRevision`. The revision exposes no underlying value, has a redacted
+string form and exists only for conditional replacement. The store contract
+and store implementations are not available yet.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
