@@ -131,7 +131,11 @@ cassette name and a value-free request summary. The summary retains only the
 canonical method, its character length, body presence and byte length, and
 request-arrival index. A method longer than 64 characters is omitted rather
 than truncated. The summary does not retain URI, query, header or body values.
-Final diagnostic assembly is not implemented yet.
+The context and verified exhaustion facts now assemble into an internal
+structured exhaustion diagnostic with a fixed exhaustion category, safe
+summary and disabled-network status. It cannot be mislabelled as a request
+mismatch. Public replay integration and specialised formatting are not
+implemented yet.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
