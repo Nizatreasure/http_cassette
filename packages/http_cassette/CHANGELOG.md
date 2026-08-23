@@ -102,4 +102,5 @@
   exhausted results.
 - Added deterministic reusable first- and last-match replay selection.
 - Added progressive sequence replay selection with final-match reuse.
+- Added wrapping cycle replay selection with stable distinct-use tracking.
 - Record/replay behaviour is not available yet.

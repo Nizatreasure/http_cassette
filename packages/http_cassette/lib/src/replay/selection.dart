@@ -53,6 +53,11 @@ final class ReplaySelectionState {
     Iterable<CassetteInteraction> matchingInteractions,
   ) : this._(ReplayPolicy.sequence, matchingInteractions);
 
+  /// Creates wrapping cycle selection state for [matchingInteractions].
+  ReplaySelectionState.cycle(
+    Iterable<CassetteInteraction> matchingInteractions,
+  ) : this._(ReplayPolicy.cycle, matchingInteractions);
+
   ReplaySelectionState._(
     this.policy,
     Iterable<CassetteInteraction> matchingInteractions,
@@ -81,8 +86,7 @@ final class ReplaySelectionState {
       ReplayPolicy.first => _selectReusable(0),
       ReplayPolicy.last => _selectReusable(_matchingInteractions.length - 1),
       ReplayPolicy.sequence => _selectSequence(),
-      ReplayPolicy.cycle =>
-        throw StateError('The replay policy is not implemented yet.'),
+      ReplayPolicy.cycle => _selectCycle(),
     };
   }
 
@@ -107,6 +111,13 @@ final class ReplaySelectionState {
     if (_nextPosition < _matchingInteractions.length - 1) {
       _nextPosition++;
     }
+    _usedRecordedIndices.add(interaction.index);
+    return ReplayInteractionSelected(interaction);
+  }
+
+  ReplaySelectionResult _selectCycle() {
+    final interaction = _matchingInteractions[_nextPosition];
+    _nextPosition = (_nextPosition + 1) % _matchingInteractions.length;
     _usedRecordedIndices.add(interaction.index);
     return ReplayInteractionSelected(interaction);
   }

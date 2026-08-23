@@ -109,7 +109,12 @@ interaction once for future unused-interaction verification.
 
 Internal `sequence` replay state now advances through matches in recorded-index
 order and then reuses the final match indefinitely. It returns no-match for an
-empty group and never exhausts. `cycle` selection remains unimplemented.
+empty group and never exhausts.
+
+Internal `cycle` replay state advances through matches in recorded-index order,
+wraps from the final match to the first and continues indefinitely. It also
+returns no-match for an empty group and never exhausts. Matching and selection
+are still not connected to a public replay operation.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
