@@ -1,0 +1,91 @@
+import '../cassette/name.dart';
+import '../configuration/cassette_configuration.dart';
+import '../recording/configuration.dart';
+import '../replay/configuration.dart';
+import '../session/cassette_mode.dart';
+import '../session/cassette_session.dart';
+import '../store/store.dart';
+import 'session_ownership.dart';
+
+/// Coordinates cassette sessions independently of any HTTP transport.
+///
+/// The current engine implements lifecycle ownership only. Session loading,
+/// recording, replay, persistence and request interception are connected in
+/// later stages.
+final class CassetteEngine {
+  /// Creates an inactive engine backed by [store].
+  ///
+  /// Omitting [configuration] uses secure matching and sanitisation defaults,
+  /// measured body limits and strict replay selection.
+  factory CassetteEngine({
+    required CassetteStore store,
+    CassetteConfiguration? configuration,
+  }) =>
+      CassetteEngine._(
+        EngineState(
+          store: store,
+          configuration: configuration ?? CassetteConfiguration(),
+        ),
+      );
+
+  const CassetteEngine._(this._state);
+
+  final EngineState _state;
+
+  /// Whether this engine owns an active or uncertain cassette session.
+  bool get isActive => _state.sessions.isActive;
+
+  /// The current session, or null when this engine is inactive.
+  CassetteSession? get activeSession => _state.sessions.activeSession;
+
+  /// Starts a lifecycle-only recording session named [name].
+  ///
+  /// [options] becomes operational when recording persistence is connected.
+  /// The current implementation performs no store or transport work.
+  Future<CassetteSession> startRecording(
+    String name, {
+    RecordingOptions options = const RecordingOptions(),
+  }) =>
+      Future<CassetteSession>.sync(
+        () => _startSession(name, CassetteMode.record),
+      );
+
+  /// Starts a lifecycle-only replay session named [name].
+  ///
+  /// [options] becomes operational when replay loading is connected. The
+  /// current implementation performs no store or transport work.
+  Future<CassetteSession> startReplay(
+    String name, {
+    ReplayOptions options = const ReplayOptions(),
+  }) =>
+      Future<CassetteSession>.sync(
+        () => _startSession(name, CassetteMode.replay),
+      );
+
+  CassetteSession _startSession(String name, CassetteMode mode) =>
+      _state.sessions.acquire(
+        name: CassetteName(name),
+        mode: mode,
+        closeAction: _completeLifecycleOnly,
+        discardAction: _completeLifecycleOnly,
+      );
+}
+
+/// Dependencies and mutable session ownership retained by one engine.
+///
+/// This internal value is not exported from the package's public library.
+final class EngineState {
+  /// Creates state retaining the engine's [store] and [configuration].
+  EngineState({required this.store, required this.configuration});
+
+  /// The store used by later loading and persistence stages.
+  final CassetteStore store;
+
+  /// Immutable shared engine configuration.
+  final CassetteConfiguration configuration;
+
+  /// One-active-session ownership for this engine only.
+  final EngineSessionOwnership sessions = EngineSessionOwnership();
+}
+
+Future<void> _completeLifecycleOnly() => Future<void>.value();

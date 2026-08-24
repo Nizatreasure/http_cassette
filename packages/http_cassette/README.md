@@ -91,8 +91,8 @@ matching-group selection, consumption and replay sessions are not implemented
 yet.
 
 `CassetteConfiguration` groups the matching, sanitisation, body-limit and
-default replay-policy values that a future engine will share across its
-sessions. Its defaults retain secure sanitisation and strict replay:
+default replay-policy values that an engine shares across its sessions. Its
+defaults retain secure sanitisation and strict replay:
 
 ```dart
 final configuration = CassetteConfiguration(
@@ -107,14 +107,14 @@ recording and replay available in the current package.
 The internal session foundation now serialises close and discard transitions.
 Successful completion is idempotent, while overlapping operations and attempts
 after an uncertain completion failure produce safe structured lifecycle
-failures. The public session handle uses this state; no engine uses it yet.
+failures. The public session handle and lifecycle-only engine use this state.
 
 `CassetteSession` is now the public read-only handle for a future active
 operation. It exposes its logical name, explicit mode and successful closed
 status. Its `close()` and `discard()` methods serialise injected asynchronous
-completion work and preserve failures. Sessions cannot yet be started because
-`CassetteEngine` is not implemented, and the handle performs no cassette I/O or
-traffic processing by itself.
+completion work and preserve failures. The lifecycle-only engine can now create
+the handle, but the handle performs no cassette I/O or traffic processing by
+itself.
 
 `RecordingOptions` makes existing-cassette handling explicit. Recording will
 fail by default when a target already exists; callers may instead select
@@ -126,8 +126,15 @@ version equals the implementation's current writable schema version.
 The internal engine foundation now reserves at most one session synchronously.
 Ownership remains reserved while completion is running and after a completion
 failure leaves uncertain state. It is released only after close or discard
-succeeds. Separate future engine instances will own independent state. No
-public engine is implemented yet.
+succeeds. Separate engine instances own independent state.
+
+`CassetteEngine` is now available as a lifecycle-only shell. It retains a store
+and immutable shared configuration, reports its active session, and can create
+interactive recording or replay session handles with one-active-session
+enforcement. These starts validate only the logical cassette name. They do not
+read or write the store, intercept requests, permit recording traffic, match a
+request or return a replayed response. Scoped callback methods are also not yet
+implemented.
 
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's

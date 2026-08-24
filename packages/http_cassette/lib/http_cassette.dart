@@ -11,6 +11,7 @@ export 'src/configuration/matching_configuration.dart';
 export 'src/diagnostics/diagnostic.dart';
 export 'src/diagnostics/exception.dart';
 export 'src/diagnostics/formatter.dart';
+export 'src/engine/cassette_engine.dart' show CassetteEngine;
 export 'src/matching/custom.dart';
 export 'src/matching/difference.dart'
     show BoundedMatchDifferences, MatchDifference, MatchDifferenceKind;
