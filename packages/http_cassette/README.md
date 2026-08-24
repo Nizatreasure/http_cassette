@@ -90,6 +90,20 @@ engine default, which will be `strict`. These values are configuration only:
 matching-group selection, consumption and replay sessions are not implemented
 yet.
 
+`CassetteConfiguration` groups the matching, sanitisation, body-limit and
+default replay-policy values that a future engine will share across its
+sessions. Its defaults retain secure sanitisation and strict replay:
+
+```dart
+final configuration = CassetteConfiguration(
+  defaultReplayPolicy: ReplayPolicy.strict,
+);
+```
+
+`CassetteMode.record` and `CassetteMode.replay` identify the explicit operation
+of a future active session. They do not start a session, permit traffic or make
+recording and replay available in the current package.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,

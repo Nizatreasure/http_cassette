@@ -6,6 +6,7 @@ library;
 
 export 'src/cassette/name.dart';
 export 'src/configuration/body_limits.dart';
+export 'src/configuration/cassette_configuration.dart';
 export 'src/configuration/matching_configuration.dart';
 export 'src/diagnostics/diagnostic.dart';
 export 'src/diagnostics/exception.dart';
@@ -21,6 +22,7 @@ export 'src/replay/configuration.dart' show ReplayOptions, ReplayPolicy;
 export 'src/sanitisation/configuration.dart' show SanitisationConfiguration;
 export 'src/sanitisation/custom.dart'
     show RequestSanitiser, ResponseSanitiser, SanitisedRequest;
+export 'src/session/cassette_mode.dart';
 export 'src/store/exception.dart'
     show
         CassetteStoreException,

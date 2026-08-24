@@ -116,4 +116,5 @@
 - Added location-suppressed projections of closest no-match comparisons.
 - Added internal structured replay no-match diagnostic assembly.
 - Added bounded deterministic formatting for replay no-match diagnostics.
+- Added immutable engine configuration and explicit cassette session modes.
 - Record/replay behaviour is not available yet.
