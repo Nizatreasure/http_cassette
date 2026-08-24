@@ -121,7 +121,11 @@ the distinct recorded indices it has used. An internal cassette-wide verifier
 combines snapshots from independent matching groups and, when explicitly
 enabled, returns either success or every unused index in recorded order.
 Verification is disabled by default and is not yet connected to session close
-or public diagnostics.
+or public diagnostics. A failed internal verification result now also retains
+the safe total and used interaction counts and can assemble a structured
+diagnostic with validated logical cassette identity, resolved replay policy,
+fixed unused-interaction category and disabled-network status. Formatting and
+session-close integration remain unimplemented.
 
 Actual strict exhaustion can now be projected into immutable value-free facts:
 the active policy, matching-group size, distinct used count, recorded indices

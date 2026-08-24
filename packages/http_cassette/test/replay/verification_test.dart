@@ -66,11 +66,22 @@ void main() {
         requireAllInteractions: true,
       ) as ReplayUnusedInteractions;
 
+      expect(result.totalInteractionCount, 5);
+      expect(result.usedInteractionCount, 3);
       expect(result.unusedRecordedIndices, <int>[1, 3]);
       expect(
         () => result.unusedRecordedIndices.add(5),
         throwsUnsupportedError,
       );
+      final equivalent = verifyReplayUsage(
+        cassette: _cassette(5),
+        usageSnapshots: <ReplayUsageSnapshot>[
+          ReplayUsageSnapshot(<int>[0, 2, 4]),
+        ],
+        requireAllInteractions: true,
+      );
+      expect(result, equivalent);
+      expect(result.hashCode, equivalent.hashCode);
     });
 
     test('passes an empty cassette when verification is required', () {
