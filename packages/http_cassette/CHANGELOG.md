@@ -118,4 +118,5 @@
 - Added bounded deterministic formatting for replay no-match diagnostics.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
+- Added the public asynchronous cassette session lifecycle handle.
 - Record/replay behaviour is not available yet.

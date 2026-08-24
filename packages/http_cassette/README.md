@@ -107,7 +107,14 @@ recording and replay available in the current package.
 The internal session foundation now serialises close and discard transitions.
 Successful completion is idempotent, while overlapping operations and attempts
 after an uncertain completion failure produce safe structured lifecycle
-failures. No public session or engine uses this state yet.
+failures. The public session handle uses this state; no engine uses it yet.
+
+`CassetteSession` is now the public read-only handle for a future active
+operation. It exposes its logical name, explicit mode and successful closed
+status. Its `close()` and `discard()` methods serialise injected asynchronous
+completion work and preserve failures. Sessions cannot yet be started because
+`CassetteEngine` is not implemented, and the handle performs no cassette I/O or
+traffic processing by itself.
 
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
