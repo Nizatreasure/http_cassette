@@ -110,4 +110,5 @@
 - Added internal structured replay exhaustion diagnostic assembly.
 - Added bounded deterministic formatting for replay exhaustion diagnostics.
 - Added structured diagnostics for failed unused-interaction verification.
+- Added bounded deterministic formatting for unused-interaction diagnostics.
 - Record/replay behaviour is not available yet.

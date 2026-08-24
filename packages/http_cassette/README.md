@@ -124,8 +124,11 @@ Verification is disabled by default and is not yet connected to session close
 or public diagnostics. A failed internal verification result now also retains
 the safe total and used interaction counts and can assemble a structured
 diagnostic with validated logical cassette identity, resolved replay policy,
-fixed unused-interaction category and disabled-network status. Formatting and
-session-close integration remain unimplemented.
+fixed unused-interaction category and disabled-network status. Its internal
+formatter renders the safe counts, policy and unused indices deterministically
+without logging. It uses the same 128-character cassette-name and 16-index
+display bounds as exhaustion diagnostics. Session-close integration remains
+unimplemented.
 
 Actual strict exhaustion can now be projected into immutable value-free facts:
 the active policy, matching-group size, distinct used count, recorded indices

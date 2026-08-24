@@ -1,3 +1,4 @@
+import 'diagnostic_formatting.dart';
 import 'exhaustion_diagnostic.dart';
 
 /// Deterministically formats safe replay exhaustion diagnostics as plain text.
@@ -21,11 +22,11 @@ final class ReplayExhaustionDiagnosticFormatter {
     return <String>[
       'HTTP Cassette failure: ${diagnostic.envelope.summary}',
       'Category: ${diagnostic.envelope.category.name}',
-      'Cassette: ${_formatCassetteName(diagnostic.context.cassetteName.value)}',
+      'Cassette: ${formatReplayDiagnosticCassetteName(diagnostic.context.cassetteName.value)}',
       requestLine,
       groupLine,
       'Replay policy: ${details.replayPolicy.name}',
-      'Recorded indices: ${_formatIndices(details.recordedIndices)}',
+      'Recorded indices: ${formatReplayDiagnosticIndices(details.recordedIndices)}',
       'Network access: disabled; no real request was made',
     ].join('\n');
   }
@@ -41,28 +42,5 @@ extension ReplayExhaustionDiagnosticFormatting on ReplayExhaustionDiagnostic {
       formatter.format(this);
 }
 
-String _formatCassetteName(String name) {
-  if (name.length <= _maximumCassetteNameLength) {
-    return name;
-  }
-  return '${name.substring(0, _maximumCassetteNameLength)}... '
-      '(${name.length} characters)';
-}
-
 String _formatMethod(String? method, int characterLength) =>
     method ?? '<omitted; $characterLength characters>';
-
-String _formatIndices(List<int> indices) {
-  final displayedCount = indices.length < _maximumDisplayedIndices
-      ? indices.length
-      : _maximumDisplayedIndices;
-  final output = indices.take(displayedCount).join(', ');
-  final omittedCount = indices.length - displayedCount;
-  if (omittedCount == 0) {
-    return output;
-  }
-  return '$output ... ($omittedCount omitted)';
-}
-
-const _maximumCassetteNameLength = 128;
-const _maximumDisplayedIndices = 16;
