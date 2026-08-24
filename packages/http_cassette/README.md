@@ -104,6 +104,11 @@ final configuration = CassetteConfiguration(
 of a future active session. They do not start a session, permit traffic or make
 recording and replay available in the current package.
 
+The internal session foundation now serialises close and discard transitions.
+Successful completion is idempotent, while overlapping operations and attempts
+after an uncertain completion failure produce safe structured lifecycle
+failures. No public session or engine uses this state yet.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,

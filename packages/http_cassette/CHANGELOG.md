@@ -117,4 +117,5 @@
 - Added internal structured replay no-match diagnostic assembly.
 - Added bounded deterministic formatting for replay no-match diagnostics.
 - Added immutable engine configuration and explicit cassette session modes.
+- Added internal cassette session lifecycle state control.
 - Record/replay behaviour is not available yet.
