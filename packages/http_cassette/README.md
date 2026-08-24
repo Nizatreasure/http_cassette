@@ -116,6 +116,13 @@ completion work and preserve failures. Sessions cannot yet be started because
 `CassetteEngine` is not implemented, and the handle performs no cassette I/O or
 traffic processing by itself.
 
+`RecordingOptions` makes existing-cassette handling explicit. Recording will
+fail by default when a target already exists; callers may instead select
+`ExistingCassette.replace` or `ExistingCassette.append`. These values are
+configuration only. Replacement and append are not connected to a recording
+engine yet. Future append behaviour will require a valid cassette whose schema
+version equals the implementation's current writable schema version.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,
