@@ -112,4 +112,5 @@
 - Added structured diagnostics for failed unused-interaction verification.
 - Added bounded deterministic formatting for unused-interaction diagnostics.
 - Added immutable no-match facts from existing candidate rankings.
+- Added value-safe matcher descriptions containing configuration counts only.
 - Record/replay behaviour is not available yet.

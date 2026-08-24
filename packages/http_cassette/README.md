@@ -153,6 +153,13 @@ comparison already used for ranking. Matching is not recomputed and canonical
 requests or interactions are not retained. Diagnostic assembly and formatting
 remain unimplemented.
 
+The active matcher can now be described internally without retaining configured
+names, paths or custom matcher objects. Fixed method, URI and non-empty-body
+matching remain explicit, while selected headers, ignored query parameters,
+ignored JSON locations and custom components are represented only by counts.
+This prevents confidential schema identifiers from crossing the diagnostic
+boundary before a dedicated confidentiality policy exists.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
