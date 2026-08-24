@@ -123,6 +123,12 @@ configuration only. Replacement and append are not connected to a recording
 engine yet. Future append behaviour will require a valid cassette whose schema
 version equals the implementation's current writable schema version.
 
+The internal engine foundation now reserves at most one session synchronously.
+Ownership remains reserved while completion is running and after a completion
+failure leaves uncertain state. It is released only after close or discard
+succeeds. Separate future engine instances will own independent state. No
+public engine is implemented yet.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,

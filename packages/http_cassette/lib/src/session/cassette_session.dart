@@ -14,9 +14,11 @@ final class CassetteSession {
     required this.mode,
     required Future<void> Function() closeAction,
     required Future<void> Function() discardAction,
+    required void Function() completionSucceeded,
   })  : name = name.value,
         _closeAction = closeAction,
         _discardAction = discardAction,
+        _completionSucceeded = completionSucceeded,
         _lifecycle = SessionLifecycle(mode);
 
   /// The validated slash-separated logical cassette name.
@@ -27,6 +29,7 @@ final class CassetteSession {
 
   final Future<void> Function() _closeAction;
   final Future<void> Function() _discardAction;
+  final void Function() _completionSucceeded;
   final SessionLifecycle _lifecycle;
 
   /// Whether close or discard completed successfully.
@@ -50,6 +53,7 @@ final class CassetteSession {
       rethrow;
     }
     _lifecycle.closeSucceeded();
+    _completionSucceeded();
   }
 
   /// Abandons pending successful-completion work and closes this session.
@@ -68,6 +72,7 @@ final class CassetteSession {
       rethrow;
     }
     _lifecycle.discardSucceeded();
+    _completionSucceeded();
   }
 }
 
@@ -80,10 +85,14 @@ CassetteSession createCassetteSession({
   required CassetteMode mode,
   required Future<void> Function() closeAction,
   required Future<void> Function() discardAction,
+  void Function()? completionSucceeded,
 }) =>
     CassetteSession._(
       name: name,
       mode: mode,
       closeAction: closeAction,
       discardAction: discardAction,
+      completionSucceeded: completionSucceeded ?? _noOp,
     );
+
+void _noOp() {}

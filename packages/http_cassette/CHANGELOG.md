@@ -120,4 +120,5 @@
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.
 - Added immutable recording options for existing cassette handling.
+- Added internal one-active-session engine ownership control.
 - Record/replay behaviour is not available yet.

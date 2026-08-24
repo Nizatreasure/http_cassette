@@ -61,6 +61,21 @@ void main() {
       expect(discardCalls, 1);
     });
 
+    test('notifies internal ownership only after successful completion',
+        () async {
+      var successfulCompletions = 0;
+      final session = _session(
+        completionSucceeded: () {
+          successfulCompletions++;
+        },
+      );
+
+      await session.close();
+      await session.discard();
+
+      expect(successfulCompletions, 1);
+    });
+
     test('rejects a concurrent completion operation', () async {
       final completion = Completer<void>();
       final session = _session(closeAction: () => completion.future);
@@ -121,10 +136,12 @@ CassetteSession _session({
   CassetteMode mode = CassetteMode.replay,
   Future<void> Function()? closeAction,
   Future<void> Function()? discardAction,
+  void Function()? completionSucceeded,
 }) =>
     createCassetteSession(
       name: CassetteName(name),
       mode: mode,
       closeAction: closeAction ?? () async {},
       discardAction: discardAction ?? () async {},
+      completionSucceeded: completionSucceeded,
     );
