@@ -113,4 +113,5 @@
 - Added bounded deterministic formatting for unused-interaction diagnostics.
 - Added immutable no-match facts from existing candidate rankings.
 - Added value-safe matcher descriptions containing configuration counts only.
+- Added location-suppressed projections of closest no-match comparisons.
 - Record/replay behaviour is not available yet.

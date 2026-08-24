@@ -160,6 +160,14 @@ ignored JSON locations and custom components are represented only by counts.
 This prevents confidential schema identifiers from crossing the diagnostic
 boundary before a dedicated confidentiality policy exists.
 
+The closest non-matching comparison can now be projected into internal
+location-safe facts. Built-in component order and state, custom registration
+order, bounded difference kinds and complete counts are preserved. All supplied
+locations are marked as suppressed, and custom component names are replaced by
+their registration indices. Exact-body byte lengths and first differing offset,
+body comparison strategy and JSON classifications remain available without
+retaining request values or body bytes.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
