@@ -168,6 +168,14 @@ their registration indices. Exact-body byte lengths and first differing offset,
 body comparison strategy and JSON classifications remain available without
 retaining request values or body bytes.
 
+The logical cassette and value-free request context, resolved replay policy,
+safe matcher description, ranking counts and projected closest comparison now
+assemble into an internal structured no-match diagnostic. Its category, safe
+summary and disabled-network status are fixed. The diagnostic copies only the
+location-suppressed projection, so the original comparison and its pre-policy
+locations do not remain reachable. Human-readable formatting remains
+unimplemented.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
