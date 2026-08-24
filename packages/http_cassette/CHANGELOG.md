@@ -115,4 +115,5 @@
 - Added value-safe matcher descriptions containing configuration counts only.
 - Added location-suppressed projections of closest no-match comparisons.
 - Added internal structured replay no-match diagnostic assembly.
+- Added bounded deterministic formatting for replay no-match diagnostics.
 - Record/replay behaviour is not available yet.

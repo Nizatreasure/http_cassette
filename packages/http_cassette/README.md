@@ -174,7 +174,11 @@ assemble into an internal structured no-match diagnostic. Its category, safe
 summary and disabled-network status are fixed. The diagnostic copies only the
 location-suppressed projection, so the original comparison and its pre-policy
 locations do not remain reachable. Human-readable formatting remains
-unimplemented.
+internal. The deterministic formatter shows every built-in component, at most
+eight custom components and at most eight retained difference kinds per
+component. Omitted counts are explicit. Locations appear only as suppressed,
+and body output is limited to comparison strategy, byte lengths, first
+differing offset and JSON classifications. It performs no logging.
 
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
