@@ -146,6 +146,13 @@ request facts, consumption state and policy without logging. Cassette names are
 explicitly truncated after 128 characters and at most 16 recorded indices are
 shown with an omitted count. Public replay integration is not implemented yet.
 
+Internal no-match facts can now be created from the existing deterministic
+candidate ranking. They retain the complete considered count and, when the
+cassette is non-empty, the closest recorded index and the exact safe bounded
+comparison already used for ranking. Matching is not recomputed and canonical
+requests or interactions are not retained. Diagnostic assembly and formatting
+remain unimplemented.
+
 `CassetteDiagnostic` carries a stable category, concise safe summary and network
 access status. `CassetteException` carries that structured diagnostic without
 requiring consumers to parse exception text.
