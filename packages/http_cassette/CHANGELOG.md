@@ -123,4 +123,5 @@
 - Added internal one-active-session engine ownership control.
 - Added the public lifecycle-only cassette engine shell.
 - Added safe replay store-read diagnostic mapping.
+- Added safe replay cassette-decode diagnostic mapping.
 - Record/replay behaviour is not available yet.

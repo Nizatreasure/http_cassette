@@ -143,6 +143,13 @@ failure kind, always reports disabled network access, and performs no store read
 itself. Recording and append store-read failures remain a separate diagnostic
 category.
 
+Value-free decoder failures can now be projected into internal replay-loading
+diagnostics. Oversized input, invalid UTF-8 and JSON syntax failures remain
+decode failures; schema-shape failures and unsupported older or newer versions
+have distinct categories. The projection retains only safe structural
+positions, safe integer version facts and the configured total cassette limit.
+It does not retain cassette bytes or source lines and does not invoke decoding.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,
