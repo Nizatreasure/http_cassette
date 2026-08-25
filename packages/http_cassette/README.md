@@ -136,6 +136,13 @@ read or write the store, intercept requests, permit recording traffic, match a
 request or return a replayed response. Scoped callback methods are also not yet
 implemented.
 
+The internal replay-loading foundation now maps a missing store target to a
+`cassetteMissing` diagnostic and other expected replay read failures to
+`cassetteUnreadable`. It retains only the logical cassette name and safe store
+failure kind, always reports disabled network access, and performs no store read
+itself. Recording and append store-read failures remain a separate diagnostic
+category.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,

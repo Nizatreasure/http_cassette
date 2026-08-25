@@ -122,4 +122,5 @@
 - Added immutable recording options for existing cassette handling.
 - Added internal one-active-session engine ownership control.
 - Added the public lifecycle-only cassette engine shell.
+- Added safe replay store-read diagnostic mapping.
 - Record/replay behaviour is not available yet.
