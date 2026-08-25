@@ -1,3 +1,5 @@
+import '../replay/loading_failure.dart';
+import '../replay/loading_failure_formatter.dart';
 import 'diagnostic.dart';
 import 'formatter.dart';
 
@@ -21,4 +23,19 @@ sealed class CassetteException implements Exception {
 
 final class _CassetteException extends CassetteException {
   const _CassetteException(super.diagnostic) : super._();
+}
+
+/// Converts one safe replay-loading failure to the public exception boundary.
+CassetteException replayCassetteLoadException(
+  ReplayCassetteLoadFailure failure,
+) =>
+    _ReplayCassetteLoadException(failure);
+
+final class _ReplayCassetteLoadException extends CassetteException {
+  _ReplayCassetteLoadException(this.failure) : super._(failure.envelope);
+
+  final ReplayCassetteLoadFailure failure;
+
+  @override
+  String toString() => failure.format();
 }

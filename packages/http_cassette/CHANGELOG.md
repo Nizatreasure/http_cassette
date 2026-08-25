@@ -127,4 +127,5 @@
 - Added a unified, safely formatted replay-loading failure boundary.
 - Unified the store and decoder total cassette byte-limit contract.
 - Added internal single-read replay cassette loading and strict decoding.
+- Connected replay-loading failures to the public cassette exception boundary.
 - Record/replay behaviour is not available yet.
