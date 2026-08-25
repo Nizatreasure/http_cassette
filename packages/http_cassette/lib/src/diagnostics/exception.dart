@@ -1,5 +1,9 @@
+import '../replay/exhaustion_diagnostic.dart';
+import '../replay/exhaustion_formatter.dart';
 import '../replay/loading_failure.dart';
 import '../replay/loading_failure_formatter.dart';
+import '../replay/no_match_diagnostic.dart';
+import '../replay/no_match_formatter.dart';
 import 'diagnostic.dart';
 import 'formatter.dart';
 
@@ -38,4 +42,32 @@ final class _ReplayCassetteLoadException extends CassetteException {
 
   @override
   String toString() => failure.format();
+}
+
+/// Converts one safe no-match diagnostic to the public exception boundary.
+CassetteException replayNoMatchException(ReplayNoMatchDiagnostic diagnostic) =>
+    _ReplayNoMatchException(diagnostic);
+
+final class _ReplayNoMatchException extends CassetteException {
+  _ReplayNoMatchException(this.details) : super._(details.envelope);
+
+  final ReplayNoMatchDiagnostic details;
+
+  @override
+  String toString() => details.format();
+}
+
+/// Converts one safe exhaustion diagnostic to the public exception boundary.
+CassetteException replayExhaustionException(
+  ReplayExhaustionDiagnostic diagnostic,
+) =>
+    _ReplayExhaustionException(diagnostic);
+
+final class _ReplayExhaustionException extends CassetteException {
+  _ReplayExhaustionException(this.details) : super._(details.envelope);
+
+  final ReplayExhaustionDiagnostic details;
+
+  @override
+  String toString() => details.format();
 }

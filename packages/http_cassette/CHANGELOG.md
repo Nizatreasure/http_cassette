@@ -117,6 +117,8 @@
 - Added internal structured replay no-match diagnostic assembly.
 - Added bounded deterministic formatting for replay no-match diagnostics.
 - Connected actual strict replay exhaustion to its safe structured diagnostic.
+- Added internal replay outcome delivery with safe no-match and exhaustion
+  exceptions.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

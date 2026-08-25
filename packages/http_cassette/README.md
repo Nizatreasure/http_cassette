@@ -230,6 +230,12 @@ assigned arrival index and the state which produced the exhaustion result.
 Selected and no-match results do not carry an exhaustion diagnostic. Request
 execution and public error delivery remain unimplemented.
 
+An internal replay execution boundary now returns the selected interaction's
+recorded canonical outcome. A no-match or exhausted result instead throws a
+`CassetteException` whose common diagnostic and detailed text remain safe and
+state that no real request was made. The boundary accepts no network callback.
+It is not yet exposed through the public adapter integration contract.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
