@@ -19,6 +19,36 @@ void main() {
       expect(session.name, 'checkout/declined');
     });
 
+    test('blocks another start while preparation is reserved', () {
+      final ownership = EngineSessionOwnership();
+      final reservation = ownership.reserve(CassetteMode.replay);
+
+      expect(ownership.isActive, isTrue);
+      expect(ownership.activeSession, isNull);
+      expect(
+        () => ownership.reserve(CassetteMode.record),
+        throwsA(isA<CassetteException>()),
+      );
+
+      reservation.cancel();
+      expect(ownership.isActive, isFalse);
+    });
+
+    test('activates a prepared reservation exactly once', () {
+      final ownership = EngineSessionOwnership();
+      final reservation = ownership.reserve(CassetteMode.replay);
+
+      final session = reservation.activate(
+        name: CassetteName('prepared'),
+        mode: CassetteMode.replay,
+        closeAction: () async {},
+        discardAction: () async {},
+      );
+
+      expect(ownership.activeSession, same(session));
+      expect(() => reservation.cancel(), throwsStateError);
+    });
+
     test('rejects a conflicting start without replacing the active session',
         () {
       final ownership = EngineSessionOwnership();

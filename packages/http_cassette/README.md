@@ -131,13 +131,15 @@ Ownership remains reserved while completion is running and after a completion
 failure leaves uncertain state. It is released only after close or discard
 succeeds. Separate engine instances own independent state.
 
-`CassetteEngine` is now available as a lifecycle-only shell. It retains a store
-and immutable shared configuration, reports its active session, and can create
-interactive recording or replay session handles with one-active-session
-enforcement. These starts validate only the logical cassette name. They do not
-read or write the store, intercept requests, permit recording traffic, match a
-request or return a replayed response. Scoped callback methods are also not yet
-implemented.
+`CassetteEngine` retains a store and immutable shared configuration and reports
+its active session. Recording starts remain lifecycle-only. Replay starts now
+read and strictly validate the complete cassette before exposing a session.
+Missing, unreadable, malformed or incompatible cassettes throw a safe
+`CassetteException` and leave the engine inactive. While an asynchronous load
+is pending, the engine rejects another start but exposes no session. The loaded
+cassette is retained only for the active replay session and is released when
+that session closes or is discarded. The engine still does not intercept,
+match or replay requests, and scoped callback methods are not implemented.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

@@ -1,6 +1,9 @@
+import '../cassette/cassette.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
+import '../diagnostics/exception.dart';
 import '../recording/configuration.dart';
+import '../replay/cassette_loader.dart';
 import '../replay/configuration.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
@@ -9,9 +12,8 @@ import 'session_ownership.dart';
 
 /// Coordinates cassette sessions independently of any HTTP transport.
 ///
-/// The current engine implements lifecycle ownership only. Session loading,
-/// recording, replay, persistence and request interception are connected in
-/// later stages.
+/// The current engine loads replay sessions but does not yet intercept traffic.
+/// Recording, replay execution and persistence are connected in later stages.
 final class CassetteEngine {
   /// Creates an inactive engine backed by [store].
   ///
@@ -32,7 +34,7 @@ final class CassetteEngine {
 
   final EngineState _state;
 
-  /// Whether this engine owns an active or uncertain cassette session.
+  /// Whether this engine owns a pending, active or uncertain session.
   bool get isActive => _state.sessions.isActive;
 
   /// The current session, or null when this engine is inactive.
@@ -50,17 +52,40 @@ final class CassetteEngine {
         () => _startSession(name, CassetteMode.record),
       );
 
-  /// Starts a lifecycle-only replay session named [name].
+  /// Loads and starts a replay session named [name].
   ///
-  /// [options] becomes operational when replay loading is connected. The
-  /// current implementation performs no store or transport work.
+  /// The complete cassette is read and validated before [activeSession]
+  /// exposes the returned session. A loading failure leaves the engine
+  /// inactive and throws a safe [CassetteException]. Request interception is
+  /// not implemented yet.
   Future<CassetteSession> startReplay(
     String name, {
     ReplayOptions options = const ReplayOptions(),
-  }) =>
-      Future<CassetteSession>.sync(
-        () => _startSession(name, CassetteMode.replay),
-      );
+  }) async {
+    final cassetteName = CassetteName(name);
+    final reservation = _state.sessions.reserve(CassetteMode.replay);
+    late final ReplayCassetteLoadResult result;
+    try {
+      result = await ReplayCassetteLoader(_state.store).load(cassetteName);
+    } catch (_) {
+      reservation.cancel();
+      rethrow;
+    }
+
+    switch (result) {
+      case ReplayCassetteLoadFailed(:final failure):
+        reservation.cancel();
+        throw replayCassetteLoadException(failure);
+      case ReplayCassetteLoaded(:final cassette):
+        _state.activeReplayCassette = cassette;
+        return reservation.activate(
+          name: cassetteName,
+          mode: CassetteMode.replay,
+          closeAction: _state.completeReplayLifecycleOnly,
+          discardAction: _state.completeReplayLifecycleOnly,
+        );
+    }
+  }
 
   CassetteSession _startSession(String name, CassetteMode mode) =>
       _state.sessions.acquire(
@@ -86,6 +111,15 @@ final class EngineState {
 
   /// One-active-session ownership for this engine only.
   final EngineSessionOwnership sessions = EngineSessionOwnership();
+
+  /// The validated cassette retained only while its replay session is active.
+  Cassette? activeReplayCassette;
+
+  /// Clears lifecycle-only replay state before ownership is released.
+  Future<void> completeReplayLifecycleOnly() {
+    activeReplayCassette = null;
+    return Future<void>.value();
+  }
 }
 
 Future<void> _completeLifecycleOnly() => Future<void>.value();
