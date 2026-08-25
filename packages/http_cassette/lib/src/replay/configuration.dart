@@ -23,9 +23,9 @@ enum ReplayPolicy {
 final class ReplayOptions {
   /// Creates replay options.
   ///
-  /// A null [policy] means that the future engine configuration supplies its
-  /// default. [requireAllInteractions] will control successful-close
-  /// verification when replay sessions are implemented.
+  /// A null [policy] uses the engine configuration's default.
+  /// [requireAllInteractions] controls successful-close verification once
+  /// replay execution is connected.
   const ReplayOptions({
     this.policy,
     this.requireAllInteractions = false,

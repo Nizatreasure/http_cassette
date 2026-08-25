@@ -1,8 +1,8 @@
-import '../cassette/cassette.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
 import '../diagnostics/exception.dart';
 import '../recording/configuration.dart';
+import '../replay/active_state.dart';
 import '../replay/cassette_loader.dart';
 import '../replay/configuration.dart';
 import '../session/cassette_mode.dart';
@@ -77,7 +77,12 @@ final class CassetteEngine {
         reservation.cancel();
         throw replayCassetteLoadException(failure);
       case ReplayCassetteLoaded(:final cassette):
-        _state.activeReplayCassette = cassette;
+        _state.activeReplay = ActiveReplayState(
+          cassetteName: cassetteName,
+          cassette: cassette,
+          configuration: _state.configuration,
+          options: options,
+        );
         return reservation.activate(
           name: cassetteName,
           mode: CassetteMode.replay,
@@ -112,12 +117,12 @@ final class EngineState {
   /// One-active-session ownership for this engine only.
   final EngineSessionOwnership sessions = EngineSessionOwnership();
 
-  /// The validated cassette retained only while its replay session is active.
-  Cassette? activeReplayCassette;
+  /// The resolved replay state retained only while its session is active.
+  ActiveReplayState? activeReplay;
 
   /// Clears lifecycle-only replay state before ownership is released.
   Future<void> completeReplayLifecycleOnly() {
-    activeReplayCassette = null;
+    activeReplay = null;
     return Future<void>.value();
   }
 }

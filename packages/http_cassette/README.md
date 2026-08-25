@@ -88,9 +88,10 @@ The primary library does not import `dart:io`.
 
 `ReplayPolicy` defines the agreed `strict`, `first`, `last`, `sequence` and
 `cycle` choices. `ReplayOptions` holds an optional session override and the
-future successful-close verification flag. A null policy means use the future
-engine default, which will be `strict`. These values are configuration only:
-matching-group selection, consumption and replay sessions are not implemented
+successful-close verification flag. A null policy uses the engine default,
+which is `strict` unless configured otherwise. Replay startup now resolves and
+retains these settings with the loaded cassette and configured matcher.
+Matching-group selection, consumption and request replay are not implemented
 yet.
 
 `CassetteConfiguration` groups the matching, sanitisation, body-limit and
@@ -138,8 +139,10 @@ Missing, unreadable, malformed or incompatible cassettes throw a safe
 `CassetteException` and leave the engine inactive. While an asynchronous load
 is pending, the engine rejects another start but exposes no session. The loaded
 cassette is retained only for the active replay session and is released when
-that session closes or is discarded. The engine still does not intercept,
-match or replay requests, and scoped callback methods are not implemented.
+that session closes or is discarded. The active internal state also retains
+the resolved replay policy, close-verification choice and configured matcher.
+The engine still does not intercept, match or replay requests, and scoped
+callback methods are not implemented.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
