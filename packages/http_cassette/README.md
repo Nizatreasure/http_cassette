@@ -91,8 +91,8 @@ The primary library does not import `dart:io`.
 successful-close verification flag. A null policy uses the engine default,
 which is `strict` unless configured otherwise. Replay startup now resolves and
 retains these settings with the loaded cassette and configured matcher.
-Matching-group selection, consumption and request replay are not implemented
-yet.
+The internal active state now applies matching-group selection and consumption
+synchronously. Public request replay is not implemented yet.
 
 `CassetteConfiguration` groups the matching, sanitisation, body-limit and
 default replay-policy values that an engine shares across its sessions. Its
@@ -141,7 +141,9 @@ is pending, the engine rejects another start but exposes no session. The loaded
 cassette is retained only for the active replay session and is released when
 that session closes or is discarded. The active internal state also retains
 the resolved replay policy, close-verification choice and configured matcher.
-The engine still does not intercept, match or replay requests, and scoped
+It can internally assign, match and select a canonical request without an
+asynchronous gap while sharing policy state between equivalent matching groups.
+The engine still does not expose interception or replay requests, and scoped
 callback methods are not implemented.
 
 The internal replay-loading foundation now maps a missing store target to a

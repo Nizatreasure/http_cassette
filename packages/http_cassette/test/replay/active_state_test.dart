@@ -1,6 +1,8 @@
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/cassette.dart';
+import 'package:http_cassette/src/cassette/interaction.dart';
 import 'package:http_cassette/src/replay/active_state.dart';
+import 'package:http_cassette/src/replay/selection.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -60,25 +62,140 @@ void main() {
     test('assigns monotonic request-arrival indices from zero', () {
       final state = _state('arrival');
 
-      expect(state.assignArrivalIndex(), 0);
-      expect(state.assignArrivalIndex(), 1);
-      expect(state.assignArrivalIndex(), 2);
+      expect(state.selectRequest(_request('/one')).arrivalIndex, 0);
+      expect(state.selectRequest(_request('/two')).arrivalIndex, 1);
+      expect(state.selectRequest(_request('/three')).arrivalIndex, 2);
     });
 
     test('keeps arrival indices independent between sessions', () {
       final first = _state('first');
       final second = _state('second');
 
-      expect(first.assignArrivalIndex(), 0);
-      expect(first.assignArrivalIndex(), 1);
-      expect(second.assignArrivalIndex(), 0);
+      expect(first.selectRequest(_request('/one')).arrivalIndex, 0);
+      expect(first.selectRequest(_request('/two')).arrivalIndex, 1);
+      expect(second.selectRequest(_request('/one')).arrivalIndex, 0);
+    });
+
+    test('assigns, matches and consumes one group synchronously', () {
+      final state = _state(
+        'strict',
+        interactions: <CassetteInteraction>[
+          _interaction(0, '/items'),
+          _interaction(1, '/items'),
+          _interaction(2, '/other'),
+        ],
+      );
+      final incoming = _request('/items');
+
+      final first = state.selectRequest(incoming);
+      final second = state.selectRequest(_request('/items'));
+      final exhausted = state.selectRequest(incoming);
+
+      expect(first.arrivalIndex, 0);
+      expect(
+        (first.result as ReplayInteractionSelected).interaction.index,
+        0,
+      );
+      expect(second.arrivalIndex, 1);
+      expect(
+        (second.result as ReplayInteractionSelected).interaction.index,
+        1,
+      );
+      expect(exhausted.arrivalIndex, 2);
+      expect(exhausted.result, isA<ReplayGroupExhausted>());
+      expect(first.state, same(second.state));
+      expect(second.state, same(exhausted.state));
+      expect(state.selectionStates, <ReplaySelectionState>[first.state]);
+    });
+
+    test('keeps different recorded-index groups independent', () {
+      final state = _state(
+        'groups',
+        interactions: <CassetteInteraction>[
+          _interaction(0, '/items'),
+          _interaction(1, '/items'),
+          _interaction(2, '/other'),
+        ],
+      );
+
+      final items = state.selectRequest(_request('/items'));
+      final other = state.selectRequest(_request('/other'));
+
+      expect(items.state, isNot(same(other.state)));
+      expect(
+        (other.result as ReplayInteractionSelected).interaction.index,
+        2,
+      );
+      expect(state.selectionStates, <ReplaySelectionState>[
+        items.state,
+        other.state,
+      ]);
+      expect(
+        () => state.selectionStates.add(items.state),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('applies the resolved reusable policy to each matching group', () {
+      final state = _state(
+        'last',
+        interactions: <CassetteInteraction>[
+          _interaction(0, '/items'),
+          _interaction(1, '/items'),
+        ],
+        policy: ReplayPolicy.last,
+      );
+
+      final first = state.selectRequest(_request('/items'));
+      final second = state.selectRequest(_request('/items'));
+
+      expect(
+        (first.result as ReplayInteractionSelected).interaction.index,
+        1,
+      );
+      expect(
+        (second.result as ReplayInteractionSelected).interaction.index,
+        1,
+      );
+      expect(first.state, same(second.state));
+    });
+
+    test('assigns an arrival index when no interaction matches', () {
+      final state = _state(
+        'missing',
+        interactions: <CassetteInteraction>[_interaction(0, '/items')],
+      );
+
+      final selection = state.selectRequest(_request('/missing'));
+
+      expect(selection.arrivalIndex, 0);
+      expect(selection.result, isA<ReplayNoMatch>());
+      expect(selection.state.matchingInteractions, isEmpty);
     });
   });
 }
 
-ActiveReplayState _state(String name) => ActiveReplayState(
+ActiveReplayState _state(
+  String name, {
+  Iterable<CassetteInteraction> interactions = const <CassetteInteraction>[],
+  ReplayPolicy policy = ReplayPolicy.strict,
+}) =>
+    ActiveReplayState(
       cassetteName: CassetteName(name),
-      cassette: Cassette(),
-      configuration: CassetteConfiguration(),
+      cassette: Cassette(interactions: interactions),
+      configuration: CassetteConfiguration(defaultReplayPolicy: policy),
       options: const ReplayOptions(),
+    );
+
+CassetteRequest _request(String path) => CassetteRequest(
+      method: 'GET',
+      uri: Uri.parse('https://example.test$path'),
+    );
+
+CassetteInteraction _interaction(int index, String path) => CassetteInteraction(
+      index: index,
+      request: _request(path),
+      outcome: CassetteResponseOutcome(
+        CassetteResponse(statusCode: 200 + index),
+      ),
     );
