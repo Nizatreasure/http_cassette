@@ -124,4 +124,5 @@
 - Added the public lifecycle-only cassette engine shell.
 - Added safe replay store-read diagnostic mapping.
 - Added safe replay cassette-decode diagnostic mapping.
+- Added a unified, safely formatted replay-loading failure boundary.
 - Record/replay behaviour is not available yet.

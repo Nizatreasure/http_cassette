@@ -150,6 +150,12 @@ have distinct categories. The projection retains only safe structural
 positions, safe integer version facts and the configured total cassette limit.
 It does not retain cassette bytes or source lines and does not invoke decoding.
 
+Store-read and decoder projections now share one internal sealed replay-loading
+failure boundary. Its deterministic formatter displays the bounded logical
+cassette name, fixed category, safe source-specific facts and disabled-network
+status. Missing facts are omitted explicitly where necessary, and formatting
+does not log or inspect raw exceptions, paths, source lines or cassette bytes.
+
 The internal replay foundation can now build an immutable matching group from
 a validated cassette. It applies the configured matcher and each interaction's
 persisted exclusions, preserves recorded indices and identical interactions,
