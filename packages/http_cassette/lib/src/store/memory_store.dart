@@ -1,4 +1,5 @@
 import '../cassette/name.dart';
+import '../configuration/cassette_size_limit.dart';
 import 'exception.dart';
 import 'snapshot.dart';
 import 'store.dart';
@@ -9,8 +10,23 @@ import 'store.dart';
 /// in invocation order before their returned futures complete. No state is
 /// shared across instances or Dart isolates.
 final class MemoryCassetteStore implements CassetteStore {
-  /// Creates an empty in-memory store.
-  MemoryCassetteStore();
+  /// Creates an empty in-memory store with a positive [maximumBytes].
+  factory MemoryCassetteStore({
+    int maximumBytes = defaultMaximumCassetteBytesV1,
+  }) {
+    if (maximumBytes <= 0) {
+      throw ArgumentError('Maximum cassette byte count must be positive.');
+    }
+    return MemoryCassetteStore._(maximumBytes);
+  }
+
+  MemoryCassetteStore._(this.maximumBytes);
+
+  /// The default maximum encoded V1 cassette size of 64 MiB.
+  static const int defaultMaximumBytesV1 = defaultMaximumCassetteBytesV1;
+
+  @override
+  final int maximumBytes;
 
   final Map<CassetteName, CassetteSnapshot> _snapshots =
       <CassetteName, CassetteSnapshot>{};
@@ -35,6 +51,14 @@ final class MemoryCassetteStore implements CassetteStore {
 
   @override
   Future<void> create(CassetteName name, List<int> bytes) {
+    final limitFailure = _validateBytes(
+      name,
+      bytes,
+      CassetteStoreOperation.create,
+    );
+    if (limitFailure != null) {
+      return limitFailure;
+    }
     if (_snapshots.containsKey(name)) {
       return Future<void>.error(CassetteStoreException.alreadyExists(name));
     }
@@ -44,6 +68,14 @@ final class MemoryCassetteStore implements CassetteStore {
 
   @override
   Future<void> replace(CassetteName name, List<int> bytes) {
+    final limitFailure = _validateBytes(
+      name,
+      bytes,
+      CassetteStoreOperation.replace,
+    );
+    if (limitFailure != null) {
+      return limitFailure;
+    }
     if (!_snapshots.containsKey(name)) {
       return Future<void>.error(
         CassetteStoreException.notFound(
@@ -61,6 +93,14 @@ final class MemoryCassetteStore implements CassetteStore {
     CassetteSnapshot snapshot,
     List<int> bytes,
   ) {
+    final limitFailure = _validateBytes(
+      snapshot.name,
+      bytes,
+      CassetteStoreOperation.replaceIfUnchanged,
+    );
+    if (limitFailure != null) {
+      return limitFailure;
+    }
     final current = _snapshots[snapshot.name];
     if (current == null) {
       return Future<void>.error(
@@ -77,6 +117,22 @@ final class MemoryCassetteStore implements CassetteStore {
     }
     _snapshots[snapshot.name] = _newSnapshot(snapshot.name, bytes);
     return Future<void>.value();
+  }
+
+  Future<void>? _validateBytes(
+    CassetteName name,
+    List<int> bytes,
+    CassetteStoreOperation operation,
+  ) {
+    if (bytes.length <= maximumBytes) {
+      return null;
+    }
+    return Future<void>.error(
+      CassetteStoreException.operationFailed(
+        name: name,
+        operation: operation,
+      ),
+    );
   }
 }
 

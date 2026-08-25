@@ -11,6 +11,7 @@ void main() {
     );
     final store = _ThirdPartyStore(snapshot);
 
+    expect(store.maximumBytes, 1024);
     expect(await store.exists(name), isTrue);
     expect(await store.read(name), same(snapshot));
     await store.create(name, const <int>[2]);
@@ -32,6 +33,9 @@ final class _ThirdPartyStore implements CassetteStore {
 
   final CassetteSnapshot snapshot;
   final List<String> operations = <String>[];
+
+  @override
+  int get maximumBytes => 1024;
 
   @override
   Future<bool> exists(CassetteName name) {

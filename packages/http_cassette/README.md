@@ -38,13 +38,16 @@ supports existence checks, immutable snapshot reads, create-only writes,
 explicit replacement and revision-checked replacement. Implementations must
 copy byte input and must not decode, match, sanitise or migrate cassette data.
 Direct callers are responsible for supplying sanitised, validated and encoded
-cassette bytes.
+cassette bytes. Every store declares one positive `maximumBytes` value. The
+store enforces it while accepting encoded data, and the core independently uses
+the same value before decoding a snapshot.
 
 `MemoryCassetteStore` provides isolate-local storage with no file-system or
-network access. Each instance owns private state:
+network access. Each instance owns private state and accepts an optional
+positive `maximumBytes` override:
 
 ```dart
-final store = MemoryCassetteStore();
+final store = MemoryCassetteStore(maximumBytes: 64 * 1024 * 1024);
 await store.create(cassetteName, encodedSafeCassetteBytes);
 final snapshot = await store.read(cassetteName);
 ```

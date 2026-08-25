@@ -9,6 +9,11 @@ import 'snapshot.dart';
 /// encoded cassette bytes. Stores do not decode, match, sanitise or migrate
 /// cassette content.
 abstract interface class CassetteStore {
+  /// The positive maximum encoded cassette size accepted by this store.
+  ///
+  /// The core independently applies the same limit before decoding snapshots.
+  int get maximumBytes;
+
   /// Reports whether [name] currently exists.
   Future<bool> exists(CassetteName name);
 

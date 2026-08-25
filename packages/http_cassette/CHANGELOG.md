@@ -125,4 +125,5 @@
 - Added safe replay store-read diagnostic mapping.
 - Added safe replay cassette-decode diagnostic mapping.
 - Added a unified, safely formatted replay-loading failure boundary.
+- Unified the store and decoder total cassette byte-limit contract.
 - Record/replay behaviour is not available yet.

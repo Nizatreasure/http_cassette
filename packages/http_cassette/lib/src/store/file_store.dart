@@ -54,7 +54,8 @@ final class FileCassetteStore implements CassetteStore {
   final Map<CassetteName, Future<void>> _writeTails =
       <CassetteName, Future<void>>{};
 
-  /// The maximum encoded cassette bytes accepted by one read.
+  /// The maximum encoded cassette bytes accepted by one read or write.
+  @override
   final int maximumBytes;
 
   @override
