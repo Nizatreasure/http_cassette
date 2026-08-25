@@ -224,6 +224,12 @@ request facts, consumption state and policy without logging. Cassette names are
 explicitly truncated after 128 characters and at most 16 recorded indices are
 shown with an omitted count. Public replay integration is not implemented yet.
 
+The active replay foundation now assembles that safe exhaustion diagnostic only
+when strict selection actually exhausts a matching group. It uses the request's
+assigned arrival index and the state which produced the exhaustion result.
+Selected and no-match results do not carry an exhaustion diagnostic. Request
+execution and public error delivery remain unimplemented.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded

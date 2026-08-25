@@ -103,6 +103,23 @@ void main() {
       );
       expect(exhausted.arrivalIndex, 2);
       expect(exhausted.result, isA<ReplayGroupExhausted>());
+      expect(exhausted.noMatchDiagnostic, isNull);
+      expect(exhausted.exhaustionDiagnostic, isNotNull);
+      expect(
+        exhausted.exhaustionDiagnostic!.context.cassetteName.value,
+        'strict',
+      );
+      expect(exhausted.exhaustionDiagnostic!.context.request.arrivalIndex, 2);
+      expect(
+        exhausted.exhaustionDiagnostic!.details.replayPolicy,
+        ReplayPolicy.strict,
+      );
+      expect(exhausted.exhaustionDiagnostic!.details.matchingGroupSize, 2);
+      expect(exhausted.exhaustionDiagnostic!.details.usedInteractionCount, 2);
+      expect(
+        exhausted.exhaustionDiagnostic!.details.recordedIndices,
+        <int>[0, 1],
+      );
       expect(first.state, same(second.state));
       expect(second.state, same(exhausted.state));
       expect(state.selectionStates, <ReplaySelectionState>[first.state]);
@@ -177,6 +194,7 @@ void main() {
       expect(selection.noMatchDiagnostic!.context.request.arrivalIndex, 0);
       expect(selection.noMatchDiagnostic!.consideredInteractionCount, 1);
       expect(selection.noMatchDiagnostic!.closestRecordedIndex, 0);
+      expect(selection.exhaustionDiagnostic, isNull);
     });
 
     test('does not assemble a no-match diagnostic for other results', () {
@@ -189,8 +207,10 @@ void main() {
       final exhausted = state.selectRequest(_request('/items'));
 
       expect(selected.noMatchDiagnostic, isNull);
+      expect(selected.exhaustionDiagnostic, isNull);
       expect(exhausted.result, isA<ReplayGroupExhausted>());
       expect(exhausted.noMatchDiagnostic, isNull);
+      expect(exhausted.exhaustionDiagnostic, isNotNull);
     });
 
     test('does not compare candidates again for no-match diagnostics', () {

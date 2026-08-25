@@ -7,6 +7,8 @@ import '../matching/request_matcher.dart';
 import '../model/http_message.dart';
 import 'configuration.dart';
 import 'diagnostic_context.dart';
+import 'exhaustion.dart';
+import 'exhaustion_diagnostic.dart';
 import 'grouping.dart';
 import 'matcher_description.dart';
 import 'no_match.dart';
@@ -22,6 +24,7 @@ final class ReplayRequestSelection {
     required this.state,
     required this.result,
     required this.noMatchDiagnostic,
+    required this.exhaustionDiagnostic,
   });
 
   /// The request-arrival index assigned before matching began.
@@ -35,6 +38,9 @@ final class ReplayRequestSelection {
 
   /// Safe no-match details when [result] is [ReplayNoMatch].
   final ReplayNoMatchDiagnostic? noMatchDiagnostic;
+
+  /// Safe exhaustion details when [result] is [ReplayGroupExhausted].
+  final ReplayExhaustionDiagnostic? exhaustionDiagnostic;
 }
 
 /// Session-local configuration and state for one active replay session.
@@ -101,6 +107,18 @@ final class ActiveReplayState {
               candidates: evaluation.candidates,
             )
           : null,
+      exhaustionDiagnostic: result is ReplayGroupExhausted
+          ? ReplayExhaustionDiagnostic(
+              context: _createDiagnosticContext(
+                incoming: incoming,
+                arrivalIndex: arrivalIndex,
+              ),
+              details: ReplayExhaustionDetails.fromSelection(
+                state: state,
+                result: result,
+              ),
+            )
+          : null,
     );
   }
 
@@ -127,12 +145,9 @@ final class ActiveReplayState {
     required Iterable<RequestMatchCandidate> candidates,
   }) =>
       ReplayNoMatchDiagnostic(
-        context: ReplayDiagnosticContext(
-          cassetteName: cassetteName,
-          request: ReplayRequestSummary.fromRequest(
-            request: incoming,
-            arrivalIndex: arrivalIndex,
-          ),
+        context: _createDiagnosticContext(
+          incoming: incoming,
+          arrivalIndex: arrivalIndex,
         ),
         replayPolicy: replayPolicy,
         matcher: ReplayMatcherDescription.fromConfiguration(
@@ -140,6 +155,18 @@ final class ActiveReplayState {
         ),
         details: ReplayNoMatchDetails.fromRanking(
           rankRequestMatchCandidates(candidates),
+        ),
+      );
+
+  ReplayDiagnosticContext _createDiagnosticContext({
+    required CassetteRequest incoming,
+    required int arrivalIndex,
+  }) =>
+      ReplayDiagnosticContext(
+        cassetteName: cassetteName,
+        request: ReplayRequestSummary.fromRequest(
+          request: incoming,
+          arrivalIndex: arrivalIndex,
         ),
       );
 }
