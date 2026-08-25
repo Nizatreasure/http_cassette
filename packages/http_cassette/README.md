@@ -143,8 +143,10 @@ that session closes or is discarded. The active internal state also retains
 the resolved replay policy, close-verification choice and configured matcher.
 It can internally assign, match and select a canonical request without an
 asynchronous gap while sharing policy state between equivalent matching groups.
-The engine still does not expose interception or replay requests, and scoped
-callback methods are not implemented.
+An actual no-match result now ranks the comparisons already produced during
+matching and assembles the existing value-safe diagnostic without comparing the
+request again. The engine still does not expose interception or replay
+requests, and scoped callback methods are not implemented.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

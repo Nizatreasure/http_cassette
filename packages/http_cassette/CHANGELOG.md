@@ -132,4 +132,5 @@
 - Added immutable resolved configuration for active replay sessions.
 - Added session-local monotonic replay request-arrival indices.
 - Combined internal replay arrival assignment, matching and policy selection.
+- Assembled safe no-match diagnostics from actual replay selection.
 - Record/replay behaviour is not available yet.

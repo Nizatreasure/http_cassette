@@ -171,6 +171,51 @@ void main() {
       expect(selection.arrivalIndex, 0);
       expect(selection.result, isA<ReplayNoMatch>());
       expect(selection.state.matchingInteractions, isEmpty);
+      expect(selection.noMatchDiagnostic, isNotNull);
+      expect(
+          selection.noMatchDiagnostic!.context.cassetteName.value, 'missing');
+      expect(selection.noMatchDiagnostic!.context.request.arrivalIndex, 0);
+      expect(selection.noMatchDiagnostic!.consideredInteractionCount, 1);
+      expect(selection.noMatchDiagnostic!.closestRecordedIndex, 0);
+    });
+
+    test('does not assemble a no-match diagnostic for other results', () {
+      final state = _state(
+        'selected',
+        interactions: <CassetteInteraction>[_interaction(0, '/items')],
+      );
+
+      final selected = state.selectRequest(_request('/items'));
+      final exhausted = state.selectRequest(_request('/items'));
+
+      expect(selected.noMatchDiagnostic, isNull);
+      expect(exhausted.result, isA<ReplayGroupExhausted>());
+      expect(exhausted.noMatchDiagnostic, isNull);
+    });
+
+    test('does not compare candidates again for no-match diagnostics', () {
+      final component = _CountingMatcherComponent();
+      final state = ActiveReplayState(
+        cassetteName: CassetteName('single-pass'),
+        cassette: Cassette(
+          interactions: <CassetteInteraction>[
+            _interaction(0, '/first'),
+            _interaction(1, '/second'),
+          ],
+        ),
+        configuration: CassetteConfiguration(
+          matching: MatchingConfiguration(
+            customComponents: <RequestMatcherComponent>[component],
+          ),
+        ),
+        options: const ReplayOptions(),
+      );
+
+      final selection = state.selectRequest(_request('/missing'));
+
+      expect(selection.result, isA<ReplayNoMatch>());
+      expect(selection.noMatchDiagnostic, isNotNull);
+      expect(component.comparisonCount, 2);
     });
   });
 }
@@ -199,3 +244,20 @@ CassetteInteraction _interaction(int index, String path) => CassetteInteraction(
         CassetteResponse(statusCode: 200 + index),
       ),
     );
+
+final class _CountingMatcherComponent implements RequestMatcherComponent {
+  var comparisonCount = 0;
+
+  @override
+  String get name => 'counting';
+
+  @override
+  MatchComponentResult compare(
+    CassetteRequest expected,
+    CassetteRequest actual,
+    MatchContext context,
+  ) {
+    comparisonCount++;
+    return MatchComponentResult(matches: true);
+  }
+}

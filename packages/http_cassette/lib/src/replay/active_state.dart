@@ -2,10 +2,15 @@ import '../cassette/cassette.dart';
 import '../cassette/interaction.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
+import '../matching/ranking.dart';
 import '../matching/request_matcher.dart';
 import '../model/http_message.dart';
 import 'configuration.dart';
+import 'diagnostic_context.dart';
 import 'grouping.dart';
+import 'matcher_description.dart';
+import 'no_match.dart';
+import 'no_match_diagnostic.dart';
 import 'policy_resolution.dart';
 import 'selection.dart';
 
@@ -16,6 +21,7 @@ final class ReplayRequestSelection {
     required this.arrivalIndex,
     required this.state,
     required this.result,
+    required this.noMatchDiagnostic,
   });
 
   /// The request-arrival index assigned before matching began.
@@ -26,6 +32,9 @@ final class ReplayRequestSelection {
 
   /// The selected interaction, no-match result or exhaustion result.
   final ReplaySelectionResult result;
+
+  /// Safe no-match details when [result] is [ReplayNoMatch].
+  final ReplayNoMatchDiagnostic? noMatchDiagnostic;
 }
 
 /// Session-local configuration and state for one active replay session.
@@ -69,20 +78,29 @@ final class ActiveReplayState {
   /// mutation.
   ReplayRequestSelection selectRequest(CassetteRequest incoming) {
     final arrivalIndex = _nextArrivalIndex++;
-    final matchingInteractions = buildReplayMatchingGroup(
+    final evaluation = evaluateReplayRequest(
       cassette: cassette,
       incoming: incoming,
       matcher: matcher,
     );
+    final matchingInteractions = evaluation.matchingInteractions;
     final key = _ReplayMatchingGroupKey(matchingInteractions);
     final state = _selectionStates.putIfAbsent(
       key,
       () => _createSelectionState(matchingInteractions),
     );
+    final result = state.select();
     return ReplayRequestSelection(
       arrivalIndex: arrivalIndex,
       state: state,
-      result: state.select(),
+      result: result,
+      noMatchDiagnostic: result is ReplayNoMatch
+          ? _createNoMatchDiagnostic(
+              incoming: incoming,
+              arrivalIndex: arrivalIndex,
+              candidates: evaluation.candidates,
+            )
+          : null,
     );
   }
 
@@ -102,6 +120,28 @@ final class ActiveReplayState {
           ReplaySelectionState.sequence(matchingInteractions),
         ReplayPolicy.cycle => ReplaySelectionState.cycle(matchingInteractions),
       };
+
+  ReplayNoMatchDiagnostic _createNoMatchDiagnostic({
+    required CassetteRequest incoming,
+    required int arrivalIndex,
+    required Iterable<RequestMatchCandidate> candidates,
+  }) =>
+      ReplayNoMatchDiagnostic(
+        context: ReplayDiagnosticContext(
+          cassetteName: cassetteName,
+          request: ReplayRequestSummary.fromRequest(
+            request: incoming,
+            arrivalIndex: arrivalIndex,
+          ),
+        ),
+        replayPolicy: replayPolicy,
+        matcher: ReplayMatcherDescription.fromConfiguration(
+          matcher.configuration,
+        ),
+        details: ReplayNoMatchDetails.fromRanking(
+          rankRequestMatchCandidates(candidates),
+        ),
+      );
 }
 
 final class _ReplayMatchingGroupKey {

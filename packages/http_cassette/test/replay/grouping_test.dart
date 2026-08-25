@@ -146,6 +146,37 @@ void main() {
     expect(group.single, same(interaction));
     expect(incoming.uri, Uri.parse('https://example.test/items'));
   });
+
+  test('retains the single comparison used for each candidate', () {
+    final cassette = Cassette(
+      interactions: <CassetteInteraction>[
+        _interaction(0, method: 'GET', path: '/first'),
+        _interaction(1, method: 'GET', path: '/second'),
+      ],
+    );
+    final evaluation = evaluateReplayRequest(
+      cassette: cassette,
+      incoming: CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://example.test/missing'),
+      ),
+      matcher: DefaultRequestMatcher(),
+    );
+
+    expect(evaluation.matchingInteractions, isEmpty);
+    expect(
+      evaluation.candidates.map((candidate) => candidate.recordedIndex),
+      <int>[0, 1],
+    );
+    expect(
+      evaluation.candidates.every((candidate) => !candidate.comparison.matches),
+      isTrue,
+    );
+    expect(
+      () => evaluation.candidates.add(evaluation.candidates.first),
+      throwsUnsupportedError,
+    );
+  });
 }
 
 List<CassetteInteraction> _group(
