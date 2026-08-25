@@ -130,4 +130,5 @@
 - Connected replay-loading failures to the public cassette exception boundary.
 - Loaded and validated cassettes before activating replay sessions.
 - Added immutable resolved configuration for active replay sessions.
+- Added session-local monotonic replay request-arrival indices.
 - Record/replay behaviour is not available yet.

@@ -56,5 +56,29 @@ void main() {
       expect(state.replayPolicy, ReplayPolicy.cycle);
       expect(state.requireAllInteractions, isTrue);
     });
+
+    test('assigns monotonic request-arrival indices from zero', () {
+      final state = _state('arrival');
+
+      expect(state.assignArrivalIndex(), 0);
+      expect(state.assignArrivalIndex(), 1);
+      expect(state.assignArrivalIndex(), 2);
+    });
+
+    test('keeps arrival indices independent between sessions', () {
+      final first = _state('first');
+      final second = _state('second');
+
+      expect(first.assignArrivalIndex(), 0);
+      expect(first.assignArrivalIndex(), 1);
+      expect(second.assignArrivalIndex(), 0);
+    });
   });
 }
+
+ActiveReplayState _state(String name) => ActiveReplayState(
+      cassetteName: CassetteName(name),
+      cassette: Cassette(),
+      configuration: CassetteConfiguration(),
+      options: const ReplayOptions(),
+    );
