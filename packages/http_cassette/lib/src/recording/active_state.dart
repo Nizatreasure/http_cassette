@@ -1,8 +1,10 @@
+import '../cassette/interaction.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
 import '../model/http_message.dart';
 import '../sanitisation/configuration.dart';
 import 'configuration.dart';
+import 'interaction_projection.dart';
 import 'request_attempt.dart';
 
 /// Session-local configuration and state for one active recording session.
@@ -37,4 +39,8 @@ final class ActiveRecordingState {
         arrivalIndex: assignArrivalIndex(),
         request: request,
       );
+
+  /// Sanitises [result] into an interaction without retaining it.
+  CassetteInteraction sanitiseResult(RecordingRequestResult result) =>
+      sanitiseRecordingResult(result, sanitisation);
 }

@@ -265,6 +265,12 @@ transient one-shot operation. Successful operations pair that index and request
 with the live canonical outcome even when responses finish out of order. These
 unsanitised results are not retained in session state or persisted.
 
+A successful transient result can now be sanitised into a valid interaction.
+The complete request pipeline supplies its matching exclusions, response
+outcomes pass through the complete response pipeline, and safe portable
+transport failures remain unchanged. The assigned arrival index is preserved.
+If sanitisation fails, no interaction is returned or retained.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
