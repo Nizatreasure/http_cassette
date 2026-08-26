@@ -242,6 +242,11 @@ operation without a session, during recording or after replay closes fails with
 a safe lifecycle diagnostic and cannot attempt the network. Inactive adapter
 pass-through and the public interception permit remain unimplemented.
 
+The complete internal replay route is covered for matched requests, duplicate
+strict matches, no-match and exhaustion. Matching and consumption stay in one
+synchronous operation, and the route contains no real-attempt callback. Public
+adapter interception is still a later stage.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded

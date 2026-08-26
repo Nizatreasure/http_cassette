@@ -120,6 +120,8 @@
 - Added internal replay outcome delivery with safe no-match and exhaustion
   exceptions.
 - Connected internal replay execution to the engine's active replay session.
+- Completed internal engine-route coverage for matched, mismatched and
+  exhausted replay requests.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.
