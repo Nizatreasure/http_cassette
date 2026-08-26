@@ -277,6 +277,12 @@ are sorted by request-arrival index, so reverse response completion cannot
 reorder recorded traffic. Pending attempts may leave temporary gaps; this stage
 does not yet create or persist a cassette.
 
+One internal recording operation now composes admission, the guarded real
+attempt, sanitisation and ordered retention. It returns the exact live canonical
+outcome to the caller only after the safe interaction is retained. Attempt and
+sanitisation failures retain nothing. This operation is not yet routed through
+the engine or exposed to adapters.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded

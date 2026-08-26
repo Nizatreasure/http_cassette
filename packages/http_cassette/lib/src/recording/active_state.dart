@@ -2,6 +2,7 @@ import '../cassette/interaction.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
 import '../model/http_message.dart';
+import '../model/outcome.dart';
 import '../sanitisation/configuration.dart';
 import 'configuration.dart';
 import 'interaction_projection.dart';
@@ -41,6 +42,20 @@ final class ActiveRecordingState {
         arrivalIndex: assignArrivalIndex(),
         request: request,
       );
+
+  /// Records one [request] through a single authorised real [attempt].
+  ///
+  /// The request is admitted synchronously. After the attempt succeeds, its
+  /// result is sanitised and retained before the original live outcome is
+  /// returned. Any failure before retention adds no interaction.
+  Future<CassetteOutcome> recordRequest(
+    CassetteRequest request,
+    Future<CassetteOutcome> Function() attempt,
+  ) async {
+    final result = await beginRequest(request).run(attempt);
+    retainResult(result);
+    return result.outcome;
+  }
 
   /// Sanitises [result] into an interaction without retaining it.
   CassetteInteraction sanitiseResult(RecordingRequestResult result) =>

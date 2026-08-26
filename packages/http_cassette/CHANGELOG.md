@@ -127,6 +127,7 @@
 - Added indexed transient recording request attempts before session retention.
 - Added sanitised recording interaction projection with matching exclusions.
 - Added ordered in-memory retention for sanitised recording interactions.
+- Composed recording admission, one real attempt, sanitisation and retention.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.
