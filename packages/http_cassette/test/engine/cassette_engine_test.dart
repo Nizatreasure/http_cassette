@@ -14,7 +14,7 @@ void main() {
       expect(engine.activeSession, isNull);
     });
 
-    test('starts a lifecycle-only recording session', () async {
+    test('starts a recording session without transport work', () async {
       final engine = _engine();
 
       final session = await engine.startRecording(

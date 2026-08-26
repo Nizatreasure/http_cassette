@@ -4,6 +4,7 @@ import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
+import '../recording/active_state.dart';
 import '../recording/configuration.dart';
 import '../replay/active_state.dart';
 import '../replay/cassette_loader.dart';
@@ -16,8 +17,9 @@ import 'session_ownership.dart';
 
 /// Coordinates cassette sessions independently of any HTTP transport.
 ///
-/// The current engine loads replay sessions but does not yet intercept traffic.
-/// Recording, replay execution and persistence are connected in later stages.
+/// The current engine retains recording state and executes replay internally,
+/// but does not yet expose transport interception. Recording capture and
+/// persistence are connected in later stages.
 final class CassetteEngine {
   /// Creates an inactive engine backed by [store].
   ///
@@ -44,16 +46,19 @@ final class CassetteEngine {
   /// The current session, or null when this engine is inactive.
   CassetteSession? get activeSession => _state.sessions.activeSession;
 
-  /// Starts a lifecycle-only recording session named [name].
+  /// Starts a recording session named [name].
   ///
-  /// [options] becomes operational when recording persistence is connected.
-  /// The current implementation performs no store or transport work.
+  /// The current implementation retains session configuration and arrival
+  /// state but performs no store or transport work.
   Future<CassetteSession> startRecording(
     String name, {
     RecordingOptions options = const RecordingOptions(),
   }) =>
       Future<CassetteSession>.sync(
-        () => _startSession(name, CassetteMode.record),
+        () => _state.startRecording(
+          CassetteName(name),
+          options,
+        ),
       );
 
   /// Loads and starts a replay session named [name].
@@ -95,14 +100,6 @@ final class CassetteEngine {
         );
     }
   }
-
-  CassetteSession _startSession(String name, CassetteMode mode) =>
-      _state.sessions.acquire(
-        name: CassetteName(name),
-        mode: mode,
-        closeAction: _completeLifecycleOnly,
-        discardAction: _completeLifecycleOnly,
-      );
 }
 
 /// Dependencies and mutable session ownership retained by one engine.
@@ -123,6 +120,28 @@ final class EngineState {
 
   /// The resolved replay state retained only while its session is active.
   ActiveReplayState? activeReplay;
+
+  /// The recording state retained only while its session is active.
+  ActiveRecordingState? activeRecording;
+
+  /// Starts and retains one active recording session.
+  CassetteSession startRecording(
+    CassetteName name,
+    RecordingOptions options,
+  ) {
+    final reservation = sessions.reserve(CassetteMode.record);
+    activeRecording = ActiveRecordingState(
+      cassetteName: name,
+      configuration: configuration,
+      options: options,
+    );
+    return reservation.activate(
+      name: name,
+      mode: CassetteMode.record,
+      closeAction: completeRecordingLifecycleOnly,
+      discardAction: completeRecordingLifecycleOnly,
+    );
+  }
 
   /// Resolves [request] through the currently active replay session.
   ///
@@ -152,6 +171,10 @@ final class EngineState {
     activeReplay = null;
     return Future<void>.value();
   }
-}
 
-Future<void> _completeLifecycleOnly() => Future<void>.value();
+  /// Clears lifecycle-only recording state before ownership is released.
+  Future<void> completeRecordingLifecycleOnly() {
+    activeRecording = null;
+    return Future<void>.value();
+  }
+}

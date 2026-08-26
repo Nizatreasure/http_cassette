@@ -122,6 +122,7 @@
 - Connected internal replay execution to the engine's active replay session.
 - Completed internal engine-route coverage for matched, mismatched and
   exhausted replay requests.
+- Added active recording-session configuration and request-arrival state.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

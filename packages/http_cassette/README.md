@@ -247,6 +247,12 @@ strict matches, no-match and exhaustion. Matching and consumption stay in one
 synchronous operation, and the route contains no real-attempt callback. Public
 adapter interception is still a later stage.
 
+An active recording session now retains its validated logical name, target
+handling option and the engine's fixed sanitisation configuration. Each session
+owns a synchronous arrival counter starting at zero, and successful close or
+discard clears that state. No request is captured or sanitised yet, no real
+transport is invoked, and nothing is persisted in this substage.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
