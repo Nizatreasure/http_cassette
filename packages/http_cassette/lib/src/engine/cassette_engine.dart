@@ -166,6 +166,36 @@ final class EngineState {
     return executeReplayRequest(state: replay, request: request);
   }
 
+  /// Resolves [request] through the currently active recording session.
+  ///
+  /// The supplied real [attempt] is invoked only when a recording session is
+  /// active. Lifecycle rejection occurs before the callback can be invoked.
+  Future<CassetteOutcome> executeActiveRecordingRequest(
+    CassetteRequest request,
+    Future<CassetteOutcome> Function() attempt,
+  ) {
+    final recording = activeRecording;
+    if (recording == null) {
+      final activeSession = sessions.activeSession;
+      final isReplay = activeSession?.mode == CassetteMode.replay;
+      return Future<CassetteOutcome>.error(
+        CassetteException(
+          CassetteDiagnostic(
+            category: activeSession == null
+                ? DiagnosticCategory.noActiveSession
+                : DiagnosticCategory.conflictingSessionOperation,
+            summary: activeSession == null
+                ? 'Recording execution requires an active cassette session.'
+                : 'The active cassette session is not a recording session.',
+            networkAccess:
+                isReplay ? NetworkAccess.disabled : NetworkAccess.notAttempted,
+          ),
+        ),
+      );
+    }
+    return recording.recordRequest(request, attempt);
+  }
+
   /// Clears lifecycle-only replay state before ownership is released.
   Future<void> completeReplayLifecycleOnly() {
     activeReplay = null;
