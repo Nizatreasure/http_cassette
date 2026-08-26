@@ -1,3 +1,4 @@
+import '../cassette/cassette.dart';
 import '../cassette/interaction.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
@@ -87,5 +88,19 @@ final class ActiveRecordingState {
     final sorted = _interactions.values.toList()
       ..sort((first, second) => first.index.compareTo(second.index));
     return List<CassetteInteraction>.unmodifiable(sorted);
+  }
+
+  /// Finalises the complete retained interactions as an immutable cassette.
+  ///
+  /// Every admitted request must have completed sanitisation and retention.
+  /// A rejected finalisation does not change the active recording state.
+  Cassette finaliseCassette() {
+    if (_interactions.length != _nextArrivalIndex) {
+      throw StateError(
+        'A recording cassette cannot be finalised while admitted requests '
+        'remain incomplete.',
+      );
+    }
+    return Cassette(interactions: interactions);
   }
 }

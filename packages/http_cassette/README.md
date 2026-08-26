@@ -285,6 +285,12 @@ real-attempt callback is invoked. Attempt and sanitisation failures retain
 nothing. Recording remains internal and non-persistent; adapter interception is
 not yet exposed.
 
+Complete internal recording state can now be finalised into an immutable
+current-writable cassette, including an empty cassette. Finalisation preserves
+request-arrival order and rejects any gap left by a pending or failed admitted
+request. It does not yet encode, persist or commit the cassette when a session
+closes.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
