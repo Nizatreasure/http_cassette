@@ -1,10 +1,14 @@
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
+import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
+import '../model/http_message.dart';
+import '../model/outcome.dart';
 import '../recording/configuration.dart';
 import '../replay/active_state.dart';
 import '../replay/cassette_loader.dart';
 import '../replay/configuration.dart';
+import '../replay/execution.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
 import '../store/store.dart';
@@ -119,6 +123,29 @@ final class EngineState {
 
   /// The resolved replay state retained only while its session is active.
   ActiveReplayState? activeReplay;
+
+  /// Resolves [request] through the currently active replay session.
+  ///
+  /// This internal operation has no real-transport callback. Calling it while
+  /// no replay session is active throws a safe lifecycle exception.
+  CassetteOutcome executeActiveReplayRequest(CassetteRequest request) {
+    final replay = activeReplay;
+    if (replay == null) {
+      final hasActiveSession = sessions.activeSession != null;
+      throw CassetteException(
+        CassetteDiagnostic(
+          category: hasActiveSession
+              ? DiagnosticCategory.conflictingSessionOperation
+              : DiagnosticCategory.noActiveSession,
+          summary: hasActiveSession
+              ? 'The active cassette session is not a replay session.'
+              : 'Replay execution requires an active cassette session.',
+          networkAccess: NetworkAccess.disabled,
+        ),
+      );
+    }
+    return executeReplayRequest(state: replay, request: request);
+  }
 
   /// Clears lifecycle-only replay state before ownership is released.
   Future<void> completeReplayLifecycleOnly() {

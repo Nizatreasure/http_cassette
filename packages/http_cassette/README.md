@@ -236,6 +236,12 @@ recorded canonical outcome. A no-match or exhausted result instead throws a
 state that no real request was made. The boundary accepts no network callback.
 It is not yet exposed through the public adapter integration contract.
 
+The engine's internal state now routes requests through that boundary only
+while its loaded replay session remains active. Calling the replay-only
+operation without a session, during recording or after replay closes fails with
+a safe lifecycle diagnostic and cannot attempt the network. Inactive adapter
+pass-through and the public interception permit remain unimplemented.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
