@@ -253,6 +253,12 @@ owns a synchronous arrival counter starting at zero, and successful close or
 discard clears that state. No request is captured or sanitised yet, no real
 transport is invoked, and nothing is persisted in this substage.
 
+An internal per-request recording guard can now invoke one argument-free real
+attempt and return its canonical response or transport-failure outcome
+unchanged. It reserves that invocation before awaiting completion and rejects a
+second call without invoking its callback. Adapter exception mapping,
+cancellation, sanitisation and interaction retention remain unimplemented.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
