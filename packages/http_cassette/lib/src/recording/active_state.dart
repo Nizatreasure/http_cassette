@@ -26,6 +26,8 @@ final class ActiveRecordingState {
   final RecordingOptions options;
 
   var _nextArrivalIndex = 0;
+  final Map<int, CassetteInteraction> _interactions =
+      <int, CassetteInteraction>{};
 
   /// Assigns the next request-arrival index synchronously.
   int assignArrivalIndex() => _nextArrivalIndex++;
@@ -43,4 +45,32 @@ final class ActiveRecordingState {
   /// Sanitises [result] into an interaction without retaining it.
   CassetteInteraction sanitiseResult(RecordingRequestResult result) =>
       sanitiseRecordingResult(result, sanitisation);
+
+  /// Sanitises and retains one successful admitted request [result].
+  ///
+  /// Retention occurs synchronously after complete sanitisation. A result index
+  /// must have been assigned by this session and may be retained only once.
+  CassetteInteraction retainResult(RecordingRequestResult result) {
+    final index = result.arrivalIndex;
+    if (index < 0 || index >= _nextArrivalIndex) {
+      throw StateError(
+        'A recording result must use an index admitted by this session.',
+      );
+    }
+    if (_interactions.containsKey(index)) {
+      throw StateError(
+        'A recording result index may be retained only once.',
+      );
+    }
+    final interaction = sanitiseResult(result);
+    _interactions[index] = interaction;
+    return interaction;
+  }
+
+  /// Immutable retained interactions in request-arrival order.
+  List<CassetteInteraction> get interactions {
+    final sorted = _interactions.values.toList()
+      ..sort((first, second) => first.index.compareTo(second.index));
+    return List<CassetteInteraction>.unmodifiable(sorted);
+  }
 }

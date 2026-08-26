@@ -271,6 +271,12 @@ outcomes pass through the complete response pipeline, and safe portable
 transport failures remain unchanged. The assigned arrival index is preserved.
 If sanitisation fails, no interaction is returned or retained.
 
+Active recording state can now retain that sanitised interaction exactly once.
+Only already admitted indices are accepted. Immutable point-in-time snapshots
+are sorted by request-arrival index, so reverse response completion cannot
+reorder recorded traffic. Pending attempts may leave temporary gaps; this stage
+does not yet create or persist a cassette.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
