@@ -304,6 +304,14 @@ finalisation or commit keeps the sealed session in its uncertain lifecycle
 state. Append close remains write-free until its separate conditional-write
 path is implemented.
 
+The internal append preparer can now read exactly one immutable target
+snapshot, apply the store's cassette byte limit, strictly decode every
+interaction and retain the opaque revision for a later conditional write. A
+missing, unreadable, invalid or differently versioned target fails safely before
+recording. Version compatibility is compared with the implementation's current
+writable schema version. Append preparation is not yet connected to recording
+startup, continuing indices or session-close persistence.
+
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
 cassette is non-empty, the closest recorded index and the exact safe bounded
