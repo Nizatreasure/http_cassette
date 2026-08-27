@@ -291,8 +291,15 @@ not yet exposed.
 Complete internal recording state can now be finalised into an immutable
 current-writable cassette, including an empty cassette. Finalisation preserves
 request-arrival order and rejects any gap left by a pending or failed admitted
-request. It does not yet encode, persist or commit the cassette when a session
-closes.
+request. Finalisation alone does not encode or write the cassette, and session
+close does not yet commit it.
+
+An internal recording committer can now finalise and deterministically encode a
+complete create or replacement recording, then invoke the corresponding
+authoritative store write. A target that appears before create or disappears
+before replacement fails safely, as do other expected store-write failures.
+Append uses a separate future conditional-write path. Session close does not
+yet invoke this committer.
 
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the
