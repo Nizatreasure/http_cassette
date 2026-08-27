@@ -5,6 +5,7 @@ import '../diagnostics/exception.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
 import '../recording/active_state.dart';
+import '../recording/cassette_committer.dart';
 import '../recording/configuration.dart';
 import '../replay/active_state.dart';
 import '../replay/cassette_loader.dart';
@@ -140,7 +141,9 @@ final class EngineState {
     return reservation.activate(
       name: name,
       mode: CassetteMode.record,
-      closeAction: completeRecordingLifecycleOnly,
+      closeAction: options.existingCassette == ExistingCassette.append
+          ? completeRecordingLifecycleOnly
+          : commitActiveRecording,
       discardAction: completeRecordingLifecycleOnly,
     );
   }
@@ -245,6 +248,17 @@ final class EngineState {
         ),
       );
     }
+    if (!recording.acceptsRequests) {
+      return Future<CassetteOutcome>.error(
+        CassetteException(
+          CassetteDiagnostic(
+            category: DiagnosticCategory.conflictingSessionOperation,
+            summary: 'The recording session is completing.',
+            networkAccess: NetworkAccess.notAttempted,
+          ),
+        ),
+      );
+    }
     return recording.recordRequest(request, attempt);
   }
 
@@ -252,6 +266,17 @@ final class EngineState {
   Future<void> completeReplayLifecycleOnly() {
     activeReplay = null;
     return Future<void>.value();
+  }
+
+  /// Commits create or replacement state before releasing it.
+  Future<void> commitActiveRecording() async {
+    final recording = activeRecording;
+    if (recording == null) {
+      throw StateError('Recording commit requires active recording state.');
+    }
+    recording.sealRequestAdmission();
+    await RecordingCassetteCommitter(store).commit(recording);
+    activeRecording = null;
   }
 
   /// Clears lifecycle-only recording state before ownership is released.

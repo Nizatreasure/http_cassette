@@ -30,9 +30,27 @@ final class ActiveRecordingState {
   var _nextArrivalIndex = 0;
   final Map<int, CassetteInteraction> _interactions =
       <int, CassetteInteraction>{};
+  var _acceptsRequests = true;
+  Cassette? _finalisedCassette;
+
+  /// Whether another request may enter this recording state.
+  bool get acceptsRequests => _acceptsRequests;
+
+  /// Whether this state has fixed its immutable cassette snapshot.
+  bool get isFinalised => _finalisedCassette != null;
+
+  /// Prevents any later request admission without affecting pending attempts.
+  void sealRequestAdmission() {
+    _acceptsRequests = false;
+  }
 
   /// Assigns the next request-arrival index synchronously.
-  int assignArrivalIndex() => _nextArrivalIndex++;
+  int assignArrivalIndex() {
+    if (!acceptsRequests) {
+      throw StateError('A sealed recording cannot admit another request.');
+    }
+    return _nextArrivalIndex++;
+  }
 
   /// Admits [request] and assigns its arrival index synchronously.
   ///
@@ -95,12 +113,18 @@ final class ActiveRecordingState {
   /// Every admitted request must have completed sanitisation and retention.
   /// A rejected finalisation does not change the active recording state.
   Cassette finaliseCassette() {
+    final finalised = _finalisedCassette;
+    if (finalised != null) {
+      return finalised;
+    }
     if (_interactions.length != _nextArrivalIndex) {
       throw StateError(
         'A recording cassette cannot be finalised while admitted requests '
         'remain incomplete.',
       );
     }
-    return Cassette(interactions: interactions);
+    final cassette = Cassette(interactions: interactions);
+    sealRequestAdmission();
+    return _finalisedCassette = cassette;
   }
 }

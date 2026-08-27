@@ -76,6 +76,16 @@ void main() {
       expect(state.interactions, isEmpty);
       expect(state.finaliseCassette, throwsStateError);
     });
+
+    test('seals request admission after successful finalisation', () {
+      final state = _state();
+      final cassette = state.finaliseCassette();
+
+      expect(state.acceptsRequests, isFalse);
+      expect(state.isFinalised, isTrue);
+      expect(state.finaliseCassette(), same(cassette));
+      expect(() => state.beginRequest(_request('/late')), throwsStateError);
+    });
   });
 }
 

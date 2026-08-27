@@ -39,9 +39,10 @@ final class CassetteSession {
 
   /// Completes this session successfully.
   ///
-  /// A recording session will commit its pending cassette and a replay session
-  /// will perform configured verification in later engine stages. Concurrent
-  /// completion or completion after a failure throws a [CassetteException].
+  /// Create and replacement recording sessions commit their complete cassette.
+  /// Append commit and replay verification are connected in later stages.
+  /// Concurrent completion or completion after a failure throws a
+  /// [CassetteException].
   Future<void> close() async {
     if (_lifecycle.startClose() == SessionLifecycleStart.alreadyClosed) {
       return;
@@ -59,8 +60,7 @@ final class CassetteSession {
   /// Abandons pending successful-completion work and closes this session.
   ///
   /// Concurrent completion or completion after a failure throws a
-  /// [CassetteException]. Recording and replay discard behaviour is connected
-  /// by later engine stages.
+  /// [CassetteException]. Recording discard performs no cassette write.
   Future<void> discard() async {
     if (_lifecycle.startDiscard() == SessionLifecycleStart.alreadyClosed) {
       return;
