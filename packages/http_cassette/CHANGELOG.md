@@ -134,6 +134,7 @@
 - Added authoritative internal recording commits for create and replace modes.
 - Connected create and replacement recording commits to successful close.
 - Added strict append-target snapshot preparation and version validation.
+- Added append-aware recording state with continuing interaction indices.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

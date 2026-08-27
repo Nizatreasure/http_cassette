@@ -309,8 +309,15 @@ snapshot, apply the store's cassette byte limit, strictly decode every
 interaction and retain the opaque revision for a later conditional write. A
 missing, unreadable, invalid or differently versioned target fails safely before
 recording. Version compatibility is compared with the implementation's current
-writable schema version. Append preparation is not yet connected to recording
-startup, continuing indices or session-close persistence.
+writable schema version. Preparation is not yet wired into engine startup or
+session-close persistence.
+
+Internal recording state can now consume that preparation. It retains the exact
+snapshot revision, seeds every existing interaction without re-sanitising or
+deduplicating it, and assigns new arrivals from the existing interaction count.
+Finalisation produces one combined cassette in index order, preserving existing
+matching exclusions and duplicates. Engine startup and conditional persistence
+are not yet connected.
 
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the

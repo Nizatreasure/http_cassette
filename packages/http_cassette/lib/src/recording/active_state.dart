@@ -5,6 +5,8 @@ import '../configuration/cassette_configuration.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
 import '../sanitisation/configuration.dart';
+import '../store/snapshot.dart';
+import 'append_preparation.dart';
 import 'configuration.dart';
 import 'interaction_projection.dart';
 import 'request_attempt.dart';
@@ -12,11 +14,49 @@ import 'request_attempt.dart';
 /// Session-local configuration and state for one active recording session.
 final class ActiveRecordingState {
   /// Creates active state from validated session inputs.
-  ActiveRecordingState({
-    required this.cassetteName,
+  ///
+  /// Supplying [appendPreparation] requires append [options] and the same
+  /// [cassetteName]. Its existing interactions seed the combined state.
+  factory ActiveRecordingState({
+    required CassetteName cassetteName,
     required CassetteConfiguration configuration,
+    required RecordingOptions options,
+    AppendCassettePrepared? appendPreparation,
+  }) {
+    if (appendPreparation != null) {
+      if (options.existingCassette != ExistingCassette.append) {
+        throw ArgumentError(
+          'Append preparation requires append recording options.',
+        );
+      }
+      if (appendPreparation.snapshot.name != cassetteName) {
+        throw ArgumentError(
+          'Append preparation must use the recording cassette name.',
+        );
+      }
+    }
+    final initialInteractions = appendPreparation?.cassette.interactions ??
+        const <CassetteInteraction>[];
+    return ActiveRecordingState._(
+      cassetteName: cassetteName,
+      sanitisation: configuration.sanitisation,
+      options: options,
+      appendSnapshot: appendPreparation?.snapshot,
+      initialInteractions: initialInteractions,
+    );
+  }
+
+  ActiveRecordingState._({
+    required this.cassetteName,
+    required this.sanitisation,
     required this.options,
-  }) : sanitisation = configuration.sanitisation;
+    required this.appendSnapshot,
+    required List<CassetteInteraction> initialInteractions,
+  })  : _nextArrivalIndex = initialInteractions.length,
+        _interactions = <int, CassetteInteraction>{
+          for (final interaction in initialInteractions)
+            interaction.index: interaction,
+        };
 
   /// The validated logical identity of the cassette being recorded.
   final CassetteName cassetteName;
@@ -27,9 +67,11 @@ final class ActiveRecordingState {
   /// The target-handling options fixed when the session starts.
   final RecordingOptions options;
 
-  var _nextArrivalIndex = 0;
-  final Map<int, CassetteInteraction> _interactions =
-      <int, CassetteInteraction>{};
+  /// The exact append target snapshot, or null for create and replacement.
+  final CassetteSnapshot? appendSnapshot;
+
+  int _nextArrivalIndex;
+  final Map<int, CassetteInteraction> _interactions;
   var _acceptsRequests = true;
   Cassette? _finalisedCassette;
 
@@ -101,7 +143,7 @@ final class ActiveRecordingState {
     return interaction;
   }
 
-  /// Immutable retained interactions in request-arrival order.
+  /// Immutable existing and newly retained interactions in arrival order.
   List<CassetteInteraction> get interactions {
     final sorted = _interactions.values.toList()
       ..sort((first, second) => first.index.compareTo(second.index));
