@@ -130,6 +130,7 @@
 - Composed recording admission, one real attempt, sanitisation and retention.
 - Connected internal recording execution to the engine's active session.
 - Added complete in-memory recording cassette finalisation.
+- Added recording-start target preflight for create and replace modes.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

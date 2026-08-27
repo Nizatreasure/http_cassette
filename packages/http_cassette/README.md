@@ -122,10 +122,13 @@ itself.
 
 `RecordingOptions` makes existing-cassette handling explicit. Recording will
 fail by default when a target already exists; callers may instead select
-`ExistingCassette.replace` or `ExistingCassette.append`. These values are
-configuration only. Replacement and append are not connected to a recording
-engine yet. Future append behaviour will require a valid cassette whose schema
-version equals the implementation's current writable schema version.
+`ExistingCassette.replace` or `ExistingCassette.append`. Recording startup now
+checks that the default target is absent and that an explicit replacement
+target exists. A failed or pending check exposes no active session and cannot
+invoke a real attempt. These checks do not write the target and the later store
+operation remains authoritative if it changes. Append is not connected yet; it
+will require a valid cassette whose schema version equals the implementation's
+current writable schema version.
 
 The internal engine foundation now reserves at most one session synchronously.
 Ownership remains reserved while completion is running and after a completion

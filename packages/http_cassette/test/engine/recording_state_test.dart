@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('EngineState recording state', () {
-    test('retains recording inputs for the active session', () {
+    test('retains recording inputs for the active session', () async {
       final sanitisation = SanitisationConfiguration(
         additionalJsonPointers: const <String>['/credentials/token'],
       );
@@ -14,10 +14,10 @@ void main() {
       );
       final name = CassetteName('checkout/record');
       final options = const RecordingOptions(
-        existingCassette: ExistingCassette.replace,
+        existingCassette: ExistingCassette.append,
       );
 
-      final session = state.startRecording(name, options);
+      final session = await state.startRecording(name, options);
 
       expect(session.mode, CassetteMode.record);
       expect(state.activeRecording, isNotNull);
@@ -28,7 +28,7 @@ void main() {
 
     test('clears recording state after successful close', () async {
       final state = _state();
-      final session = state.startRecording(
+      final session = await state.startRecording(
         CassetteName('recording'),
         const RecordingOptions(),
       );
@@ -41,7 +41,7 @@ void main() {
 
     test('clears recording state after successful discard', () async {
       final state = _state();
-      final session = state.startRecording(
+      final session = await state.startRecording(
         CassetteName('recording'),
         const RecordingOptions(),
       );

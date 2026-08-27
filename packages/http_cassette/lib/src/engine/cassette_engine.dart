@@ -12,6 +12,7 @@ import '../replay/configuration.dart';
 import '../replay/execution.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
+import '../store/exception.dart';
 import '../store/store.dart';
 import 'session_ownership.dart';
 
@@ -48,18 +49,13 @@ final class CassetteEngine {
 
   /// Starts a recording session named [name].
   ///
-  /// The current implementation retains session configuration and arrival
-  /// state but performs no store or transport work.
+  /// Default create and explicit replacement first check whether the target
+  /// has the required existence state. No cassette is written at startup.
   Future<CassetteSession> startRecording(
     String name, {
     RecordingOptions options = const RecordingOptions(),
   }) =>
-      Future<CassetteSession>.sync(
-        () => _state.startRecording(
-          CassetteName(name),
-          options,
-        ),
-      );
+      _state.startRecording(CassetteName(name), options);
 
   /// Loads and starts a replay session named [name].
   ///
@@ -124,12 +120,18 @@ final class EngineState {
   /// The recording state retained only while its session is active.
   ActiveRecordingState? activeRecording;
 
-  /// Starts and retains one active recording session.
-  CassetteSession startRecording(
+  /// Preflights, starts and retains one active recording session.
+  Future<CassetteSession> startRecording(
     CassetteName name,
     RecordingOptions options,
-  ) {
+  ) async {
     final reservation = sessions.reserve(CassetteMode.record);
+    try {
+      await _preflightRecordingTarget(name, options.existingCassette);
+    } catch (_) {
+      reservation.cancel();
+      rethrow;
+    }
     activeRecording = ActiveRecordingState(
       cassetteName: name,
       configuration: configuration,
@@ -141,6 +143,56 @@ final class EngineState {
       closeAction: completeRecordingLifecycleOnly,
       discardAction: completeRecordingLifecycleOnly,
     );
+  }
+
+  Future<void> _preflightRecordingTarget(
+    CassetteName name,
+    ExistingCassette handling,
+  ) async {
+    if (handling == ExistingCassette.append) {
+      return;
+    }
+
+    late final bool targetExists;
+    try {
+      targetExists = await store.exists(name);
+    } on CassetteStoreException catch (failure) {
+      if (failure.name != name ||
+          failure.operation != CassetteStoreOperation.exists ||
+          failure.kind == CassetteStoreFailureKind.notFound ||
+          failure.kind == CassetteStoreFailureKind.alreadyExists ||
+          failure.kind == CassetteStoreFailureKind.revisionChanged) {
+        throw StateError(
+          'A cassette store reported an invalid existence-check failure.',
+        );
+      }
+      throw CassetteException(
+        CassetteDiagnostic(
+          category: DiagnosticCategory.storeReadFailure,
+          summary: 'The recording target could not be checked.',
+          networkAccess: NetworkAccess.notAttempted,
+        ),
+      );
+    }
+
+    if (handling == ExistingCassette.fail && targetExists) {
+      throw CassetteException(
+        CassetteDiagnostic(
+          category: DiagnosticCategory.targetCassetteExists,
+          summary: 'The recording target already exists.',
+          networkAccess: NetworkAccess.notAttempted,
+        ),
+      );
+    }
+    if (handling == ExistingCassette.replace && !targetExists) {
+      throw CassetteException(
+        CassetteDiagnostic(
+          category: DiagnosticCategory.cassetteMissing,
+          summary: 'The recording replacement target does not exist.',
+          networkAccess: NetworkAccess.notAttempted,
+        ),
+      );
+    }
   }
 
   /// Resolves [request] through the currently active replay session.

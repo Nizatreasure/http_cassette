@@ -8,7 +8,7 @@ void main() {
   group('EngineState recording execution', () {
     test('captures through the retained active recording state', () async {
       final state = _engineState();
-      state.startRecording(
+      await state.startRecording(
         CassetteName('recording'),
         const RecordingOptions(),
       );
@@ -86,7 +86,7 @@ void main() {
 
     test('rejects execution after the recording session closes', () async {
       final state = _engineState();
-      final session = state.startRecording(
+      final session = await state.startRecording(
         CassetteName('recording'),
         const RecordingOptions(),
       );
