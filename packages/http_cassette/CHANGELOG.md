@@ -137,6 +137,7 @@
 - Added append-aware recording state with continuing interaction indices.
 - Connected validated append preparation to recording-session startup.
 - Added conditional append persistence on successful session close.
+- Added internal generic scoped-action result capture.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.
