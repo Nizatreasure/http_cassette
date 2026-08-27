@@ -132,7 +132,9 @@ must equal the implementation's current writable schema version, so a future
 implementation writing V2 will require a V2 append target rather than treating
 V1 as appendable merely because it can still be read. Preparation failures
 leave the engine inactive and do not attempt the real transport. Append close
-remains write-free until conditional replacement is connected.
+finalises the combined cassette and conditionally replaces the exact snapshot
+read at startup. A missing or concurrently changed target rejects the append
+without overwriting the current cassette. Discard remains write-free.
 
 The internal engine foundation now reserves at most one session synchronously.
 Ownership remains reserved while completion is running and after a completion
@@ -301,27 +303,27 @@ An internal recording committer can now finalise and deterministically encode a
 complete create or replacement recording, then invoke the corresponding
 authoritative store write. A target that appears before create or disappears
 before replacement fails safely, as do other expected store-write failures.
-Create and replacement session close now invoke this committer, while discard
-performs no write. Close seals request admission before finalisation or an
-asynchronous write begins, so late traffic cannot be omitted silently. A failed
-finalisation or commit keeps the sealed session in its uncertain lifecycle
-state. Append close remains write-free until its separate conditional-write
-path is implemented.
+Create, replacement and append session close now invoke this committer, while
+discard performs no write. Close seals request admission before finalisation or
+an asynchronous write begins, so late traffic cannot be omitted silently. A
+failed finalisation or commit keeps the sealed session in its uncertain
+lifecycle state. Append uses the opaque revision retained at startup and fails
+without overwriting the target if that revision is no longer current.
 
 The internal append preparer can now read exactly one immutable target
 snapshot, apply the store's cassette byte limit, strictly decode every
 interaction and retain the opaque revision for a later conditional write. A
 missing, unreadable, invalid or differently versioned target fails safely before
 recording. Version compatibility is compared with the implementation's current
-writable schema version. Preparation is not yet wired into engine startup or
-session-close persistence.
+writable schema version. Engine startup now performs this preparation before
+exposing an append session.
 
 Internal recording state can now consume that preparation. It retains the exact
 snapshot revision, seeds every existing interaction without re-sanitising or
 deduplicating it, and assigns new arrivals from the existing interaction count.
 Finalisation produces one combined cassette in index order, preserving existing
 matching exclusions and duplicates. Engine startup and conditional persistence
-are not yet connected.
+are connected through the same recording-session lifecycle.
 
 Internal no-match facts can now be created from the existing deterministic
 candidate ranking. They retain the complete considered count and, when the

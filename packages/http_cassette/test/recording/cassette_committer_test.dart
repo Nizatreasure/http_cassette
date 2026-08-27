@@ -1,9 +1,12 @@
 import 'dart:convert';
 
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/cassette/cassette.dart';
 import 'package:http_cassette/src/cassette/decoder.dart';
+import 'package:http_cassette/src/cassette/encoder.dart';
 import 'package:http_cassette/src/configuration/cassette_size_limit.dart';
 import 'package:http_cassette/src/recording/active_state.dart';
+import 'package:http_cassette/src/recording/append_preparation.dart';
 import 'package:http_cassette/src/recording/cassette_committer.dart';
 import 'package:test/test.dart';
 
@@ -55,7 +58,24 @@ void main() {
       expect(store.bytes, isNull);
     });
 
-    test('rejects append without invoking the store', () async {
+    test('conditionally replaces the exact prepared append snapshot', () async {
+      final store = _CommitStore();
+      final name = CassetteName('recording');
+      final preparation = _appendPreparation(name);
+      final state = _state(
+        name: name,
+        existingCassette: ExistingCassette.append,
+        appendPreparation: preparation,
+      );
+
+      await RecordingCassetteCommitter(store).commit(state);
+
+      expect(store.operation, CassetteStoreOperation.replaceIfUnchanged);
+      expect(store.snapshot, same(preparation.snapshot));
+      expect(decodeCassetteV1(store.bytes!).interactions, isEmpty);
+    });
+
+    test('rejects append state without a prepared snapshot', () async {
       final store = _CommitStore();
       final state = _state(existingCassette: ExistingCassette.append);
 
@@ -65,6 +85,57 @@ void main() {
       );
 
       expect(store.operation, isNull);
+    });
+
+    test('maps a stale append snapshot safely', () async {
+      final name = CassetteName('recording');
+      final store = _CommitStore(
+        failure: CassetteStoreException.revisionChanged(name),
+      );
+
+      await expectLater(
+        RecordingCassetteCommitter(store).commit(
+          _state(
+            name: name,
+            existingCassette: ExistingCassette.append,
+            appendPreparation: _appendPreparation(name),
+          ),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.appendTargetChanged,
+          ),
+        ),
+      );
+    });
+
+    test('maps a disappeared append target safely', () async {
+      final name = CassetteName('recording');
+      final store = _CommitStore(
+        failure: CassetteStoreException.notFound(
+          name: name,
+          operation: CassetteStoreOperation.replaceIfUnchanged,
+        ),
+      );
+
+      await expectLater(
+        RecordingCassetteCommitter(store).commit(
+          _state(
+            name: name,
+            existingCassette: ExistingCassette.append,
+            appendPreparation: _appendPreparation(name),
+          ),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.appendTargetChanged,
+          ),
+        ),
+      );
     });
 
     test('maps an authoritative create race safely', () async {
@@ -177,12 +248,24 @@ void main() {
 ActiveRecordingState _state({
   CassetteName? name,
   ExistingCassette existingCassette = ExistingCassette.fail,
+  AppendCassettePrepared? appendPreparation,
 }) =>
     ActiveRecordingState(
       cassetteName: name ?? CassetteName('recording'),
       configuration: CassetteConfiguration(),
       options: RecordingOptions(existingCassette: existingCassette),
+      appendPreparation: appendPreparation,
     );
+
+AppendCassettePrepared _appendPreparation(CassetteName name) =>
+    AppendCassettePreparationResult.prepared(
+      snapshot: CassetteSnapshot(
+        name: name,
+        bytes: encodeCassetteV1(Cassette()),
+        revision: CassetteRevision(),
+      ),
+      cassette: Cassette(),
+    ) as AppendCassettePrepared;
 
 CassetteRequest _request(String path) => CassetteRequest(
       method: 'GET',
@@ -200,6 +283,7 @@ final class _CommitStore implements CassetteStore {
   CassetteStoreOperation? operation;
   CassetteName? name;
   List<int>? bytes;
+  CassetteSnapshot? snapshot;
 
   @override
   int get maximumBytes => defaultMaximumCassetteBytesV1;
@@ -236,6 +320,12 @@ final class _CommitStore implements CassetteStore {
   Future<void> replaceIfUnchanged(
     CassetteSnapshot snapshot,
     List<int> bytes,
-  ) =>
-      throw UnimplementedError();
+  ) {
+    this.snapshot = snapshot;
+    return _write(
+      CassetteStoreOperation.replaceIfUnchanged,
+      snapshot.name,
+      bytes,
+    );
+  }
 }

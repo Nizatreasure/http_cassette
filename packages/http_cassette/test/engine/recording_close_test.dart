@@ -5,6 +5,7 @@ import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/cassette.dart';
 import 'package:http_cassette/src/cassette/decoder.dart';
 import 'package:http_cassette/src/cassette/encoder.dart';
+import 'package:http_cassette/src/cassette/interaction.dart';
 import 'package:http_cassette/src/configuration/cassette_size_limit.dart';
 import 'package:http_cassette/src/engine/cassette_engine.dart';
 import 'package:test/test.dart';
@@ -186,18 +187,105 @@ void main() {
       expect(await store.exists(name), isFalse);
     });
 
-    test('leaves append close write-free until append is implemented',
+    test('commits existing and new append interactions conditionally',
         () async {
-      final store = _CountingStore();
+      final store = MemoryCassetteStore();
       final state = _state(store);
+      final name = CassetteName('recording');
+      await store.create(
+        name,
+        encodeCassetteV1(
+          Cassette(
+            interactions: <CassetteInteraction>[
+              CassetteInteraction(
+                index: 0,
+                request: _request('/existing'),
+                outcome: _outcome(200),
+                matchingExclusions: MatchingExclusions(
+                  queryParameters: const <String>['token'],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
       final session = await state.startRecording(
-        CassetteName('recording'),
+        name,
         const RecordingOptions(existingCassette: ExistingCassette.append),
+      );
+      await state.executeActiveRecordingRequest(
+        _request('/new'),
+        () async => _outcome(201),
       );
 
       await session.close();
 
-      expect(store.writeCalls, 0);
+      final cassette = decodeCassetteV1((await store.read(name)).bytes);
+      expect(cassette.interactions.map((value) => value.index), <int>[0, 1]);
+      expect(cassette.interactions[0].request.uri.path, '/existing');
+      expect(
+        cassette.interactions[0].matchingExclusions.queryParameters,
+        <String>{'token'},
+      );
+      expect(cassette.interactions[1].request.uri.path, '/new');
+      expect(state.sessions.isActive, isFalse);
+    });
+
+    test('rejects a concurrently changed append target', () async {
+      final store = MemoryCassetteStore();
+      final state = _state(store);
+      final name = CassetteName('recording');
+      await store.create(name, encodeCassetteV1(Cassette()));
+      final session = await state.startRecording(
+        name,
+        const RecordingOptions(existingCassette: ExistingCassette.append),
+      );
+      final concurrent = Cassette(
+        interactions: <CassetteInteraction>[
+          CassetteInteraction(
+            index: 0,
+            request: _request('/concurrent'),
+            outcome: _outcome(202),
+          ),
+        ],
+      );
+      await store.replace(name, encodeCassetteV1(concurrent));
+
+      await expectLater(
+        session.close(),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.appendTargetChanged,
+          ),
+        ),
+      );
+
+      final retained = decodeCassetteV1((await store.read(name)).bytes);
+      expect(retained.interactions.single.request.uri.path, '/concurrent');
+      expect(state.sessions.isActive, isTrue);
+      expect(state.activeRecording!.isFinalised, isTrue);
+    });
+
+    test('discard leaves the prepared append target unchanged', () async {
+      final store = MemoryCassetteStore();
+      final state = _state(store);
+      final name = CassetteName('recording');
+      final original = encodeCassetteV1(Cassette());
+      await store.create(name, original);
+      final session = await state.startRecording(
+        name,
+        const RecordingOptions(existingCassette: ExistingCassette.append),
+      );
+      await state.executeActiveRecordingRequest(
+        _request('/discarded'),
+        () async => _outcome(200),
+      );
+
+      await session.discard();
+
+      expect((await store.read(name)).bytes, original);
       expect(state.sessions.isActive, isFalse);
     });
   });

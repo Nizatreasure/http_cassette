@@ -17,16 +17,14 @@ final class RecordingCassetteCommitter {
   /// Commits the complete recording retained by [state].
   ///
   /// Create and replace modes use their corresponding authoritative store
-  /// operation. Append has a separate loading and conditional-write contract.
+  /// operation. Append conditionally replaces its exact prepared snapshot.
   Future<void> commit(ActiveRecordingState state) async {
     final cassette = state.finaliseCassette();
     final bytes = encodeCassetteV1(cassette);
     final operation = switch (state.options.existingCassette) {
       ExistingCassette.fail => CassetteStoreOperation.create,
       ExistingCassette.replace => CassetteStoreOperation.replace,
-      ExistingCassette.append => throw StateError(
-          'Append recording requires its dedicated conditional commit.',
-        ),
+      ExistingCassette.append => CassetteStoreOperation.replaceIfUnchanged,
     };
 
     try {
@@ -35,9 +33,15 @@ final class RecordingCassetteCommitter {
           await store.create(state.cassetteName, bytes);
         case CassetteStoreOperation.replace:
           await store.replace(state.cassetteName, bytes);
-        case CassetteStoreOperation.exists ||
-              CassetteStoreOperation.read ||
-              CassetteStoreOperation.replaceIfUnchanged:
+        case CassetteStoreOperation.replaceIfUnchanged:
+          final snapshot = state.appendSnapshot;
+          if (snapshot == null) {
+            throw StateError(
+              'Append recording requires a prepared cassette snapshot.',
+            );
+          }
+          await store.replaceIfUnchanged(snapshot, bytes);
+        case CassetteStoreOperation.exists || CassetteStoreOperation.read:
           throw StateError('Invalid recording commit store operation.');
       }
     } on CassetteStoreException catch (failure) {
@@ -68,6 +72,14 @@ CassetteException _commitException(
       DiagnosticCategory.cassetteMissing,
     (CassetteStoreOperation.replace, _) =>
       DiagnosticCategory.atomicReplacementFailure,
+    (
+      CassetteStoreOperation.replaceIfUnchanged,
+      CassetteStoreFailureKind.notFound ||
+          CassetteStoreFailureKind.revisionChanged,
+    ) =>
+      DiagnosticCategory.appendTargetChanged,
+    (CassetteStoreOperation.replaceIfUnchanged, _) =>
+      DiagnosticCategory.atomicReplacementFailure,
     (CassetteStoreOperation.create, _) => DiagnosticCategory.storeWriteFailure,
     _ => throw StateError('Invalid recording commit failure operation.'),
   };
@@ -81,6 +93,9 @@ CassetteException _commitException(
           'The recording replacement target no longer exists.',
         DiagnosticCategory.atomicReplacementFailure =>
           'The recording target could not be replaced atomically.',
+        DiagnosticCategory.appendTargetChanged =>
+          'The append target changed before the recording could be committed; '
+              'no append was written.',
         DiagnosticCategory.storeWriteFailure =>
           'The recording cassette could not be written.',
         _ => throw StateError('Invalid recording commit category.'),

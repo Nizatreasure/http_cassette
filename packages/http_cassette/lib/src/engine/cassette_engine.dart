@@ -154,9 +154,7 @@ final class EngineState {
     return reservation.activate(
       name: name,
       mode: CassetteMode.record,
-      closeAction: options.existingCassette == ExistingCassette.append
-          ? completeRecordingLifecycleOnly
-          : commitActiveRecording,
+      closeAction: commitActiveRecording,
       discardAction: completeRecordingLifecycleOnly,
     );
   }
