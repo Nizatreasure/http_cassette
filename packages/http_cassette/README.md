@@ -126,9 +126,13 @@ fail by default when a target already exists; callers may instead select
 checks that the default target is absent and that an explicit replacement
 target exists. A failed or pending check exposes no active session and cannot
 invoke a real attempt. These checks do not write the target and the later store
-operation remains authoritative if it changes. Append is not connected yet; it
-will require a valid cassette whose schema version equals the implementation's
-current writable schema version.
+operation remains authoritative if it changes. Append startup reads and fully
+validates the existing cassette before exposing a session. Its schema version
+must equal the implementation's current writable schema version, so a future
+implementation writing V2 will require a V2 append target rather than treating
+V1 as appendable merely because it can still be read. Preparation failures
+leave the engine inactive and do not attempt the real transport. Append close
+remains write-free until conditional replacement is connected.
 
 The internal engine foundation now reserves at most one session synchronously.
 Ownership remains reserved while completion is running and after a completion

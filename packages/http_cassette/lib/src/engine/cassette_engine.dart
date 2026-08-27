@@ -5,6 +5,7 @@ import '../diagnostics/exception.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
 import '../recording/active_state.dart';
+import '../recording/append_preparation.dart';
 import '../recording/cassette_committer.dart';
 import '../recording/configuration.dart';
 import '../replay/active_state.dart';
@@ -127,8 +128,19 @@ final class EngineState {
     RecordingOptions options,
   ) async {
     final reservation = sessions.reserve(CassetteMode.record);
+    AppendCassettePrepared? appendPreparation;
     try {
-      await _preflightRecordingTarget(name, options.existingCassette);
+      if (options.existingCassette == ExistingCassette.append) {
+        final result = await AppendCassettePreparer(store).prepare(name);
+        switch (result) {
+          case AppendCassettePrepared():
+            appendPreparation = result;
+          case AppendCassettePreparationFailed(:final failure):
+            throw CassetteException(failure.envelope);
+        }
+      } else {
+        await _preflightRecordingTarget(name, options.existingCassette);
+      }
     } catch (_) {
       reservation.cancel();
       rethrow;
@@ -137,6 +149,7 @@ final class EngineState {
       cassetteName: name,
       configuration: configuration,
       options: options,
+      appendPreparation: appendPreparation,
     );
     return reservation.activate(
       name: name,
@@ -153,7 +166,7 @@ final class EngineState {
     ExistingCassette handling,
   ) async {
     if (handling == ExistingCassette.append) {
-      return;
+      throw StateError('Append uses dedicated target preparation.');
     }
 
     late final bool targetExists;

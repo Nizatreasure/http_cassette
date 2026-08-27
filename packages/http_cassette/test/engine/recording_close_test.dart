@@ -237,8 +237,11 @@ base class _CountingStore implements CassetteStore {
   }
 
   @override
-  Future<CassetteSnapshot> read(CassetteName name) =>
-      throw UnimplementedError();
+  Future<CassetteSnapshot> read(CassetteName name) async => CassetteSnapshot(
+        name: name,
+        bytes: encodeCassetteV1(Cassette()),
+        revision: CassetteRevision(),
+      );
 
   @override
   Future<void> replaceIfUnchanged(

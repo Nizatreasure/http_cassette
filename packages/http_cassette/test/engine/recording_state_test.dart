@@ -13,9 +13,7 @@ void main() {
         configuration: CassetteConfiguration(sanitisation: sanitisation),
       );
       final name = CassetteName('checkout/record');
-      final options = const RecordingOptions(
-        existingCassette: ExistingCassette.append,
-      );
+      const options = RecordingOptions();
 
       final session = await state.startRecording(name, options);
 
