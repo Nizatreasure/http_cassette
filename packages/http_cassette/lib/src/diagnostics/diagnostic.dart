@@ -104,6 +104,9 @@ enum DiagnosticCategory {
   /// A recording session was discarded after its callback failed.
   sessionDiscarded,
 
+  /// Session cleanup also failed after a scoped callback failure.
+  sessionCleanupFailure,
+
   /// An adapter supplied an invalid canonical request.
   invalidCanonicalRequest,
 

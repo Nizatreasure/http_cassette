@@ -29,6 +29,39 @@ final class _CassetteException extends CassetteException {
   const _CassetteException(super.diagnostic) : super._();
 }
 
+/// Reports a callback failure accompanied by a secondary cleanup failure.
+///
+/// This exception occurs only when a scoped callback and the session cleanup
+/// triggered by that callback both fail. [primaryError] remains the exact
+/// callback error and [primaryStackTrace] remains its original stack trace.
+/// [cleanupDiagnostic] contains only safe structured information about the
+/// secondary failure; the cleanup error and its stack trace are not retained.
+///
+/// When cleanup succeeds, scoped operations rethrow the callback error directly
+/// and do not use this wrapper.
+final class ScopedCassetteException extends CassetteException {
+  /// Creates a dual-failure exception.
+  ScopedCassetteException({
+    required this.primaryError,
+    required this.primaryStackTrace,
+    required CassetteDiagnostic cleanupDiagnostic,
+  }) : super._(cleanupDiagnostic);
+
+  /// The exact error thrown by the scoped callback.
+  final Object primaryError;
+
+  /// The original stack trace captured with [primaryError].
+  final StackTrace primaryStackTrace;
+
+  /// Safe structured information about the secondary cleanup failure.
+  CassetteDiagnostic get cleanupDiagnostic => diagnostic;
+
+  /// Formats only the safe cleanup diagnostic, never [primaryError].
+  @override
+  String toString() => 'The scoped callback and its session cleanup failed.\n'
+      '${cleanupDiagnostic.format()}';
+}
+
 /// Converts one safe replay-loading failure to the public exception boundary.
 CassetteException replayCassetteLoadException(
   ReplayCassetteLoadFailure failure,

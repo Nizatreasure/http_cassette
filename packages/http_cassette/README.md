@@ -157,6 +157,38 @@ matching and assembles the existing value-safe diagnostic without comparing the
 request again. The engine still does not expose interception or replay
 requests, and scoped callback methods are not implemented.
 
+### Scoped callback failures
+
+`ScopedCassetteException` defines the failure users will receive in the rare
+case where a future scoped callback and the cleanup triggered by that callback
+both fail. Ordinary callback failures will still be rethrown directly with
+their original stack trace, and ordinary close failures will still use their
+normal exception. Only the dual-failure case needs a wrapper because Dart has
+no suppressed-exception mechanism.
+
+The wrapper keeps the callback failure primary through `primaryError` and
+`primaryStackTrace`. `cleanupDiagnostic` contains safe structured information
+about the secondary cleanup failure. The cleanup exception, its message and its
+stack trace are not retained or printed.
+
+```dart
+try {
+  // A future engine.record(...) or engine.replay(...) scoped operation.
+} on ScopedCassetteException catch (failure) {
+  final originalError = failure.primaryError;
+  final originalStackTrace = failure.primaryStackTrace;
+  final safeCleanupDetails = failure.cleanupDiagnostic;
+
+  // Inspect or report safeCleanupDetails as appropriate, then preserve the
+  // callback failure if it must continue through the application.
+  Error.throwWithStackTrace(originalError, originalStackTrace);
+}
+```
+
+The scoped engine methods that can produce this exception are not connected
+yet. This declaration is documented now so its dual-failure behaviour is clear
+before those methods become available.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store

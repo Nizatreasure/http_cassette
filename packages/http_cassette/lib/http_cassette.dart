@@ -9,7 +9,8 @@ export 'src/configuration/body_limits.dart';
 export 'src/configuration/cassette_configuration.dart';
 export 'src/configuration/matching_configuration.dart';
 export 'src/diagnostics/diagnostic.dart';
-export 'src/diagnostics/exception.dart' show CassetteException;
+export 'src/diagnostics/exception.dart'
+    show CassetteException, ScopedCassetteException;
 export 'src/diagnostics/formatter.dart';
 export 'src/engine/cassette_engine.dart' show CassetteEngine;
 export 'src/matching/custom.dart';
