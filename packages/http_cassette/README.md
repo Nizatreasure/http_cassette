@@ -105,8 +105,7 @@ final configuration = CassetteConfiguration(
 ```
 
 `CassetteMode.record` and `CassetteMode.replay` identify the explicit operation
-of a future active session. They do not start a session, permit traffic or make
-recording and replay available in the current package.
+of an active session. They do not themselves start a session or permit traffic.
 
 The internal session foundation now serialises close and discard transitions.
 Successful completion is idempotent, while overlapping operations and attempts
@@ -155,12 +154,38 @@ asynchronous gap while sharing policy state between equivalent matching groups.
 An actual no-match result now ranks the comparisons already produced during
 matching and assembles the existing value-safe diagnostic without comparing the
 request again. The engine still does not expose interception or replay
-requests, and scoped callback methods are not implemented.
+requests. Generic scoped recording is available; scoped replay remains
+unconnected.
+
+### Scoped recording
+
+`CassetteEngine.record<T>()` starts an explicit recording session, awaits a
+synchronous or asynchronous callback, commits after success and returns the
+callback value. The existing-cassette options apply in the same way as
+`startRecording`.
+
+```dart
+final result = await engine.record<int>(
+  'examples/empty-recording',
+  () => 42,
+);
+```
+
+Transport interception is not implemented yet. At the current stage, ordinary
+callback traffic is therefore not captured and a successful scoped recording
+contains no interactions. This method currently validates the complete scoped
+lifecycle and persistence behaviour; it must not be treated as working HTTP
+recording until an adapter can route traffic through the engine.
+
+If the callback fails, the recording is discarded and the same error is
+re-thrown with its original stack trace. A startup failure occurs before the
+callback is invoked. A commit failure is propagated and leaves the engine in an
+uncertain active state rather than pretending that persistence succeeded.
 
 ### Scoped callback failures
 
-`ScopedCassetteException` defines the failure users will receive in the rare
-case where a future scoped callback and the cleanup triggered by that callback
+`ScopedCassetteException` defines the failure users receive in the rare case
+where a scoped callback and the cleanup triggered by that callback
 both fail. Ordinary callback failures will still be rethrown directly with
 their original stack trace, and ordinary close failures will still use their
 normal exception. Only the dual-failure case needs a wrapper because Dart has
@@ -173,7 +198,9 @@ stack trace are not retained or printed.
 
 ```dart
 try {
-  // A future engine.record(...) or engine.replay(...) scoped operation.
+  await engine.record<void>('example', () {
+    // Perform the scoped work.
+  });
 } on ScopedCassetteException catch (failure) {
   final originalError = failure.primaryError;
   final originalStackTrace = failure.primaryStackTrace;
@@ -185,9 +212,8 @@ try {
 }
 ```
 
-The scoped engine methods that can produce this exception are not connected
-yet. This declaration is documented now so its dual-failure behaviour is clear
-before those methods become available.
+Scoped recording is now connected. Scoped replay will use the same failure
+contract when it is connected.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

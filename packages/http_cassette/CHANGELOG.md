@@ -141,6 +141,7 @@
 - Added ordered cleanup capture for failed scoped actions.
 - Added a safe public exception for combined callback and cleanup failures.
 - Composed internal scoped callback and session lifecycle execution.
+- Added generic scoped recording through `CassetteEngine.record`.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
 import '../diagnostics/diagnostic.dart';
@@ -16,13 +18,14 @@ import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
 import '../store/exception.dart';
 import '../store/store.dart';
+import 'scoped_session.dart';
 import 'session_ownership.dart';
 
 /// Coordinates cassette sessions independently of any HTTP transport.
 ///
 /// The current engine retains recording state and executes replay internally,
-/// but does not yet expose transport interception. Recording capture and
-/// persistence are connected in later stages.
+/// but does not yet expose transport interception. Recording persistence is
+/// connected, while transport capture remains a later stage.
 final class CassetteEngine {
   /// Creates an inactive engine backed by [store].
   ///
@@ -48,6 +51,21 @@ final class CassetteEngine {
 
   /// The current session, or null when this engine is inactive.
   CassetteSession? get activeSession => _state.sessions.activeSession;
+
+  /// Runs [action] within an explicit recording session named [name].
+  ///
+  /// The session commits only after [action] succeeds. A callback failure
+  /// discards the session and is rethrown with its original stack trace. If
+  /// cleanup also fails, a [ScopedCassetteException] retains the callback as
+  /// the primary failure with a safe secondary diagnostic.
+  Future<T> record<T>(
+    String name,
+    FutureOr<T> Function() action, {
+    RecordingOptions options = const RecordingOptions(),
+  }) async {
+    final session = await startRecording(name, options: options);
+    return runScopedSession(session: session, action: action);
+  }
 
   /// Starts a recording session named [name].
   ///

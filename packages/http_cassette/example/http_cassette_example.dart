@@ -42,6 +42,10 @@ Future<void> main() async {
     utf8.encode('{"schemaVersion":1,"interactions":[]}'),
   );
   final snapshot = await store.read(cassetteName);
+  final scopedResult = await CassetteEngine(store: store).record<int>(
+    'examples/empty-recording',
+    () => 42,
+  );
 
   assert(
     cassetteName.value == 'profiles/current-user' &&
@@ -52,6 +56,7 @@ Future<void> main() async {
         request.method == 'GET' &&
         outcome.response.body.length == 2 &&
         snapshot.bytes.isNotEmpty &&
+        scopedResult == 42 &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',
             ),
