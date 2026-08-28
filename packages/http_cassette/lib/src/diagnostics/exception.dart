@@ -4,6 +4,8 @@ import '../replay/loading_failure.dart';
 import '../replay/loading_failure_formatter.dart';
 import '../replay/no_match_diagnostic.dart';
 import '../replay/no_match_formatter.dart';
+import '../replay/unused_interactions_diagnostic.dart';
+import '../replay/unused_interactions_formatter.dart';
 import 'diagnostic.dart';
 import 'formatter.dart';
 
@@ -100,6 +102,21 @@ final class _ReplayExhaustionException extends CassetteException {
   _ReplayExhaustionException(this.details) : super._(details.envelope);
 
   final ReplayExhaustionDiagnostic details;
+
+  @override
+  String toString() => details.format();
+}
+
+/// Converts failed replay usage verification to the public exception boundary.
+CassetteException replayUnusedInteractionsException(
+  ReplayUnusedInteractionsDiagnostic diagnostic,
+) =>
+    _ReplayUnusedInteractionsException(diagnostic);
+
+final class _ReplayUnusedInteractionsException extends CassetteException {
+  _ReplayUnusedInteractionsException(this.details) : super._(details.envelope);
+
+  final ReplayUnusedInteractionsDiagnostic details;
 
   @override
   String toString() => details.format();

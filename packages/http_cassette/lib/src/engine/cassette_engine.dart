@@ -14,6 +14,8 @@ import '../replay/active_state.dart';
 import '../replay/cassette_loader.dart';
 import '../replay/configuration.dart';
 import '../replay/execution.dart';
+import '../replay/unused_interactions_diagnostic.dart';
+import '../replay/verification.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
 import '../store/exception.dart';
@@ -111,7 +113,7 @@ final class CassetteEngine {
         return reservation.activate(
           name: cassetteName,
           mode: CassetteMode.replay,
-          closeAction: _state.completeReplayLifecycleOnly,
+          closeAction: _state.completeActiveReplay,
           discardAction: _state.completeReplayLifecycleOnly,
         );
     }
@@ -293,6 +295,32 @@ final class EngineState {
 
   /// Clears lifecycle-only replay state before ownership is released.
   Future<void> completeReplayLifecycleOnly() {
+    activeReplay = null;
+    return Future<void>.value();
+  }
+
+  /// Verifies and clears the active replay after successful scoped work.
+  Future<void> completeActiveReplay() {
+    final replay = activeReplay;
+    if (replay == null) {
+      throw StateError('Replay completion requires active replay state.');
+    }
+    final result = verifyReplayUsage(
+      cassette: replay.cassette,
+      usageSnapshots: replay.selectionStates.map(
+        (state) => state.usageSnapshot,
+      ),
+      requireAllInteractions: replay.requireAllInteractions,
+    );
+    if (result is ReplayUnusedInteractions) {
+      throw replayUnusedInteractionsException(
+        ReplayUnusedInteractionsDiagnostic.fromVerification(
+          cassetteName: replay.cassetteName,
+          replayPolicy: replay.replayPolicy,
+          result: result,
+        ),
+      );
+    }
     activeReplay = null;
     return Future<void>.value();
   }

@@ -92,7 +92,10 @@ successful-close verification flag. A null policy uses the engine default,
 which is `strict` unless configured otherwise. Replay startup now resolves and
 retains these settings with the loaded cassette and configured matcher.
 The internal active state now applies matching-group selection and consumption
-synchronously. Public request replay is not implemented yet.
+synchronously. Successful replay close now verifies combined usage when
+`requireAllInteractions` is true. Failure reports safe total, used and unused
+facts and retains uncertain session ownership; discard skips verification.
+Public request replay is not implemented yet.
 
 `CassetteConfiguration` groups the matching, sanitisation, body-limit and
 default replay-policy values that an engine shares across its sessions. Its
@@ -265,15 +268,15 @@ Replay selection state can now produce immutable point-in-time snapshots of
 the distinct recorded indices it has used. An internal cassette-wide verifier
 combines snapshots from independent matching groups and, when explicitly
 enabled, returns either success or every unused index in recorded order.
-Verification is disabled by default and is not yet connected to session close
-or public diagnostics. A failed internal verification result now also retains
+Verification is disabled by default and is connected to successful session
+close. A failed verification result retains
 the safe total and used interaction counts and can assemble a structured
 diagnostic with validated logical cassette identity, resolved replay policy,
 fixed unused-interaction category and disabled-network status. Its internal
 formatter renders the safe counts, policy and unused indices deterministically
 without logging. It uses the same 128-character cassette-name and 16-index
-display bounds as exhaustion diagnostics. Session-close integration remains
-unimplemented.
+display bounds as exhaustion diagnostics. Discard clears replay state without
+running this optional verification.
 
 Actual strict exhaustion can now be projected into immutable value-free facts:
 the active policy, matching-group size, distinct used count, recorded indices
