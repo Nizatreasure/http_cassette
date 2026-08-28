@@ -79,6 +79,22 @@ final class CassetteEngine {
   }) =>
       _state.startRecording(CassetteName(name), options);
 
+  /// Runs [action] within an explicit replay session named [name].
+  ///
+  /// The cassette is fully loaded before [action] is invoked. Successful close
+  /// applies optional unused-interaction verification. A callback failure
+  /// discards replay state and is rethrown with its original stack trace. If
+  /// cleanup also fails, [ScopedCassetteException] retains the callback as the
+  /// primary failure with a safe secondary diagnostic.
+  Future<T> replay<T>(
+    String name,
+    FutureOr<T> Function() action, {
+    ReplayOptions options = const ReplayOptions(),
+  }) async {
+    final session = await startReplay(name, options: options);
+    return runScopedSession(session: session, action: action);
+  }
+
   /// Loads and starts a replay session named [name].
   ///
   /// The complete cassette is read and validated before [activeSession]

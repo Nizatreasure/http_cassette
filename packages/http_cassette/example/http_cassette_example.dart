@@ -46,6 +46,10 @@ Future<void> main() async {
     'examples/empty-recording',
     () => 42,
   );
+  final replayResult = await CassetteEngine(store: store).replay<int>(
+    cassetteName.value,
+    () => 7,
+  );
 
   assert(
     cassetteName.value == 'profiles/current-user' &&
@@ -57,6 +61,7 @@ Future<void> main() async {
         outcome.response.body.length == 2 &&
         snapshot.bytes.isNotEmpty &&
         scopedResult == 42 &&
+        replayResult == 7 &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',
             ),

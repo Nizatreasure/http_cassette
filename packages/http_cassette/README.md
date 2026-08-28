@@ -95,7 +95,7 @@ The internal active state now applies matching-group selection and consumption
 synchronously. Successful replay close now verifies combined usage when
 `requireAllInteractions` is true. Failure reports safe total, used and unused
 facts and retains uncertain session ownership; discard skips verification.
-Public request replay is not implemented yet.
+Public request interception and outcome replay are not implemented yet.
 
 `CassetteConfiguration` groups the matching, sanitisation, body-limit and
 default replay-policy values that an engine shares across its sessions. Its
@@ -157,8 +157,7 @@ asynchronous gap while sharing policy state between equivalent matching groups.
 An actual no-match result now ranks the comparisons already produced during
 matching and assembles the existing value-safe diagnostic without comparing the
 request again. The engine still does not expose interception or replay
-requests. Generic scoped recording is available; scoped replay remains
-unconnected.
+requests. Generic scoped recording and replay lifecycle methods are available.
 
 ### Scoped recording
 
@@ -184,6 +183,30 @@ If the callback fails, the recording is discarded and the same error is
 re-thrown with its original stack trace. A startup failure occurs before the
 callback is invoked. A commit failure is propagated and leaves the engine in an
 uncertain active state rather than pretending that persistence succeeded.
+
+### Scoped replay
+
+`CassetteEngine.replay<T>()` loads and validates the complete cassette before
+invoking a synchronous or asynchronous callback. It closes the session before
+returning the callback value and honours the supplied `ReplayOptions`.
+
+```dart
+final result = await engine.replay<int>(
+  'examples/empty-recording',
+  () => 42,
+);
+```
+
+A missing or invalid cassette fails before the callback runs. A callback
+failure discards replay state and is re-thrown with its original stack trace.
+Successful close enforces `requireAllInteractions` when enabled; failed
+verification leaves uncertain active ownership.
+
+Transport interception is still not implemented. Callback HTTP requests cannot
+yet be routed through replay, so this method currently validates loading and
+lifecycle behaviour only. In particular, required usage can pass publicly only
+for an empty cassette until interception makes recorded interactions
+consumable. Replay never falls back to the real network.
 
 ### Scoped callback failures
 
@@ -215,8 +238,7 @@ try {
 }
 ```
 
-Scoped recording is now connected. Scoped replay will use the same failure
-contract when it is connected.
+Scoped recording and replay use this same failure contract.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
@@ -292,7 +314,7 @@ summary and disabled-network status. It cannot be mislabelled as a request
 mismatch. Its internal deterministic plain-text formatter shows the safe
 request facts, consumption state and policy without logging. Cassette names are
 explicitly truncated after 128 characters and at most 16 recorded indices are
-shown with an omitted count. Public replay integration is not implemented yet.
+shown with an omitted count. Public request interception is not implemented yet.
 
 The active replay foundation now assembles that safe exhaustion diagnostic only
 when strict selection actually exhausts a matching group. It uses the request's
