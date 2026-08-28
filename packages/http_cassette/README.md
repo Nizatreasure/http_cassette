@@ -240,6 +240,24 @@ try {
 
 Scoped recording and replay use this same failure contract.
 
+### Adapter interception permits
+
+`CassetteEngine.beginInterception()` now returns an immutable inactive
+`CassetteInterception` when no session is active. Its `isActive` value is false
+and `bodyLimits` is null. An adapter must use that decision to pass its original
+transport request through without constructing a `CassetteRequest` or buffering
+the body.
+
+The permit remains inactive if a cassette session starts later. This pins the
+decision for that request and prevents traffic which began while inactive from
+drifting into a new session.
+
+Active permits and `proceed` are not implemented yet. Calling
+`beginInterception()` during an active session currently fails closed rather
+than returning an inactive permit that could enable network access during
+replay. The current declaration is therefore only the inactive adapter
+foundation, not a complete integration contract.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store

@@ -4,6 +4,7 @@
 /// structured diagnostic foundations used by later behaviour.
 library;
 
+export 'src/adapter/interception.dart' show CassetteInterception;
 export 'src/cassette/name.dart';
 export 'src/configuration/body_limits.dart';
 export 'src/configuration/cassette_configuration.dart';

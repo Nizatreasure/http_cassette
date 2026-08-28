@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../adapter/interception.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
 import '../diagnostics/diagnostic.dart';
@@ -53,6 +54,18 @@ final class CassetteEngine {
 
   /// The current session, or null when this engine is inactive.
   CassetteSession? get activeSession => _state.sessions.activeSession;
+
+  /// Begins one immutable adapter interception decision.
+  ///
+  /// When this engine is inactive, the returned permit tells an adapter to
+  /// pass through without canonical buffering. Active permits are connected in
+  /// a later stage and currently fail closed.
+  CassetteInterception beginInterception() {
+    if (isActive) {
+      throw StateError('Active cassette interception is not implemented yet.');
+    }
+    return createInactiveCassetteInterception();
+  }
 
   /// Runs [action] within an explicit recording session named [name].
   ///
