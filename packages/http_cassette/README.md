@@ -304,6 +304,13 @@ no interaction. Once that check passes, selection has no asynchronous gap and
 wins deterministically; later cancellation does not undo the selected
 interaction. Public interception is not connected to this route yet.
 
+If an internal recording attempt throws instead of returning a canonical
+outcome, the core now replaces that error with a fixed
+`adapterContractViolation` diagnostic. The diagnostic reports that network
+access was attempted but retains no original error, message or stack trace. No
+interaction is added. Adapters must therefore map completed transport failures
+to `CassetteTransportFailure` rather than throw them through this callback.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store

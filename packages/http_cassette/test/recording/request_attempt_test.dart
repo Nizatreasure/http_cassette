@@ -81,7 +81,13 @@ void main() {
         operation.run(() {
           throw error;
         }),
-        throwsA(same(error)),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
       );
 
       expect(state.assignArrivalIndex(), 1);

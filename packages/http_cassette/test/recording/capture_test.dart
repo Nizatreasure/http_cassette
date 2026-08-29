@@ -83,15 +83,27 @@ void main() {
       );
     });
 
-    test('retains nothing when the real attempt fails', () async {
+    test('retains nothing when the real attempt violates its contract',
+        () async {
       final state = _state();
-      final error = StateError('test adapter failure');
 
       await expectLater(
         state.recordRequest(_request('/failure'), () {
-          throw error;
+          throw StateError('secret adapter failure');
         }),
-        throwsA(same(error)),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.adapterContractViolation,
+              )
+              .having(
+                (exception) => exception.toString(),
+                'safe text',
+                isNot(contains('secret adapter failure')),
+              ),
+        ),
       );
 
       expect(state.interactions, isEmpty);

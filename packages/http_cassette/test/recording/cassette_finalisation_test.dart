@@ -70,7 +70,13 @@ void main() {
         state.recordRequest(_request('/failed'), () async {
           throw StateError('test transport failure');
         }),
-        throwsStateError,
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
       );
 
       expect(state.interactions, isEmpty);

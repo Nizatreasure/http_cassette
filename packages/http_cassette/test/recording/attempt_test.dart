@@ -85,17 +85,33 @@ void main() {
       expect(secondInvoked, isFalse);
     });
 
-    test('propagates an attempt exception unchanged and remains spent',
-        () async {
+    test('maps a synchronous attempt error safely and remains spent', () async {
       final runner = RecordingAttemptRunner();
-      final error = StateError('test adapter failure');
+      final error = StateError('secret adapter failure');
       var laterInvoked = false;
 
       await expectLater(
         runner.run(() {
           throw error;
         }),
-        throwsA(same(error)),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.adapterContractViolation,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.attempted,
+              )
+              .having(
+                (exception) => exception.toString(),
+                'safe text',
+                isNot(contains('secret adapter failure')),
+              ),
+        ),
       );
       await expectLater(
         runner.run(() async {
@@ -106,6 +122,31 @@ void main() {
       );
 
       expect(laterInvoked, isFalse);
+    });
+
+    test('maps an asynchronous attempt error without retaining its value',
+        () async {
+      final runner = RecordingAttemptRunner();
+
+      await expectLater(
+        runner.run(() async {
+          await Future<void>.delayed(Duration.zero);
+          throw ArgumentError('secret asynchronous failure');
+        }),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.adapterContractViolation,
+              )
+              .having(
+                (exception) => exception.toString(),
+                'safe text',
+                isNot(contains('secret asynchronous failure')),
+              ),
+        ),
+      );
     });
 
     test('returns an outcome which completes before cancellation', () async {

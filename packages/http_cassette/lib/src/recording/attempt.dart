@@ -6,8 +6,7 @@ import '../model/outcome.dart';
 
 /// Guards the real transport attempt for one internal recording request.
 ///
-/// The public adapter callback contract, cancellation and adapter exception
-/// mapping remain later integration work.
+/// The public permit route remains later integration work.
 final class RecordingAttemptRunner {
   var _started = false;
 
@@ -36,7 +35,10 @@ final class RecordingAttemptRunner {
         _cancellationException(NetworkAccess.notAttempted),
       );
     }
-    final attemptFuture = Future<CassetteOutcome>.sync(attempt);
+    final attemptFuture = Future<CassetteOutcome>.sync(attempt).onError(
+      (Object error, StackTrace stackTrace) =>
+          throw _adapterContractException(),
+    );
     if (cancellation == null) {
       return attemptFuture;
     }
@@ -79,5 +81,13 @@ CassetteException _cancellationException(NetworkAccess networkAccess) =>
         category: DiagnosticCategory.cancelled,
         summary: 'The HTTP request was cancelled during recording.',
         networkAccess: networkAccess,
+      ),
+    );
+
+CassetteException _adapterContractException() => CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.adapterContractViolation,
+        summary: 'The real HTTP attempt did not return a canonical outcome.',
+        networkAccess: NetworkAccess.attempted,
       ),
     );
