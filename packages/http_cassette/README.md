@@ -258,9 +258,14 @@ that session by internal identity and remains pinned if the session closes and
 a later session starts. Startup which is still pending fails closed because
 there is no completed session to pin.
 
-The active permit's `proceed` operation is not implemented yet. The current
-declaration can make safe buffering decisions but is not yet a complete request
-execution contract.
+Each active permit now has a private synchronous claim gate. The first claim
+retains its pinned session, while another claim fails safely before any later
+execution work can begin. Inactive permits cannot be claimed. This state is not
+public configuration and does not retarget a permit after its session closes.
+
+The active permit's public `proceed` operation is not implemented yet. The
+current declaration can make safe buffering decisions and enforce one-use
+admission internally, but is not yet a complete request execution contract.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

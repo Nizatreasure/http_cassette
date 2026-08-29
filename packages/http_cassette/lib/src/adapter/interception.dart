@@ -1,4 +1,7 @@
 import '../configuration/body_limits.dart';
+import '../diagnostics/diagnostic.dart';
+import '../diagnostics/exception.dart';
+import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
 
 /// An immutable adapter decision for one intercepted transport request.
@@ -11,14 +14,14 @@ final class CassetteInterception {
   const CassetteInterception._inactive()
       : isActive = false,
         bodyLimits = null,
-        _sessionIdentity = null;
+        _claimState = null;
 
-  const CassetteInterception._active({
+  CassetteInterception._active({
     required BodyLimits limits,
     required CassetteSession session,
   })  : isActive = true,
         bodyLimits = limits,
-        _sessionIdentity = session;
+        _claimState = _CassetteInterceptionClaimState(session);
 
   /// Whether this request entered an active cassette session.
   final bool isActive;
@@ -26,7 +29,7 @@ final class CassetteInterception {
   /// Buffering limits for an active request, or null while inactive.
   final BodyLimits? bodyLimits;
 
-  final Object? _sessionIdentity;
+  final _CassetteInterceptionClaimState? _claimState;
 }
 
 /// Creates the immutable inactive adapter decision.
@@ -51,4 +54,46 @@ bool cassetteInterceptionPinsSession(
   CassetteInterception interception,
   CassetteSession session,
 ) =>
-    identical(interception._sessionIdentity, session);
+    identical(interception._claimState?.session, session);
+
+/// Claims [interception] once and returns its pinned session.
+///
+/// This implementation operation is not exported from the public library.
+CassetteSession claimCassetteInterception(CassetteInterception interception) {
+  final claimState = interception._claimState;
+  if (claimState == null) {
+    throw CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.adapterContractViolation,
+        summary: 'An inactive cassette interception cannot proceed.',
+        networkAccess: NetworkAccess.notAttempted,
+      ),
+    );
+  }
+  return claimState.claim();
+}
+
+final class _CassetteInterceptionClaimState {
+  _CassetteInterceptionClaimState(this.session);
+
+  final CassetteSession session;
+
+  var _claimed = false;
+
+  CassetteSession claim() {
+    if (_claimed) {
+      throw CassetteException(
+        CassetteDiagnostic(
+          category: DiagnosticCategory.adapterContractViolation,
+          summary: 'A cassette interception can proceed only once.',
+          networkAccess: switch (session.mode) {
+            CassetteMode.record => NetworkAccess.notAttempted,
+            CassetteMode.replay => NetworkAccess.disabled,
+          },
+        ),
+      );
+    }
+    _claimed = true;
+    return session;
+  }
+}

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/adapter/interception.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -12,6 +13,16 @@ void main() {
 
       expect(interception.isActive, isFalse);
       expect(interception.bodyLimits, isNull);
+      expect(
+        () => claimCassetteInterception(interception),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
+      );
       expect(engine.isActive, isFalse);
       expect(engine.activeSession, isNull);
     });

@@ -22,6 +22,31 @@ void main() {
       await session.discard();
     });
 
+    test('can be claimed once for its exact pinned session', () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final session = await engine.startRecording('one-claim');
+      final interception = engine.beginInterception();
+
+      expect(claimCassetteInterception(interception), same(session));
+      expect(
+        () => claimCassetteInterception(interception),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.adapterContractViolation,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.notAttempted,
+              ),
+        ),
+      );
+      await session.discard();
+    });
+
     test('does not drift into a later session', () async {
       final engine = CassetteEngine(store: MemoryCassetteStore());
       final firstSession = await engine.startRecording('first');
@@ -40,6 +65,18 @@ void main() {
       await secondSession.discard();
     });
 
+    test('claims the original session after a later session starts', () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final firstSession = await engine.startRecording('first-claim');
+      final interception = engine.beginInterception();
+      await firstSession.discard();
+      final secondSession = await engine.startRecording('second-claim');
+
+      expect(claimCassetteInterception(interception), same(firstSession));
+
+      await secondSession.discard();
+    });
+
     test('pins replay sessions with the same body-limit contract', () async {
       final store = MemoryCassetteStore();
       final name = CassetteName('replay');
@@ -55,6 +92,7 @@ void main() {
       expect(interception.isActive, isTrue);
       expect(interception.bodyLimits, isNotNull);
       expect(cassetteInterceptionPinsSession(interception, session), isTrue);
+      expect(claimCassetteInterception(interception), same(session));
       await session.discard();
     });
   });
