@@ -252,11 +252,15 @@ The permit remains inactive if a cassette session starts later. This pins the
 decision for that request and prevents traffic which began while inactive from
 drifting into a new session.
 
-Active permits and `proceed` are not implemented yet. Calling
-`beginInterception()` during an active session currently fails closed rather
-than returning an inactive permit that could enable network access during
-replay. The current declaration is therefore only the inactive adapter
-foundation, not a complete integration contract.
+After session preparation completes, `beginInterception()` returns an active
+permit with `isActive == true` and the exact configured `BodyLimits`. It pins
+that session by internal identity and remains pinned if the session closes and
+a later session starts. Startup which is still pending fails closed because
+there is no completed session to pin.
+
+The active permit's `proceed` operation is not implemented yet. The current
+declaration can make safe buffering decisions but is not yet a complete request
+execution contract.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

@@ -58,11 +58,21 @@ final class CassetteEngine {
   /// Begins one immutable adapter interception decision.
   ///
   /// When this engine is inactive, the returned permit tells an adapter to
-  /// pass through without canonical buffering. Active permits are connected in
-  /// a later stage and currently fail closed.
+  /// pass through without canonical buffering. An active permit pins the exact
+  /// prepared session and exposes its body limits. Request execution is
+  /// connected in a later stage.
   CassetteInterception beginInterception() {
+    final session = activeSession;
+    if (session != null) {
+      return createActiveCassetteInterception(
+        session: session,
+        bodyLimits: _state.configuration.bodyLimits,
+      );
+    }
     if (isActive) {
-      throw StateError('Active cassette interception is not implemented yet.');
+      throw StateError(
+        'Cassette interception cannot pin a session while startup is pending.',
+      );
     }
     return createInactiveCassetteInterception();
   }
