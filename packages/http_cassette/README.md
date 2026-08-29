@@ -274,6 +274,13 @@ callback returns a `Future<CassetteOutcome>`, covering either a canonical HTTP
 response or a canonical transport failure. Defining the type does not yet
 authorise or invoke a real request.
 
+`CassetteCancellation` is the optional transport-neutral cancellation signal
+which adapters will later pass alongside an attempt. Implementations expose a
+monotonic `isCancelled` state and a `whenCancelled` future which completes
+normally once that state becomes true. Transport-specific tokens remain in the
+adapter, and the signal is never cassette data. Cancellation is not yet wired
+into interception or request execution.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store

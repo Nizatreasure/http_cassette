@@ -148,6 +148,7 @@
 - Added session-pinned active interception snapshots with body limits.
 - Added a one-use claim gate for active interception permits.
 - Added the public transport-neutral `RealHttpAttempt` callback type.
+- Added the public transport-neutral `CassetteCancellation` signal contract.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.
