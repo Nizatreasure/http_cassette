@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import '../adapter/cancellation.dart';
 import '../adapter/interception.dart';
+import '../adapter/real_http_attempt.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
 import '../diagnostics/diagnostic.dart';
@@ -297,8 +299,9 @@ final class EngineState {
   /// active. Lifecycle rejection occurs before the callback can be invoked.
   Future<CassetteOutcome> executeActiveRecordingRequest(
     CassetteRequest request,
-    Future<CassetteOutcome> Function() attempt,
-  ) {
+    RealHttpAttempt attempt, {
+    CassetteCancellation? cancellation,
+  }) {
     final recording = activeRecording;
     if (recording == null) {
       final activeSession = sessions.activeSession;
@@ -329,7 +332,11 @@ final class EngineState {
         ),
       );
     }
-    return recording.recordRequest(request, attempt);
+    return recording.recordRequest(
+      request,
+      attempt,
+      cancellation: cancellation,
+    );
   }
 
   /// Clears lifecycle-only replay state before ownership is released.

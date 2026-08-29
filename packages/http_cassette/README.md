@@ -286,7 +286,16 @@ request admission. An already-cancelled recording reports that no network
 attempt occurred, while replay reports that network access was disabled. The
 claim is still spent once, but no canonical request is admitted and no replay
 interaction is consumed. Cancellation which occurs after this check remains a
-later implementation stage.
+later implementation stage for replay.
+
+Internal recording attempts now make one deterministic completion decision
+between the real attempt and cancellation. An outcome which reaches the core
+first continues through sanitisation and retention. Cancellation which reaches
+the core first produces a safe `cancelled` failure and the later attempt result
+is observed but cannot be retained. Adapters remain responsible for propagating
+the signal to their transport so that underlying network work is stopped where
+the client supports it. This race is not yet exposed through public
+interception.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

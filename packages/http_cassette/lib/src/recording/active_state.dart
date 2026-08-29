@@ -1,3 +1,5 @@
+import '../adapter/cancellation.dart';
+import '../adapter/real_http_attempt.dart';
 import '../cassette/cassette.dart';
 import '../cassette/interaction.dart';
 import '../cassette/name.dart';
@@ -111,9 +113,13 @@ final class ActiveRecordingState {
   /// returned. Any failure before retention adds no interaction.
   Future<CassetteOutcome> recordRequest(
     CassetteRequest request,
-    Future<CassetteOutcome> Function() attempt,
-  ) async {
-    final result = await beginRequest(request).run(attempt);
+    RealHttpAttempt attempt, {
+    CassetteCancellation? cancellation,
+  }) async {
+    final result = await beginRequest(request).run(
+      attempt,
+      cancellation: cancellation,
+    );
     retainResult(result);
     return result.outcome;
   }

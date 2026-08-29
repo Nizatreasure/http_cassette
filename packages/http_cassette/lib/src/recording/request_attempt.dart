@@ -1,3 +1,5 @@
+import '../adapter/cancellation.dart';
+import '../adapter/real_http_attempt.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
 import 'attempt.dart';
@@ -41,9 +43,10 @@ final class RecordingRequestAttempt {
 
   /// Runs [attempt] once and returns its transient unsanitised result.
   Future<RecordingRequestResult> run(
-    Future<CassetteOutcome> Function() attempt,
-  ) async {
-    final outcome = await _runner.run(attempt);
+    RealHttpAttempt attempt, {
+    CassetteCancellation? cancellation,
+  }) async {
+    final outcome = await _runner.run(attempt, cancellation: cancellation);
     return RecordingRequestResult(
       arrivalIndex: arrivalIndex,
       request: request,

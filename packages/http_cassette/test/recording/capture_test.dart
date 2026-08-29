@@ -97,6 +97,36 @@ void main() {
       expect(state.interactions, isEmpty);
     });
 
+    test('retains nothing when cancellation wins the real-attempt race',
+        () async {
+      final state = _state();
+      final cancellation = _ManualCancellation();
+      final completion = Completer<CassetteOutcome>();
+
+      final capture = state.recordRequest(
+        _request('/cancelled'),
+        () => completion.future,
+        cancellation: cancellation,
+      );
+      cancellation.cancel();
+
+      await expectLater(
+        capture,
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.cancelled,
+          ),
+        ),
+      );
+      expect(state.interactions, isEmpty);
+
+      completion.complete(_outcome(200));
+      await Future<void>.delayed(Duration.zero);
+      expect(state.interactions, isEmpty);
+    });
+
     test('retains nothing when sanitisation fails', () async {
       final error = StateError('test sanitisation failure');
       final state = _state(
@@ -147,4 +177,24 @@ final class _ThrowingRequestSanitiser implements RequestSanitiser {
 
   @override
   SanitisedRequest sanitise(CassetteRequest request) => throw error;
+}
+
+final class _ManualCancellation implements CassetteCancellation {
+  final _completion = Completer<void>();
+
+  var _isCancelled = false;
+
+  @override
+  bool get isCancelled => _isCancelled;
+
+  @override
+  Future<void> get whenCancelled => _completion.future;
+
+  void cancel() {
+    if (_isCancelled) {
+      return;
+    }
+    _isCancelled = true;
+    _completion.complete();
+  }
 }

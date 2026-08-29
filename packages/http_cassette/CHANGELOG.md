@@ -150,6 +150,7 @@
 - Added the public transport-neutral `RealHttpAttempt` callback type.
 - Added the public transport-neutral `CassetteCancellation` signal contract.
 - Added safe pre-entry cancellation checks for interception claims.
+- Added deterministic cancellation races for internal recording attempts.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

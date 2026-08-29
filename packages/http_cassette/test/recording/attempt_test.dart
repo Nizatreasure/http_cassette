@@ -107,5 +107,101 @@ void main() {
 
       expect(laterInvoked, isFalse);
     });
+
+    test('returns an outcome which completes before cancellation', () async {
+      final runner = RecordingAttemptRunner();
+      final cancellation = _ManualCancellation();
+      final completion = Completer<CassetteOutcome>();
+      final outcome = CassetteResponseOutcome(
+        CassetteResponse(statusCode: 200),
+      );
+
+      final result = runner.run(
+        () => completion.future,
+        cancellation: cancellation,
+      );
+      completion.complete(outcome);
+      expect(await result, same(outcome));
+
+      cancellation.cancel();
+      await cancellation.whenCancelled;
+    });
+
+    test('rejects and observes an attempt which loses to cancellation',
+        () async {
+      final runner = RecordingAttemptRunner();
+      final cancellation = _ManualCancellation();
+      final completion = Completer<CassetteOutcome>();
+
+      final result = runner.run(
+        () => completion.future,
+        cancellation: cancellation,
+      );
+      cancellation.cancel();
+
+      await expectLater(
+        result,
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.attempted,
+              ),
+        ),
+      );
+      completion.completeError(StateError('late adapter failure'));
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    test('does not invoke an attempt for an already-cancelled signal',
+        () async {
+      final runner = RecordingAttemptRunner();
+      final cancellation = _ManualCancellation()..cancel();
+      var invoked = false;
+
+      await expectLater(
+        runner.run(
+          () async {
+            invoked = true;
+            return CassetteResponseOutcome(CassetteResponse(statusCode: 200));
+          },
+          cancellation: cancellation,
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.networkAccess,
+            'network access',
+            NetworkAccess.notAttempted,
+          ),
+        ),
+      );
+      expect(invoked, isFalse);
+    });
   });
+}
+
+final class _ManualCancellation implements CassetteCancellation {
+  final _completion = Completer<void>();
+
+  var _isCancelled = false;
+
+  @override
+  bool get isCancelled => _isCancelled;
+
+  @override
+  Future<void> get whenCancelled => _completion.future;
+
+  void cancel() {
+    if (_isCancelled) {
+      return;
+    }
+    _isCancelled = true;
+    _completion.complete();
+  }
 }

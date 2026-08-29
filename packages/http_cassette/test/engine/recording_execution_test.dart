@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/cassette.dart';
 import 'package:http_cassette/src/engine/cassette_engine.dart';
@@ -29,6 +31,39 @@ void main() {
       expect(attempts, 1);
       expect(state.activeRecording!.interactions, hasLength(1));
       expect(state.activeRecording!.interactions.single.index, 0);
+    });
+
+    test('threads cancellation through the active recording route', () async {
+      final state = _engineState();
+      await state.startRecording(
+        CassetteName('cancelled-recording'),
+        const RecordingOptions(),
+      );
+      final cancellation = _ManualCancellation();
+      final completion = Completer<CassetteOutcome>();
+
+      final execution = state.executeActiveRecordingRequest(
+        _request('/cancelled'),
+        () => completion.future,
+        cancellation: cancellation,
+      );
+      cancellation.cancel();
+
+      await expectLater(
+        execution,
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.cancelled,
+          ),
+        ),
+      );
+      expect(state.activeRecording!.interactions, isEmpty);
+
+      completion.complete(_outcome());
+      await Future<void>.delayed(Duration.zero);
+      expect(state.activeRecording!.interactions, isEmpty);
     });
 
     test('rejects execution when no cassette session is active', () async {
@@ -140,3 +175,23 @@ CassetteRequest _request(String path) => CassetteRequest(
 CassetteOutcome _outcome() => CassetteResponseOutcome(
       CassetteResponse(statusCode: 200),
     );
+
+final class _ManualCancellation implements CassetteCancellation {
+  final _completion = Completer<void>();
+
+  var _isCancelled = false;
+
+  @override
+  bool get isCancelled => _isCancelled;
+
+  @override
+  Future<void> get whenCancelled => _completion.future;
+
+  void cancel() {
+    if (_isCancelled) {
+      return;
+    }
+    _isCancelled = true;
+    _completion.complete();
+  }
+}
