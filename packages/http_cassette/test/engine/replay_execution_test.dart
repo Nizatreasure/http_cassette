@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/cassette.dart';
 import 'package:http_cassette/src/cassette/interaction.dart';
@@ -65,6 +67,60 @@ void main() {
         state.activeReplay!.selectionStates.single.usageSnapshot
             .usedRecordedIndices,
         <int>[0, 1],
+      );
+    });
+
+    test('threads pre-selection cancellation without consuming replay', () {
+      final state = _engineState();
+      _activateReplay(
+        state,
+        Cassette(
+          interactions: <CassetteInteraction>[
+            _interaction(0, '/items'),
+          ],
+        ),
+      );
+
+      expect(
+        () => state.executeActiveReplayRequest(
+          _request('/items'),
+          cancellation: const _CancelledSignal(),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.cancelled,
+          ),
+        ),
+      );
+      expect(state.activeReplay!.selectionStates, isEmpty);
+    });
+
+    test('selection wins once the synchronous cancellation check passes', () {
+      final state = _engineState();
+      _activateReplay(
+        state,
+        Cassette(
+          interactions: <CassetteInteraction>[
+            _interaction(0, '/items'),
+          ],
+        ),
+      );
+      final cancellation = _ManualCancellation();
+
+      final outcome = state.executeActiveReplayRequest(
+        _request('/items'),
+        cancellation: cancellation,
+      );
+      cancellation.cancel();
+
+      expect(outcome, isA<CassetteResponseOutcome>());
+      expect(cancellation.isCancelled, isTrue);
+      expect(
+        state.activeReplay!.selectionStates.single.usageSnapshot
+            .usedRecordedIndices,
+        <int>[0],
       );
     });
 
@@ -244,3 +300,33 @@ CassetteInteraction _interaction(int index, String path) => CassetteInteraction(
     );
 
 Future<void> _complete() => Future<void>.value();
+
+final class _CancelledSignal implements CassetteCancellation {
+  const _CancelledSignal();
+
+  @override
+  bool get isCancelled => true;
+
+  @override
+  Future<void> get whenCancelled => Future<void>.value();
+}
+
+final class _ManualCancellation implements CassetteCancellation {
+  final _completion = Completer<void>();
+
+  var _isCancelled = false;
+
+  @override
+  bool get isCancelled => _isCancelled;
+
+  @override
+  Future<void> get whenCancelled => _completion.future;
+
+  void cancel() {
+    if (_isCancelled) {
+      return;
+    }
+    _isCancelled = true;
+    _completion.complete();
+  }
+}

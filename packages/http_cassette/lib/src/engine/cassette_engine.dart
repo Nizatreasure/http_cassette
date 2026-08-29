@@ -274,7 +274,10 @@ final class EngineState {
   ///
   /// This internal operation has no real-transport callback. Calling it while
   /// no replay session is active throws a safe lifecycle exception.
-  CassetteOutcome executeActiveReplayRequest(CassetteRequest request) {
+  CassetteOutcome executeActiveReplayRequest(
+    CassetteRequest request, {
+    CassetteCancellation? cancellation,
+  }) {
     final replay = activeReplay;
     if (replay == null) {
       final hasActiveSession = sessions.activeSession != null;
@@ -290,7 +293,11 @@ final class EngineState {
         ),
       );
     }
-    return executeReplayRequest(state: replay, request: request);
+    return executeReplayRequest(
+      state: replay,
+      request: request,
+      cancellation: cancellation,
+    );
   }
 
   /// Resolves [request] through the currently active recording session.

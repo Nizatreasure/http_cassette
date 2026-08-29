@@ -96,7 +96,57 @@ void main() {
         ),
       );
     });
+
+    test('rejects cancellation before assigning or consuming replay state', () {
+      final state = _state(
+        interactions: <CassetteInteraction>[
+          _interaction(0, '/items'),
+        ],
+      );
+
+      expect(
+        () => executeReplayRequest(
+          state: state,
+          request: _request('/items'),
+          cancellation: const _CancelledSignal(),
+        ),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.disabled,
+              ),
+        ),
+      );
+      expect(state.selectionStates, isEmpty);
+
+      final outcome = executeReplayRequest(
+        state: state,
+        request: _request('/items'),
+      );
+      expect(outcome, isA<CassetteResponseOutcome>());
+      expect(
+        state.selectionStates.single.usageSnapshot.usedRecordedIndices,
+        <int>[0],
+      );
+    });
   });
+}
+
+final class _CancelledSignal implements CassetteCancellation {
+  const _CancelledSignal();
+
+  @override
+  bool get isCancelled => true;
+
+  @override
+  Future<void> get whenCancelled => Future<void>.value();
 }
 
 ActiveReplayState _state({

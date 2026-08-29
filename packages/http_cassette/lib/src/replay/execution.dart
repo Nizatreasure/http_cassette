@@ -1,3 +1,5 @@
+import '../adapter/cancellation.dart';
+import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
@@ -12,7 +14,17 @@ import 'selection.dart';
 CassetteOutcome executeReplayRequest({
   required ActiveReplayState state,
   required CassetteRequest request,
+  CassetteCancellation? cancellation,
 }) {
+  if (cancellation?.isCancelled ?? false) {
+    throw CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.cancelled,
+        summary: 'The HTTP request was cancelled before replay selection.',
+        networkAccess: NetworkAccess.disabled,
+      ),
+    );
+  }
   final selection = state.selectRequest(request);
   return switch (selection.result) {
     ReplayInteractionSelected(:final interaction) => interaction.outcome,

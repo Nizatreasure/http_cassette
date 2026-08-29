@@ -297,6 +297,13 @@ the signal to their transport so that underlying network work is stopped where
 the client supports it. This race is not yet exposed through public
 interception.
 
+Internal replay execution now checks optional cancellation synchronously just
+before matching and selection. Cancellation already signalled at that point
+fails with network access disabled, assigns no replay arrival index and consumes
+no interaction. Once that check passes, selection has no asynchronous gap and
+wins deterministically; later cancellation does not undo the selected
+interaction. Public interception is not connected to this route yet.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store
