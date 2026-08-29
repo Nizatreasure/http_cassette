@@ -279,7 +279,14 @@ which adapters will later pass alongside an attempt. Implementations expose a
 monotonic `isCancelled` state and a `whenCancelled` future which completes
 normally once that state becomes true. Transport-specific tokens remain in the
 adapter, and the signal is never cassette data. Cancellation is not yet wired
-into interception or request execution.
+into request execution.
+
+The private interception claim boundary now checks an optional signal before
+request admission. An already-cancelled recording reports that no network
+attempt occurred, while replay reports that network access was disabled. The
+claim is still spent once, but no canonical request is admitted and no replay
+interaction is consumed. Cancellation which occurs after this check remains a
+later implementation stage.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

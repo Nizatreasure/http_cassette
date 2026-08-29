@@ -47,6 +47,44 @@ void main() {
       await session.discard();
     });
 
+    test('rejects pre-entry recording cancellation and spends the claim',
+        () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final session = await engine.startRecording('cancelled-recording');
+      final interception = engine.beginInterception();
+
+      expect(
+        () => claimCassetteInterception(
+          interception,
+          cancellation: const _CancelledSignal(),
+        ),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.notAttempted,
+              ),
+        ),
+      );
+      expect(
+        () => claimCassetteInterception(interception),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
+      );
+      await session.discard();
+    });
+
     test('does not drift into a later session', () async {
       final engine = CassetteEngine(store: MemoryCassetteStore());
       final firstSession = await engine.startRecording('first');
@@ -95,5 +133,48 @@ void main() {
       expect(claimCassetteInterception(interception), same(session));
       await session.discard();
     });
+
+    test('reports disabled network access for pre-entry replay cancellation',
+        () async {
+      final store = MemoryCassetteStore();
+      await store.create(
+        CassetteName('cancelled-replay'),
+        utf8.encode('{"schemaVersion":1,"interactions":[]}'),
+      );
+      final engine = CassetteEngine(store: store);
+      final session = await engine.startReplay('cancelled-replay');
+      final interception = engine.beginInterception();
+
+      expect(
+        () => claimCassetteInterception(
+          interception,
+          cancellation: const _CancelledSignal(),
+        ),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.disabled,
+              ),
+        ),
+      );
+      await session.discard();
+    });
   });
+}
+
+final class _CancelledSignal implements CassetteCancellation {
+  const _CancelledSignal();
+
+  @override
+  bool get isCancelled => true;
+
+  @override
+  Future<void> get whenCancelled => Future<void>.value();
 }

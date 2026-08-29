@@ -3,6 +3,7 @@ import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
+import 'cancellation.dart';
 
 /// An immutable adapter decision for one intercepted transport request.
 ///
@@ -59,7 +60,10 @@ bool cassetteInterceptionPinsSession(
 /// Claims [interception] once and returns its pinned session.
 ///
 /// This implementation operation is not exported from the public library.
-CassetteSession claimCassetteInterception(CassetteInterception interception) {
+CassetteSession claimCassetteInterception(
+  CassetteInterception interception, {
+  CassetteCancellation? cancellation,
+}) {
   final claimState = interception._claimState;
   if (claimState == null) {
     throw CassetteException(
@@ -70,7 +74,20 @@ CassetteSession claimCassetteInterception(CassetteInterception interception) {
       ),
     );
   }
-  return claimState.claim();
+  final session = claimState.claim();
+  if (cancellation?.isCancelled ?? false) {
+    throw CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.cancelled,
+        summary: 'The HTTP request was cancelled before cassette execution.',
+        networkAccess: switch (session.mode) {
+          CassetteMode.record => NetworkAccess.notAttempted,
+          CassetteMode.replay => NetworkAccess.disabled,
+        },
+      ),
+    );
+  }
+  return session;
 }
 
 final class _CassetteInterceptionClaimState {
