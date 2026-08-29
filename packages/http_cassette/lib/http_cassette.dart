@@ -5,6 +5,7 @@
 library;
 
 export 'src/adapter/interception.dart' show CassetteInterception;
+export 'src/adapter/real_http_attempt.dart' show RealHttpAttempt;
 export 'src/cassette/name.dart';
 export 'src/configuration/body_limits.dart';
 export 'src/configuration/cassette_configuration.dart';

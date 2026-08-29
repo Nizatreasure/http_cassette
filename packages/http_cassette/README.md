@@ -267,6 +267,13 @@ The active permit's public `proceed` operation is not implemented yet. The
 current declaration can make safe buffering decisions and enforce one-use
 admission internally, but is not yet a complete request execution contract.
 
+`RealHttpAttempt` is the transport-neutral callback type which adapters will
+later supply to that operation. It is argument-free because the adapter keeps
+ownership of its prepared transport request and replacement streams. The
+callback returns a `Future<CassetteOutcome>`, covering either a canonical HTTP
+response or a canonical transport failure. Defining the type does not yet
+authorise or invoke a real request.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store

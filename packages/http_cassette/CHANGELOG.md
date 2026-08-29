@@ -147,6 +147,7 @@
 - Added immutable inactive adapter interception permits.
 - Added session-pinned active interception snapshots with body limits.
 - Added a one-use claim gate for active interception permits.
+- Added the public transport-neutral `RealHttpAttempt` callback type.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.
