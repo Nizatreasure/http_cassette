@@ -69,6 +69,7 @@ final class CassetteEngine {
       return createActiveCassetteInterception(
         session: session,
         bodyLimits: _state.configuration.bodyLimits,
+        executor: _state.executePinnedInterception,
       );
     }
     if (isActive) {
@@ -298,6 +299,45 @@ final class EngineState {
       request: request,
       cancellation: cancellation,
     );
+  }
+
+  /// Routes one request only through its exact pinned [session].
+  ///
+  /// A completed or replaced session fails before recording can invoke
+  /// [realAttempt]. Replay routing never invokes [realAttempt].
+  Future<CassetteOutcome> executePinnedInterception(
+    CassetteSession session,
+    CassetteRequest request,
+    RealHttpAttempt realAttempt,
+    CassetteCancellation? cancellation,
+  ) {
+    if (!identical(sessions.activeSession, session)) {
+      return Future<CassetteOutcome>.error(
+        CassetteException(
+          CassetteDiagnostic(
+            category: DiagnosticCategory.sessionAlreadyClosed,
+            summary: 'The pinned cassette session is no longer active.',
+            networkAccess: switch (session.mode) {
+              CassetteMode.record => NetworkAccess.notAttempted,
+              CassetteMode.replay => NetworkAccess.disabled,
+            },
+          ),
+        ),
+      );
+    }
+    return switch (session.mode) {
+      CassetteMode.record => executeActiveRecordingRequest(
+          request,
+          realAttempt,
+          cancellation: cancellation,
+        ),
+      CassetteMode.replay => Future<CassetteOutcome>.sync(
+          () => executeActiveReplayRequest(
+            request,
+            cancellation: cancellation,
+          ),
+        ),
+    };
   }
 
   /// Resolves [request] through the currently active recording session.

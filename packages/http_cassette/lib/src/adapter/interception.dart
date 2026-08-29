@@ -1,9 +1,22 @@
 import '../configuration/body_limits.dart';
 import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
+import '../model/http_message.dart';
+import '../model/outcome.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
 import 'cancellation.dart';
+import 'real_http_attempt.dart';
+
+/// Routes one claimed interception through its exact pinned session.
+///
+/// This implementation callback is not exported from the public library.
+typedef CassetteInterceptionExecutor = Future<CassetteOutcome> Function(
+  CassetteSession session,
+  CassetteRequest request,
+  RealHttpAttempt realAttempt,
+  CassetteCancellation? cancellation,
+);
 
 /// An immutable adapter decision for one intercepted transport request.
 ///
@@ -20,9 +33,10 @@ final class CassetteInterception {
   CassetteInterception._active({
     required BodyLimits limits,
     required CassetteSession session,
+    required CassetteInterceptionExecutor executor,
   })  : isActive = true,
         bodyLimits = limits,
-        _claimState = _CassetteInterceptionClaimState(session);
+        _claimState = _CassetteInterceptionClaimState(session, executor);
 
   /// Whether this request entered an active cassette session.
   final bool isActive;
@@ -45,8 +59,13 @@ CassetteInterception createInactiveCassetteInterception() =>
 CassetteInterception createActiveCassetteInterception({
   required CassetteSession session,
   required BodyLimits bodyLimits,
+  required CassetteInterceptionExecutor executor,
 }) =>
-    CassetteInterception._active(limits: bodyLimits, session: session);
+    CassetteInterception._active(
+      limits: bodyLimits,
+      session: session,
+      executor: executor,
+    );
 
 /// Whether [interception] is pinned to the exact [session] object.
 ///
@@ -90,10 +109,32 @@ CassetteSession claimCassetteInterception(
   return session;
 }
 
+/// Executes [request] through the session pinned by [interception].
+///
+/// This implementation operation is not exported from the public library.
+Future<CassetteOutcome> executeCassetteInterception(
+  CassetteInterception interception,
+  CassetteRequest request,
+  RealHttpAttempt realAttempt, {
+  CassetteCancellation? cancellation,
+}) async {
+  final session = claimCassetteInterception(
+    interception,
+    cancellation: cancellation,
+  );
+  return interception._claimState!.executor(
+    session,
+    request,
+    realAttempt,
+    cancellation,
+  );
+}
+
 final class _CassetteInterceptionClaimState {
-  _CassetteInterceptionClaimState(this.session);
+  _CassetteInterceptionClaimState(this.session, this.executor);
 
   final CassetteSession session;
+  final CassetteInterceptionExecutor executor;
 
   var _claimed = false;
 

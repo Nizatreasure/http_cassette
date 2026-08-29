@@ -311,6 +311,13 @@ access was attempted but retains no original error, message or stack trace. No
 interaction is added. Adapters must therefore map completed transport failures
 to `CassetteTransportFailure` rather than throw them through this callback.
 
+Active permits now carry a private execution route bound to their exact engine
+session. Recording uses the existing guarded capture path. Replay uses the
+synchronous no-network path and never invokes the supplied real attempt. A
+permit whose session has closed or been replaced fails with
+`sessionAlreadyClosed` instead of drifting into the engine's newer session.
+This router is not yet exposed as public `proceed`.
+
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
 `cassetteUnreadable`. It retains only the logical cassette name and safe store
