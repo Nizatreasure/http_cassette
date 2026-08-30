@@ -161,6 +161,8 @@
   portable transport-failure category.
 - Added public adapter contract coverage for pre-entry, in-flight recording and
   pre-selection replay cancellation.
+- Allowed an authorised recording attempt to preserve only a safe attempted
+  response-body limit failure.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

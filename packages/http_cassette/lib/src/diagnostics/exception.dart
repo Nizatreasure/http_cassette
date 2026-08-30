@@ -31,6 +31,16 @@ final class _CassetteException extends CassetteException {
   const _CassetteException(super.diagnostic) : super._();
 }
 
+/// Whether [error] is the exact safe local failure an adapter may report after
+/// starting an authorised HTTP attempt.
+///
+/// This deliberately excludes subclasses which can retain arbitrary errors or
+/// stack traces, and it rejects diagnostics with inconsistent network state.
+bool isAllowedAdapterAttemptFailure(Object error) =>
+    error is _CassetteException &&
+    error.diagnostic.category == DiagnosticCategory.bodyLimitExceeded &&
+    error.diagnostic.networkAccess == NetworkAccess.attempted;
+
 /// Reports a callback failure accompanied by a secondary cleanup failure.
 ///
 /// This exception occurs only when a scoped callback and the session cleanup

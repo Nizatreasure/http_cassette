@@ -36,8 +36,12 @@ final class RecordingAttemptRunner {
       );
     }
     final attemptFuture = Future<CassetteOutcome>.sync(attempt).onError(
-      (Object error, StackTrace stackTrace) =>
-          throw _adapterContractException(),
+      (Object error, StackTrace stackTrace) {
+        if (isAllowedAdapterAttemptFailure(error)) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+        throw _adapterContractException();
+      },
     );
     if (cancellation == null) {
       return attemptFuture;

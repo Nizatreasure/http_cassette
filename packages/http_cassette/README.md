@@ -317,11 +317,18 @@ wins deterministically; later cancellation does not undo the selected
 interaction. Public `proceed()` uses this route.
 
 If an internal recording attempt throws instead of returning a canonical
-outcome, the core now replaces that error with a fixed
-`adapterContractViolation` diagnostic. The diagnostic reports that network
-access was attempted but retains no original error, message or stack trace. No
-interaction is added. Adapters must therefore map completed transport failures
-to `CassetteTransportFailure` rather than throw them through this callback.
+outcome, the core replaces that error with a fixed `adapterContractViolation`
+diagnostic. The diagnostic reports that network access was attempted but
+retains no original error, message or stack trace. No interaction is added.
+Adapters must therefore map completed transport failures to
+`CassetteTransportFailure` rather than throw them through this callback.
+
+The sole narrow exception is a base `CassetteException` carrying
+`bodyLimitExceeded` with `NetworkAccess.attempted`. This lets an adapter report
+that a response crossed its configured limit while it was being buffered after
+the real attempt began. The core preserves that already-safe exception and does
+not record an interaction. Other categories, inconsistent network states and
+exception subclasses still become `adapterContractViolation`.
 
 Active permits carry a private execution route bound to their exact engine
 session. Recording uses the existing guarded capture path. Replay uses the

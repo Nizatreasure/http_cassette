@@ -149,6 +149,99 @@ void main() {
       );
     });
 
+    test('preserves a safe attempted body-limit failure', () async {
+      final runner = RecordingAttemptRunner();
+      final failure = CassetteException(
+        CassetteDiagnostic(
+          category: DiagnosticCategory.bodyLimitExceeded,
+          summary: 'The response body exceeded its configured limit.',
+          networkAccess: NetworkAccess.attempted,
+        ),
+      );
+
+      await expectLater(
+        runner.run(() async => throw failure),
+        throwsA(same(failure)),
+      );
+    });
+
+    test('maps a body-limit failure with inconsistent network state', () async {
+      final runner = RecordingAttemptRunner();
+
+      await expectLater(
+        runner.run(
+          () async => throw CassetteException(
+            CassetteDiagnostic(
+              category: DiagnosticCategory.bodyLimitExceeded,
+              summary: 'The response body exceeded its configured limit.',
+              networkAccess: NetworkAccess.notAttempted,
+            ),
+          ),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
+      );
+    });
+
+    test('maps other safe cassette failures from an attempt', () async {
+      final runner = RecordingAttemptRunner();
+
+      await expectLater(
+        runner.run(
+          () async => throw CassetteException(
+            CassetteDiagnostic(
+              category: DiagnosticCategory.unmappedAdapterFailure,
+              summary: 'The adapter could not classify the failure.',
+              networkAccess: NetworkAccess.attempted,
+            ),
+          ),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
+      );
+    });
+
+    test('maps a body-limit exception subclass without retaining its error',
+        () async {
+      final runner = RecordingAttemptRunner();
+      final failure = ScopedCassetteException(
+        primaryError: StateError('secret primary failure'),
+        primaryStackTrace: StackTrace.current,
+        cleanupDiagnostic: CassetteDiagnostic(
+          category: DiagnosticCategory.bodyLimitExceeded,
+          summary: 'The response body exceeded its configured limit.',
+          networkAccess: NetworkAccess.attempted,
+        ),
+      );
+
+      await expectLater(
+        runner.run(() async => throw failure),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.adapterContractViolation,
+              )
+              .having(
+                (exception) => exception.toString(),
+                'safe text',
+                isNot(contains('secret primary failure')),
+              ),
+        ),
+      );
+    });
+
     test('returns an outcome which completes before cancellation', () async {
       final runner = RecordingAttemptRunner();
       final cancellation = _ManualCancellation();
