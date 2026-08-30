@@ -159,6 +159,8 @@
   recording and replay.
 - Added public adapter contract coverage for recording and replaying every
   portable transport-failure category.
+- Added public adapter contract coverage for pre-entry, in-flight recording and
+  pre-selection replay cancellation.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

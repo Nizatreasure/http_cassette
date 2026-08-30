@@ -334,9 +334,12 @@ The repository's reusable adapter contract suite now exercises inactive
 pass-through plus response and portable transport-failure recording and replay
 using a fake adapter built only from public `http_cassette` exports. It covers
 every current `TransportFailureCategory` and verifies that replay makes no new
-transport attempt. This is development-time verification, not a runtime API.
-Cancellation and body-limit scenarios will be added before the same suite is
-applied to the official adapters.
+transport attempt. Cancellation scenarios cover an already-cancelled request,
+cancellation during a recording attempt and cancellation before replay
+selection. They verify that cancellation is not persisted and does not consume
+a replay interaction. This is development-time verification, not a runtime API.
+Body-limit scenarios will be added before the same suite is applied to the
+official adapters.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to

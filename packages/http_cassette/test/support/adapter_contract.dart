@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:http_cassette/http_cassette.dart';
 import 'package:test/test.dart';
 
@@ -15,7 +17,10 @@ abstract interface class AdapterContractDriver {
 
   int get realAttemptCount;
 
-  Future<AdapterContractOutcome> send(AdapterContractRequest request);
+  Future<AdapterContractOutcome> send(
+    AdapterContractRequest request, {
+    CassetteCancellation? cancellation,
+  });
 }
 
 final class AdapterContractRequest {
@@ -58,8 +63,8 @@ final class AdapterContractFailure extends AdapterContractOutcome {
   final String message;
 }
 
-void runBasicPublicAdapterContract(AdapterContractDriverFactory createDriver) {
-  group('basic public adapter contract', () {
+void runPublicAdapterContract(AdapterContractDriverFactory createDriver) {
+  group('public adapter contract', () {
     test('passes through without canonicalising while inactive', () async {
       final engine = CassetteEngine(store: MemoryCassetteStore());
       final response = AdapterContractResponse(
@@ -154,8 +159,131 @@ void runBasicPublicAdapterContract(AdapterContractDriverFactory createDriver) {
       );
       await replay.discard();
     });
+
+    test('does not attempt transport after pre-entry cancellation', () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final driver = createDriver(
+        engine,
+        (_) async => const AdapterContractResponse(statusCode: 200),
+      );
+      final recording = await engine.startRecording(
+        'adapter/pre-entry-cancellation',
+      );
+      final cancellation = _ManualCancellation()..cancel();
+
+      await expectLater(
+        driver.send(_cancellationRequest(), cancellation: cancellation),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.notAttempted,
+              ),
+        ),
+      );
+      expect(driver.realAttemptCount, 0);
+      await recording.discard();
+    });
+
+    test('does not persist in-flight recording cancellation', () async {
+      final store = MemoryCassetteStore();
+      final engine = CassetteEngine(store: store);
+      final attemptStarted = Completer<void>();
+      final attemptResult = Completer<AdapterContractOutcome>();
+      final driver = createDriver(engine, (_) {
+        attemptStarted.complete();
+        return attemptResult.future;
+      });
+      final request = _cancellationRequest();
+      final cancellation = _ManualCancellation();
+      final recording = await engine.startRecording(
+        'adapter/in-flight-cancellation',
+      );
+
+      final result = driver.send(request, cancellation: cancellation);
+      await attemptStarted.future;
+      cancellation.cancel();
+      await expectLater(
+        result,
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.attempted,
+              ),
+        ),
+      );
+      attemptResult.complete(
+        const AdapterContractResponse(statusCode: 200),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await recording.discard();
+      await expectLater(
+        store.read(CassetteName('adapter/in-flight-cancellation')),
+        throwsA(
+          isA<CassetteStoreException>().having(
+            (exception) => exception.kind,
+            'kind',
+            CassetteStoreFailureKind.notFound,
+          ),
+        ),
+      );
+      expect(driver.realAttemptCount, 1);
+    });
+
+    test('pre-selection replay cancellation consumes no interaction', () async {
+      final store = MemoryCassetteStore();
+      final engine = CassetteEngine(store: store);
+      const response = AdapterContractResponse(statusCode: 204);
+      final driver = createDriver(engine, (_) async => response);
+      final request = _cancellationRequest();
+      final recording = await engine.startRecording(
+        'adapter/replay-cancellation',
+      );
+      await driver.send(request);
+      await recording.close();
+      final replay = await engine.startReplay('adapter/replay-cancellation');
+      final cancellation = _ManualCancellation()..cancel();
+
+      await expectLater(
+        driver.send(request, cancellation: cancellation),
+        throwsA(
+          isA<CassetteException>()
+              .having(
+                (exception) => exception.diagnostic.category,
+                'category',
+                DiagnosticCategory.cancelled,
+              )
+              .having(
+                (exception) => exception.diagnostic.networkAccess,
+                'network access',
+                NetworkAccess.disabled,
+              ),
+        ),
+      );
+      _expectResponse(await driver.send(request), response);
+      expect(driver.realAttemptCount, 1);
+      await replay.discard();
+    });
   });
 }
+
+AdapterContractRequest _cancellationRequest() => AdapterContractRequest(
+      method: 'GET',
+      uri: Uri.parse('https://example.test/cancellation'),
+    );
 
 AdapterContractRequest _failureRequest(TransportFailureCategory category) {
   return AdapterContractRequest(
@@ -184,4 +312,20 @@ void _expectFailure(
   actual as AdapterContractFailure;
   expect(actual.category, category);
   expect(actual.message, message);
+}
+
+final class _ManualCancellation implements CassetteCancellation {
+  final _completion = Completer<void>();
+
+  @override
+  bool get isCancelled => _completion.isCompleted;
+
+  @override
+  Future<void> get whenCancelled => _completion.future;
+
+  void cancel() {
+    if (!_completion.isCompleted) {
+      _completion.complete();
+    }
+  }
 }

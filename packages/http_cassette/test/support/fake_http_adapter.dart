@@ -18,7 +18,10 @@ final class FakeHttpAdapter implements AdapterContractDriver {
   int get realAttemptCount => _realAttemptCount;
 
   @override
-  Future<AdapterContractOutcome> send(AdapterContractRequest request) async {
+  Future<AdapterContractOutcome> send(
+    AdapterContractRequest request, {
+    CassetteCancellation? cancellation,
+  }) async {
     final interception = _engine.beginInterception();
     if (!interception.isActive) {
       _realAttemptCount++;
@@ -50,6 +53,7 @@ final class FakeHttpAdapter implements AdapterContractDriver {
             ),
         };
       },
+      cancellation: cancellation,
     );
 
     return switch (outcome) {
