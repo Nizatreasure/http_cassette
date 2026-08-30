@@ -27,6 +27,13 @@ final class FakeHttpAdapter implements AdapterContractDriver {
       _realAttemptCount++;
       return _transport(request);
     }
+    final bodyLimits = interception.bodyLimits!;
+    if (request.body.length > bodyLimits.requestBytes) {
+      throw _bodyLimitException(
+        summary: 'The request body exceeded its configured limit.',
+        networkAccess: NetworkAccess.notAttempted,
+      );
+    }
 
     _canonicalRequestCount++;
     final outcome = await interception.proceed(
@@ -39,6 +46,13 @@ final class FakeHttpAdapter implements AdapterContractDriver {
       () async {
         _realAttemptCount++;
         final transportOutcome = await _transport(request);
+        if (transportOutcome case AdapterContractResponse(:final body)
+            when body.length > bodyLimits.responseBytes) {
+          throw _bodyLimitException(
+            summary: 'The response body exceeded its configured limit.',
+            networkAccess: NetworkAccess.attempted,
+          );
+        }
         return switch (transportOutcome) {
           AdapterContractResponse() => CassetteResponseOutcome(
               CassetteResponse(
@@ -73,3 +87,15 @@ final class FakeHttpAdapter implements AdapterContractDriver {
     };
   }
 }
+
+CassetteException _bodyLimitException({
+  required String summary,
+  required NetworkAccess networkAccess,
+}) =>
+    CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.bodyLimitExceeded,
+        summary: summary,
+        networkAccess: networkAccess,
+      ),
+    );

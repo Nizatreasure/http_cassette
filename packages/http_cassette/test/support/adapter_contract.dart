@@ -277,8 +277,139 @@ void runPublicAdapterContract(AdapterContractDriverFactory createDriver) {
       expect(driver.realAttemptCount, 1);
       await replay.discard();
     });
+
+    test('accepts request and response bodies exactly at their limits',
+        () async {
+      final store = MemoryCassetteStore();
+      final engine = CassetteEngine(
+        store: store,
+        configuration: CassetteConfiguration(
+          bodyLimits: BodyLimits(requestBytes: 3, responseBytes: 4),
+        ),
+      );
+      const response = AdapterContractResponse(
+        statusCode: 200,
+        body: <int>[5, 6, 7, 8],
+      );
+      final driver = createDriver(engine, (_) async => response);
+      final request = AdapterContractRequest(
+        method: 'POST',
+        uri: Uri.parse('https://example.test/body-limit-boundary'),
+        body: const <int>[1, 2, 3],
+      );
+      final recording = await engine.startRecording('adapter/body-boundary');
+
+      _expectResponse(await driver.send(request), response);
+      await recording.close();
+      final replay = await engine.startReplay('adapter/body-boundary');
+      _expectResponse(await driver.send(request), response);
+
+      expect(driver.realAttemptCount, 1);
+      await replay.discard();
+    });
+
+    test('rejects an oversized request before the transport attempt', () async {
+      final store = MemoryCassetteStore();
+      final engine = CassetteEngine(
+        store: store,
+        configuration: CassetteConfiguration(
+          bodyLimits: BodyLimits(requestBytes: 2),
+        ),
+      );
+      final driver = createDriver(
+        engine,
+        (_) async => const AdapterContractResponse(statusCode: 200),
+      );
+      final request = AdapterContractRequest(
+        method: 'POST',
+        uri: Uri.parse('https://example.test/request-limit'),
+        body: const <int>[1, 2, 3],
+      );
+      final recording = await engine.startRecording('adapter/request-limit');
+
+      await expectLater(
+        driver.send(request),
+        throwsA(_bodyLimitFailure(NetworkAccess.notAttempted)),
+      );
+      expect(driver.canonicalRequestCount, 0);
+      expect(driver.realAttemptCount, 0);
+      await recording.close();
+
+      final replay = await engine.startReplay('adapter/request-limit');
+      await expectLater(
+        driver.send(
+          AdapterContractRequest(
+            method: request.method,
+            uri: request.uri,
+            body: const <int>[1, 2],
+          ),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.noMatchingInteraction,
+          ),
+        ),
+      );
+      expect(driver.realAttemptCount, 0);
+      await replay.discard();
+    });
+
+    test('rejects an oversized response without persisting it', () async {
+      final store = MemoryCassetteStore();
+      final engine = CassetteEngine(
+        store: store,
+        configuration: CassetteConfiguration(
+          bodyLimits: BodyLimits(responseBytes: 2),
+        ),
+      );
+      final driver = createDriver(
+        engine,
+        (_) async => const AdapterContractResponse(
+          statusCode: 200,
+          body: <int>[1, 2, 3],
+        ),
+      );
+      final recording = await engine.startRecording('adapter/response-limit');
+
+      await expectLater(
+        driver.send(
+          AdapterContractRequest(
+            method: 'GET',
+            uri: Uri.parse('https://example.test/response-limit'),
+          ),
+        ),
+        throwsA(_bodyLimitFailure(NetworkAccess.attempted)),
+      );
+      expect(driver.realAttemptCount, 1);
+      await recording.discard();
+      await expectLater(
+        store.read(CassetteName('adapter/response-limit')),
+        throwsA(
+          isA<CassetteStoreException>().having(
+            (exception) => exception.kind,
+            'kind',
+            CassetteStoreFailureKind.notFound,
+          ),
+        ),
+      );
+    });
   });
 }
+
+Matcher _bodyLimitFailure(NetworkAccess networkAccess) =>
+    isA<CassetteException>()
+        .having(
+          (exception) => exception.diagnostic.category,
+          'category',
+          DiagnosticCategory.bodyLimitExceeded,
+        )
+        .having(
+          (exception) => exception.diagnostic.networkAccess,
+          'network access',
+          networkAccess,
+        );
 
 AdapterContractRequest _cancellationRequest() => AdapterContractRequest(
       method: 'GET',
