@@ -3,10 +3,10 @@
 `http_cassette` is the planned transport-neutral core of HTTP Cassette, a Dart
 package family for recording and replaying HTTP interactions in tests.
 
-This package is under active development. It currently provides foundational
-canonical HTTP values and safe structured diagnostics. It does not yet record,
-replay, sanitise or persist HTTP interactions, and the matcher is not yet
-exposed as an operational engine.
+This package is under active development. Its transport-neutral core can now
+record and replay canonical HTTP interactions through the public adapter
+contract. The Dio and `package:http` adapters are not implemented yet, so it is
+not ready for ordinary client traffic.
 
 ## Installation
 
@@ -95,7 +95,7 @@ The internal active state now applies matching-group selection and consumption
 synchronously. Successful replay close now verifies combined usage when
 `requireAllInteractions` is true. Failure reports safe total, used and unused
 facts and retains uncertain session ownership; discard skips verification.
-Public request interception and outcome replay are not implemented yet.
+Public adapter interception now uses this matching and consumption state.
 
 `CassetteConfiguration` groups the matching, sanitisation, body-limit and
 default replay-policy values that an engine shares across its sessions. Its
@@ -156,8 +156,9 @@ It can internally assign, match and select a canonical request without an
 asynchronous gap while sharing policy state between equivalent matching groups.
 An actual no-match result now ranks the comparisons already produced during
 matching and assembles the existing value-safe diagnostic without comparing the
-request again. The engine still does not expose interception or replay
-requests. Generic scoped recording and replay lifecycle methods are available.
+request again. The engine exposes canonical request execution through
+`beginInterception()` and `CassetteInterception.proceed()`. Generic scoped
+recording and replay lifecycle methods are also available.
 
 ### Scoped recording
 
@@ -173,11 +174,9 @@ final result = await engine.record<int>(
 );
 ```
 
-Transport interception is not implemented yet. At the current stage, ordinary
-callback traffic is therefore not captured and a successful scoped recording
-contains no interactions. This method currently validates the complete scoped
-lifecycle and persistence behaviour; it must not be treated as working HTTP
-recording until an adapter can route traffic through the engine.
+Traffic is captured only when an installed adapter routes it through
+`CassetteInterception.proceed()`. The official adapters are not implemented
+yet, so the callback alone does not intercept arbitrary HTTP clients.
 
 If the callback fails, the recording is discarded and the same error is
 re-thrown with its original stack trace. A startup failure occurs before the
@@ -202,11 +201,10 @@ failure discards replay state and is re-thrown with its original stack trace.
 Successful close enforces `requireAllInteractions` when enabled; failed
 verification leaves uncertain active ownership.
 
-Transport interception is still not implemented. Callback HTTP requests cannot
-yet be routed through replay, so this method currently validates loading and
-lifecycle behaviour only. In particular, required usage can pass publicly only
-for an empty cassette until interception makes recorded interactions
-consumable. Replay never falls back to the real network.
+Traffic is replayed only when an installed adapter routes it through
+`CassetteInterception.proceed()`. The official adapters are not implemented
+yet. Replay through the public contract never invokes the supplied real attempt
+and never falls back to the network.
 
 ### Scoped callback failures
 
@@ -263,25 +261,40 @@ retains its pinned session, while another claim fails safely before any later
 execution work can begin. Inactive permits cannot be claimed. This state is not
 public configuration and does not retarget a permit after its session closes.
 
-The active permit's public `proceed` operation is not implemented yet. The
-current declaration can make safe buffering decisions and enforce one-use
-admission internally, but is not yet a complete request execution contract.
+An active permit exposes `proceed()` for one canonical request and one prepared
+real attempt:
 
-`RealHttpAttempt` is the transport-neutral callback type which adapters will
-later supply to that operation. It is argument-free because the adapter keeps
+```dart
+final interception = engine.beginInterception();
+if (!interception.isActive) {
+  return sendNormally();
+}
+
+final outcome = await interception.proceed(
+  canonicalRequest,
+  sendPreparedRequest,
+  cancellation: cancellation,
+);
+```
+
+Adapters must not call `proceed()` for an inactive permit. Each active permit
+can proceed once. Recording authorises the supplied attempt at most once;
+replay never invokes it.
+
+`RealHttpAttempt` is the transport-neutral callback type which adapters supply
+to that operation. It is argument-free because the adapter keeps
 ownership of its prepared transport request and replacement streams. The
 callback returns a `Future<CassetteOutcome>`, covering either a canonical HTTP
-response or a canonical transport failure. Defining the type does not yet
-authorise or invoke a real request.
+response or a canonical transport failure. Only `proceed()` in an active
+recording session can authorise its invocation.
 
 `CassetteCancellation` is the optional transport-neutral cancellation signal
-which adapters will later pass alongside an attempt. Implementations expose a
+which adapters may pass alongside an attempt. Implementations expose a
 monotonic `isCancelled` state and a `whenCancelled` future which completes
 normally once that state becomes true. Transport-specific tokens remain in the
-adapter, and the signal is never cassette data. Cancellation is not yet wired
-into request execution.
+adapter, and the signal is never cassette data.
 
-The private interception claim boundary now checks an optional signal before
+The interception boundary checks an optional signal before
 request admission. An already-cancelled recording reports that no network
 attempt occurred, while replay reports that network access was disabled. The
 claim is still spent once, but no canonical request is admitted and no replay
@@ -294,15 +307,14 @@ first continues through sanitisation and retention. Cancellation which reaches
 the core first produces a safe `cancelled` failure and the later attempt result
 is observed but cannot be retained. Adapters remain responsible for propagating
 the signal to their transport so that underlying network work is stopped where
-the client supports it. This race is not yet exposed through public
-interception.
+the client supports it. This race is exposed through public `proceed()`.
 
 Internal replay execution now checks optional cancellation synchronously just
 before matching and selection. Cancellation already signalled at that point
 fails with network access disabled, assigns no replay arrival index and consumes
 no interaction. Once that check passes, selection has no asynchronous gap and
 wins deterministically; later cancellation does not undo the selected
-interaction. Public interception is not connected to this route yet.
+interaction. Public `proceed()` uses this route.
 
 If an internal recording attempt throws instead of returning a canonical
 outcome, the core now replaces that error with a fixed
@@ -311,12 +323,12 @@ access was attempted but retains no original error, message or stack trace. No
 interaction is added. Adapters must therefore map completed transport failures
 to `CassetteTransportFailure` rather than throw them through this callback.
 
-Active permits now carry a private execution route bound to their exact engine
+Active permits carry a private execution route bound to their exact engine
 session. Recording uses the existing guarded capture path. Replay uses the
 synchronous no-network path and never invokes the supplied real attempt. A
 permit whose session has closed or been replaced fails with
 `sessionAlreadyClosed` instead of drifting into the engine's newer session.
-This router is not yet exposed as public `proceed`.
+Public `proceed()` is the only exported entry point to this router.
 
 The internal replay-loading foundation now maps a missing store target to a
 `cassetteMissing` diagnostic and other expected replay read failures to
@@ -392,30 +404,31 @@ summary and disabled-network status. It cannot be mislabelled as a request
 mismatch. Its internal deterministic plain-text formatter shows the safe
 request facts, consumption state and policy without logging. Cassette names are
 explicitly truncated after 128 characters and at most 16 recorded indices are
-shown with an omitted count. Public request interception is not implemented yet.
+shown with an omitted count. Public replay exposes this failure through
+`CassetteInterception.proceed()`.
 
 The active replay foundation now assembles that safe exhaustion diagnostic only
 when strict selection actually exhausts a matching group. It uses the request's
 assigned arrival index and the state which produced the exhaustion result.
-Selected and no-match results do not carry an exhaustion diagnostic. Request
-execution and public error delivery remain unimplemented.
+Selected and no-match results do not carry an exhaustion diagnostic. Public
+request execution preserves these specialised safe failures.
 
 An internal replay execution boundary now returns the selected interaction's
 recorded canonical outcome. A no-match or exhausted result instead throws a
 `CassetteException` whose common diagnostic and detailed text remain safe and
 state that no real request was made. The boundary accepts no network callback.
-It is not yet exposed through the public adapter integration contract.
+It is exposed through the public adapter integration contract.
 
 The engine's internal state now routes requests through that boundary only
 while its loaded replay session remains active. Calling the replay-only
 operation without a session, during recording or after replay closes fails with
-a safe lifecycle diagnostic and cannot attempt the network. Inactive adapter
-pass-through and the public interception permit remain unimplemented.
+a safe lifecycle diagnostic and cannot attempt the network. Inactive permits
+tell adapters to pass their original request through without canonicalising it.
 
 The complete internal replay route is covered for matched requests, duplicate
 strict matches, no-match and exhaustion. Matching and consumption stay in one
 synchronous operation, and the route contains no real-attempt callback. Public
-adapter interception is still a later stage.
+adapter interception delegates to this route.
 
 An active recording session now retains its validated logical name, target
 handling option and the engine's fixed sanitisation configuration. Each session
@@ -427,7 +440,8 @@ An internal per-request recording guard can now invoke one argument-free real
 attempt and return its canonical response or transport-failure outcome
 unchanged. It reserves that invocation before awaiting completion and rejects a
 second call without invoking its callback. Adapter exception mapping,
-cancellation, sanitisation and interaction retention remain unimplemented.
+cancellation, sanitisation and interaction retention are connected around this
+guard.
 
 Active recording state can now admit a canonical request synchronously before
 transport work starts. Admission assigns its stable arrival index and returns a
@@ -444,16 +458,16 @@ If sanitisation fails, no interaction is returned or retained.
 Active recording state can now retain that sanitised interaction exactly once.
 Only already admitted indices are accepted. Immutable point-in-time snapshots
 are sorted by request-arrival index, so reverse response completion cannot
-reorder recorded traffic. Pending attempts may leave temporary gaps; this stage
-does not yet create or persist a cassette.
+reorder recorded traffic. Pending attempts may leave temporary gaps and prevent
+successful cassette finalisation.
 
 One internal recording operation now composes admission, the guarded real
 attempt, sanitisation and ordered retention. The engine routes that operation
 only through its active recording session and returns the exact live canonical
 outcome after safe retention. Inactive and replay-session calls fail before the
 real-attempt callback is invoked. Attempt and sanitisation failures retain
-nothing. Recording remains internal and non-persistent; adapter interception is
-not yet exposed.
+nothing. Public adapter interception delegates to this operation, and successful
+session close persists the complete cassette.
 
 Complete internal recording state can now be finalised into an immutable
 current-writable cassette, including an empty cassette. Finalisation preserves

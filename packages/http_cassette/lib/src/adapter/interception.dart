@@ -45,6 +45,32 @@ final class CassetteInterception {
   final BodyLimits? bodyLimits;
 
   final _CassetteInterceptionClaimState? _claimState;
+
+  /// Executes [request] through this permit's pinned cassette session.
+  ///
+  /// Adapters must call this only for an active permit and at most once. During
+  /// recording, [realAttempt] is authorised at most once. During replay it is
+  /// never invoked. An optional [cancellation] follows the session mode's
+  /// deterministic cancellation ordering.
+  ///
+  /// A contract violation, cancelled request, unavailable pinned session,
+  /// replay failure or recording failure throws a [CassetteException].
+  Future<CassetteOutcome> proceed(
+    CassetteRequest request,
+    RealHttpAttempt realAttempt, {
+    CassetteCancellation? cancellation,
+  }) async {
+    final session = claimCassetteInterception(
+      this,
+      cancellation: cancellation,
+    );
+    return _claimState!.executor(
+      session,
+      request,
+      realAttempt,
+      cancellation,
+    );
+  }
 }
 
 /// Creates the immutable inactive adapter decision.
@@ -107,27 +133,6 @@ CassetteSession claimCassetteInterception(
     );
   }
   return session;
-}
-
-/// Executes [request] through the session pinned by [interception].
-///
-/// This implementation operation is not exported from the public library.
-Future<CassetteOutcome> executeCassetteInterception(
-  CassetteInterception interception,
-  CassetteRequest request,
-  RealHttpAttempt realAttempt, {
-  CassetteCancellation? cancellation,
-}) async {
-  final session = claimCassetteInterception(
-    interception,
-    cancellation: cancellation,
-  );
-  return interception._claimState!.executor(
-    session,
-    request,
-    realAttempt,
-    cancellation,
-  );
 }
 
 final class _CassetteInterceptionClaimState {

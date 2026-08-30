@@ -50,6 +50,26 @@ Future<void> main() async {
     cassetteName.value,
     () => 7,
   );
+  final interceptionEngine = CassetteEngine(store: store);
+  final recordingSession = await interceptionEngine.startRecording(
+    'examples/interception',
+  );
+  final recordedOutcome = await interceptionEngine
+      .beginInterception()
+      .proceed(request, () async => outcome);
+  await recordingSession.close();
+  final replaySession = await interceptionEngine.startReplay(
+    'examples/interception',
+  );
+  var replayAttempted = false;
+  final replayedOutcome = await interceptionEngine.beginInterception().proceed(
+    request,
+    () async {
+      replayAttempted = true;
+      return outcome;
+    },
+  );
+  await replaySession.discard();
 
   assert(
     cassetteName.value == 'profiles/current-user' &&
@@ -62,6 +82,10 @@ Future<void> main() async {
         snapshot.bytes.isNotEmpty &&
         scopedResult == 42 &&
         replayResult == 7 &&
+        recordedOutcome == outcome &&
+        replayedOutcome is CassetteResponseOutcome &&
+        replayedOutcome.response.statusCode == 200 &&
+        !replayAttempted &&
         diagnostic.format().contains(
               'Network access: disabled; no real request was made',
             ),

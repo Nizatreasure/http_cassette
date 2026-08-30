@@ -1,5 +1,4 @@
 import 'package:http_cassette/http_cassette.dart';
-import 'package:http_cassette/src/adapter/interception.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -15,8 +14,7 @@ void main() {
       final recordingInterception = engine.beginInterception();
       var recordingAttempts = 0;
 
-      final recorded = await executeCassetteInterception(
-        recordingInterception,
+      final recorded = await recordingInterception.proceed(
         request,
         () async {
           recordingAttempts++;
@@ -28,8 +26,7 @@ void main() {
       final replay = await engine.startReplay('pinned-route');
       final replayInterception = engine.beginInterception();
       var replayAttempted = false;
-      final replayed = await executeCassetteInterception(
-        replayInterception,
+      final replayed = await replayInterception.proceed(
         request,
         () async {
           replayAttempted = true;
@@ -57,8 +54,7 @@ void main() {
       var attempted = false;
 
       await expectLater(
-        executeCassetteInterception(
-          oldInterception,
+        oldInterception.proceed(
           _request('/items'),
           () async {
             attempted = true;
@@ -82,6 +78,56 @@ void main() {
       expect(attempted, isFalse);
 
       await second.discard();
+    });
+
+    test('rejects inactive and repeated public execution safely', () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final inactive = engine.beginInterception();
+      var inactiveAttempted = false;
+
+      await expectLater(
+        inactive.proceed(
+          _request('/inactive'),
+          () async {
+            inactiveAttempted = true;
+            return CassetteResponseOutcome(CassetteResponse(statusCode: 200));
+          },
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
+      );
+      expect(inactiveAttempted, isFalse);
+
+      final session = await engine.startRecording('one-public-proceed');
+      final active = engine.beginInterception();
+      await active.proceed(
+        _request('/active'),
+        () async => CassetteResponseOutcome(CassetteResponse(statusCode: 200)),
+      );
+      var repeatedAttempted = false;
+      await expectLater(
+        active.proceed(
+          _request('/active'),
+          () async {
+            repeatedAttempted = true;
+            return CassetteResponseOutcome(CassetteResponse(statusCode: 500));
+          },
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.adapterContractViolation,
+          ),
+        ),
+      );
+      expect(repeatedAttempted, isFalse);
+      await session.discard();
     });
   });
 }
