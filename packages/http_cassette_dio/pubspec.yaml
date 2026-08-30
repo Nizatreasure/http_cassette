@@ -1,5 +1,5 @@
 name: http_cassette_dio
-description: Dio integration scaffold for the transport-neutral http_cassette package.
+description: Dio interceptor integration for the transport-neutral http_cassette package.
 version: 0.1.0
 repository: https://github.com/Nizatreasure/http_cassette/tree/main/packages/http_cassette_dio
 issue_tracker: https://github.com/Nizatreasure/http_cassette/issues

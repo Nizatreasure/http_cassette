@@ -1,4 +1,4 @@
-/// Dio integration foundations for HTTP Cassette.
-///
-/// The package is currently a scaffold and exposes no public API.
+/// Dio integration for the transport-neutral HTTP Cassette engine.
 library;
+
+export 'src/cassette_dio_interceptor.dart' show CassetteDioInterceptor;
