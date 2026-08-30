@@ -1,7 +1,7 @@
 import 'package:http_cassette/http_cassette.dart';
 import 'package:test/test.dart';
 
-typedef AdapterContractTransport = Future<AdapterContractResponse> Function(
+typedef AdapterContractTransport = Future<AdapterContractOutcome> Function(
   AdapterContractRequest request,
 );
 
@@ -15,7 +15,7 @@ abstract interface class AdapterContractDriver {
 
   int get realAttemptCount;
 
-  Future<AdapterContractResponse> send(AdapterContractRequest request);
+  Future<AdapterContractOutcome> send(AdapterContractRequest request);
 }
 
 final class AdapterContractRequest {
@@ -32,7 +32,11 @@ final class AdapterContractRequest {
   final List<int> body;
 }
 
-final class AdapterContractResponse {
+sealed class AdapterContractOutcome {
+  const AdapterContractOutcome();
+}
+
+final class AdapterContractResponse extends AdapterContractOutcome {
   const AdapterContractResponse({
     required this.statusCode,
     this.headers = const <String, List<String>>{},
@@ -42,6 +46,16 @@ final class AdapterContractResponse {
   final int statusCode;
   final Map<String, List<String>> headers;
   final List<int> body;
+}
+
+final class AdapterContractFailure extends AdapterContractOutcome {
+  const AdapterContractFailure({
+    required this.category,
+    required this.message,
+  });
+
+  final TransportFailureCategory category;
+  final String message;
 }
 
 void runBasicPublicAdapterContract(AdapterContractDriverFactory createDriver) {
@@ -106,14 +120,68 @@ void runBasicPublicAdapterContract(AdapterContractDriverFactory createDriver) {
       expect(driver.realAttemptCount, 1);
       await replay.discard();
     });
+
+    test('records and replays every portable transport failure', () async {
+      final store = MemoryCassetteStore();
+      final engine = CassetteEngine(store: store);
+      const message = 'The transport failed safely.';
+      final driver = createDriver(engine, (request) async {
+        final category = TransportFailureCategory.values.singleWhere(
+          (value) => value.name == request.uri.pathSegments.last,
+        );
+        return AdapterContractFailure(category: category, message: message);
+      });
+      final recording = await engine.startRecording('adapter/failures');
+
+      for (final category in TransportFailureCategory.values) {
+        final result = await driver.send(_failureRequest(category));
+        _expectFailure(result, category, message);
+      }
+      await recording.close();
+      final replay = await engine.startReplay('adapter/failures');
+      for (final category in TransportFailureCategory.values) {
+        final result = await driver.send(_failureRequest(category));
+        _expectFailure(result, category, message);
+      }
+
+      expect(
+        driver.canonicalRequestCount,
+        TransportFailureCategory.values.length * 2,
+      );
+      expect(
+        driver.realAttemptCount,
+        TransportFailureCategory.values.length,
+      );
+      await replay.discard();
+    });
   });
 }
 
+AdapterContractRequest _failureRequest(TransportFailureCategory category) {
+  return AdapterContractRequest(
+    method: 'GET',
+    uri: Uri.parse('https://example.test/failures/${category.name}'),
+  );
+}
+
 void _expectResponse(
-  AdapterContractResponse actual,
+  AdapterContractOutcome actual,
   AdapterContractResponse expected,
 ) {
+  expect(actual, isA<AdapterContractResponse>());
+  actual as AdapterContractResponse;
   expect(actual.statusCode, expected.statusCode);
   expect(actual.headers, expected.headers);
   expect(actual.body, expected.body);
+}
+
+void _expectFailure(
+  AdapterContractOutcome actual,
+  TransportFailureCategory category,
+  String message,
+) {
+  expect(actual, isA<AdapterContractFailure>());
+  actual as AdapterContractFailure;
+  expect(actual.category, category);
+  expect(actual.message, message);
 }

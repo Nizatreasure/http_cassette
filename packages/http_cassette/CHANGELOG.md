@@ -157,6 +157,8 @@
 - Exposed one-use request execution through `CassetteInterception.proceed`.
 - Added reusable public adapter contract coverage for pass-through and response
   recording and replay.
+- Added public adapter contract coverage for recording and replaying every
+  portable transport-failure category.
 - Added immutable engine configuration and explicit cassette session modes.
 - Added internal cassette session lifecycle state control.
 - Added the public asynchronous cassette session lifecycle handle.

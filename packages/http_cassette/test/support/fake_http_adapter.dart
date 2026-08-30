@@ -18,7 +18,7 @@ final class FakeHttpAdapter implements AdapterContractDriver {
   int get realAttemptCount => _realAttemptCount;
 
   @override
-  Future<AdapterContractResponse> send(AdapterContractRequest request) async {
+  Future<AdapterContractOutcome> send(AdapterContractRequest request) async {
     final interception = _engine.beginInterception();
     if (!interception.isActive) {
       _realAttemptCount++;
@@ -35,14 +35,20 @@ final class FakeHttpAdapter implements AdapterContractDriver {
       ),
       () async {
         _realAttemptCount++;
-        final response = await _transport(request);
-        return CassetteResponseOutcome(
-          CassetteResponse(
-            statusCode: response.statusCode,
-            headers: CassetteHeaders(response.headers),
-            body: response.body,
-          ),
-        );
+        final transportOutcome = await _transport(request);
+        return switch (transportOutcome) {
+          AdapterContractResponse() => CassetteResponseOutcome(
+              CassetteResponse(
+                statusCode: transportOutcome.statusCode,
+                headers: CassetteHeaders(transportOutcome.headers),
+                body: transportOutcome.body,
+              ),
+            ),
+          AdapterContractFailure() => CassetteTransportFailure(
+              category: transportOutcome.category,
+              message: transportOutcome.message,
+            ),
+        };
       },
     );
 
@@ -55,8 +61,10 @@ final class FakeHttpAdapter implements AdapterContractDriver {
           },
           body: response.body,
         ),
-      CassetteTransportFailure() => throw StateError(
-          'The basic fake adapter contract covers responses only.',
+      CassetteTransportFailure(:final category, :final message) =>
+        AdapterContractFailure(
+          category: category,
+          message: message,
         ),
     };
   }
