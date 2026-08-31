@@ -16,6 +16,8 @@
   failure outcomes without retaining raw exception values.
 - Added internal reconstruction of canonical replay responses as independent
   raw Dio responses.
+- Added internal reconstruction of portable replay failures as the closest Dio
+  exception while retaining their safe core category.
 
 ## 0.1.0
 

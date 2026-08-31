@@ -88,4 +88,31 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('reconstructs every portable category as the closest Dio type', () {
+    const expectedTypes = <TransportFailureCategory, DioExceptionType>{
+      TransportFailureCategory.nameResolution: DioExceptionType.connectionError,
+      TransportFailureCategory.connection: DioExceptionType.connectionError,
+      TransportFailureCategory.secureConnection:
+          DioExceptionType.badCertificate,
+      TransportFailureCategory.timeout: DioExceptionType.connectionTimeout,
+      TransportFailureCategory.protocol: DioExceptionType.unknown,
+      TransportFailureCategory.other: DioExceptionType.unknown,
+    };
+
+    for (final entry in expectedTypes.entries) {
+      final failure = CassetteTransportFailure(
+        category: entry.key,
+        message: 'Safe replay failure.',
+      );
+
+      final reconstructed = reconstructDioTransportFailure(failure, options);
+
+      expect(reconstructed.type, entry.value);
+      expect(reconstructed.requestOptions, same(options));
+      expect(reconstructed.message, 'Safe replay failure.');
+      expect(reconstructed.error, same(failure));
+      expect(reconstructed.response, isNull);
+    }
+  });
 }

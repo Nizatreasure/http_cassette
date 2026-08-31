@@ -40,3 +40,28 @@ CassetteTransportFailure translateDioTransportFailure(DioException failure) {
       ),
   };
 }
+
+/// Reconstructs a portable replay [failure] as the closest Dio exception.
+DioException reconstructDioTransportFailure(
+  CassetteTransportFailure failure,
+  RequestOptions requestOptions,
+) {
+  final type = switch (failure.category) {
+    TransportFailureCategory.nameResolution ||
+    TransportFailureCategory.connection =>
+      DioExceptionType.connectionError,
+    TransportFailureCategory.secureConnection =>
+      DioExceptionType.badCertificate,
+    TransportFailureCategory.timeout => DioExceptionType.connectionTimeout,
+    TransportFailureCategory.protocol ||
+    TransportFailureCategory.other =>
+      DioExceptionType.unknown,
+  };
+
+  return DioException(
+    requestOptions: requestOptions,
+    type: type,
+    error: failure,
+    message: failure.message,
+  );
+}
