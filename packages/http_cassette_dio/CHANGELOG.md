@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Added the public Dio interceptor and inactive request pass-through.
+- Added the public Dio transport-adapter wrapper, one-call installation and
+  inactive request pass-through.
 - Added a fail-closed boundary until active recording and replay translation is
   implemented.
 - Added internal translation from effective Dio request metadata and supplied

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -8,34 +9,58 @@ import 'package:test/test.dart';
 void main() {
   late CassetteEngine engine;
   late Dio dio;
-  late _StubHttpClientAdapter adapter;
+  late _StubHttpClientAdapter inner;
 
   setUp(() {
     engine = CassetteEngine(store: MemoryCassetteStore());
-    adapter = _StubHttpClientAdapter();
-    dio = Dio()..httpClientAdapter = adapter;
-    dio.interceptors.add(CassetteDioInterceptor(engine));
+    inner = _StubHttpClientAdapter();
+    dio = Dio()..httpClientAdapter = inner;
+    dio.installHttpCassette(engine);
   });
 
   tearDown(() {
     dio.close(force: true);
   });
 
-  test('passes an inactive request and successful response through unchanged',
-      () async {
-    final body = <String, Object?>{'message': 'hello'};
-    RequestOptions? observedOptions;
-    Object? observedBody;
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          observedOptions = options;
-          observedBody = options.data;
-          handler.next(options);
-        },
+  test('wraps the currently configured adapter with the shared engine', () {
+    final installed = dio.httpClientAdapter;
+
+    expect(installed, isA<CassetteHttpClientAdapter>());
+    expect((installed as CassetteHttpClientAdapter).engine, same(engine));
+    expect(installed.inner, same(inner));
+  });
+
+  test('rejects installation more than once', () {
+    expect(
+      () => dio.installHttpCassette(engine),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'HTTP Cassette is already installed on this Dio client.',
+        ),
       ),
     );
-    adapter.response = ResponseBody.fromString(
+  });
+
+  test('delegates exact inactive fetch arguments and response', () async {
+    final adapter = dio.httpClientAdapter;
+    final options = RequestOptions(path: 'https://example.test/items');
+    final stream = Stream<Uint8List>.value(Uint8List.fromList(<int>[1, 2]));
+    final cancelFuture = Completer<void>().future;
+
+    final response = await adapter.fetch(options, stream, cancelFuture);
+
+    expect(inner.fetchCount, 1);
+    expect(inner.requestOptions, same(options));
+    expect(inner.requestStream, same(stream));
+    expect(inner.cancelFuture, same(cancelFuture));
+    expect(response, same(inner.response));
+  });
+
+  test('passes an inactive Dio request and response through', () async {
+    final body = <String, Object?>{'message': 'hello'};
+    inner.response = ResponseBody.fromString(
       'response body',
       201,
       headers: {
@@ -48,15 +73,14 @@ void main() {
       data: body,
     );
 
-    expect(adapter.fetchCount, 1);
-    expect(observedOptions, same(adapter.requestOptions));
-    expect(observedBody, same(body));
+    expect(inner.fetchCount, 1);
+    expect(inner.requestOptions?.data, same(body));
     expect(response.statusCode, 201);
     expect(response.data, 'response body');
   });
 
   test('passes an inactive transport failure through unchanged', () async {
-    adapter.failureMessage = 'transport failed';
+    inner.failureMessage = 'transport failed';
     DioException? caught;
 
     try {
@@ -65,8 +89,8 @@ void main() {
       caught = error;
     }
 
-    expect(adapter.fetchCount, 1);
-    expect(caught, same(adapter.failure));
+    expect(inner.fetchCount, 1);
+    expect(caught, same(inner.failure));
   });
 
   test('fails closed during an active session', () async {
@@ -79,12 +103,20 @@ void main() {
         isA<DioException>().having(
           (error) => error.message,
           'message',
-          'Active HTTP Cassette Dio interception is not available yet.',
+          'Active HTTP Cassette Dio execution is not available yet.',
         ),
       ),
     );
 
-    expect(adapter.fetchCount, 0);
+    expect(inner.fetchCount, 0);
+  });
+
+  test('closes the wrapped adapter at most once', () {
+    dio.close(force: true);
+    dio.close();
+
+    expect(inner.closeCount, 1);
+    expect(inner.lastCloseWasForced, isTrue);
   });
 }
 
@@ -94,6 +126,10 @@ final class _StubHttpClientAdapter implements HttpClientAdapter {
   DioException? failure;
   int fetchCount = 0;
   RequestOptions? requestOptions;
+  Stream<Uint8List>? requestStream;
+  Future<void>? cancelFuture;
+  int closeCount = 0;
+  bool? lastCloseWasForced;
 
   @override
   Future<ResponseBody> fetch(
@@ -103,6 +139,8 @@ final class _StubHttpClientAdapter implements HttpClientAdapter {
   ) async {
     fetchCount += 1;
     requestOptions = options;
+    this.requestStream = requestStream;
+    this.cancelFuture = cancelFuture;
     final message = failureMessage;
     if (message != null) {
       final error = DioException(requestOptions: options, message: message);
@@ -113,5 +151,8 @@ final class _StubHttpClientAdapter implements HttpClientAdapter {
   }
 
   @override
-  void close({bool force = false}) {}
+  void close({bool force = false}) {
+    closeCount += 1;
+    lastCloseWasForced = force;
+  }
 }
