@@ -8,6 +8,8 @@
   implemented.
 - Added internal translation from effective Dio request metadata and supplied
   bytes to the transport-neutral request model.
+- Added bounded single-use buffering and canonicalisation of active Dio request
+  streams, including safe limit and cancellation failures.
 
 ## 0.1.0
 

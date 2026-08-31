@@ -7,10 +7,23 @@ The current implementation wraps Dio's transport adapter and passes requests
 through unchanged while its cassette engine is inactive. It does not buffer
 request bodies on this path.
 
-Active recording and replay translation are not implemented yet. If the shared
-engine has an active session, the wrapper rejects the request before Dio can
-access the network. This fail-closed boundary prevents an incomplete replay
-path from silently reaching the network.
+Active requests are now read once from Dio's final encoded request stream,
+bounded by the engine's request-body limit and translated into the canonical
+core request. Recording and replay execution are not connected yet, so the
+wrapper then rejects the request before Dio can access the network. This
+fail-closed boundary prevents an incomplete replay path from silently reaching
+the network.
+
+A null request stream remains an empty canonical body. Non-null streams,
+including single-subscription and empty streams, are consumed exactly once and
+prepared as equivalent replacement streams for later recording. Declared or
+measured bodies over the configured limit fail without truncation or network
+access. Cancellation and stream errors retain no partial request.
+
+While a cassette session is active, Dio send progress may advance as the
+wrapper buffers the request rather than as bytes reach the network. Original
+stream chunk boundaries, timing and back-pressure are not preserved. Inactive
+requests retain Dio's ordinary streaming and progress behaviour.
 
 ## Installation
 

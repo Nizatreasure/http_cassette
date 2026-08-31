@@ -111,6 +111,141 @@ void main() {
     expect(inner.fetchCount, 0);
   });
 
+  test('rejects a declared oversized active body before listening', () async {
+    final limitedEngine = CassetteEngine(
+      store: MemoryCassetteStore(),
+      configuration: CassetteConfiguration(
+        bodyLimits: BodyLimits(requestBytes: 2),
+      ),
+    );
+    final limitedInner = _StubHttpClientAdapter();
+    final adapter = CassetteHttpClientAdapter(
+      engine: limitedEngine,
+      inner: limitedInner,
+    );
+    final session = await limitedEngine.startRecording('limited');
+    addTearDown(session.discard);
+    var listenCount = 0;
+    final stream = Stream<Uint8List>.multi((controller) {
+      listenCount += 1;
+      controller.add(Uint8List.fromList(<int>[1, 2, 3]));
+      unawaited(controller.close());
+    }, isBroadcast: false);
+    final options = RequestOptions(
+      path: 'https://example.test/upload',
+      headers: <String, Object?>{Headers.contentLengthHeader: '3'},
+    );
+
+    DioException? caught;
+    try {
+      await adapter.fetch(options, stream, null);
+    } on DioException catch (error) {
+      caught = error;
+    }
+
+    expect(listenCount, 0);
+    expect(limitedInner.fetchCount, 0);
+    expect(caught?.error, isA<CassetteException>());
+    expect(
+      (caught?.error as CassetteException).diagnostic.category,
+      DiagnosticCategory.bodyLimitExceeded,
+    );
+    expect(
+      (caught?.error as CassetteException).diagnostic.networkAccess,
+      NetworkAccess.notAttempted,
+    );
+  });
+
+  test('rejects a measured oversized active body before network access',
+      () async {
+    final limitedEngine = CassetteEngine(
+      store: MemoryCassetteStore(),
+      configuration: CassetteConfiguration(
+        bodyLimits: BodyLimits(requestBytes: 2),
+      ),
+    );
+    final limitedInner = _StubHttpClientAdapter();
+    final adapter = CassetteHttpClientAdapter(
+      engine: limitedEngine,
+      inner: limitedInner,
+    );
+    final session = await limitedEngine.startRecording('measured');
+    addTearDown(session.discard);
+    final options = RequestOptions(path: 'https://example.test/upload');
+    final stream = Stream<Uint8List>.value(
+      Uint8List.fromList(<int>[1, 2, 3]),
+    );
+
+    DioException? caught;
+    try {
+      await adapter.fetch(options, stream, null);
+    } on DioException catch (error) {
+      caught = error;
+    }
+
+    expect(limitedInner.fetchCount, 0);
+    expect(caught?.error, isA<CassetteException>());
+    expect(
+      (caught?.error as CassetteException).diagnostic.category,
+      DiagnosticCategory.bodyLimitExceeded,
+    );
+  });
+
+  test('cancels active buffering before network access', () async {
+    final session = await engine.startRecording('cancelled');
+    addTearDown(session.discard);
+    var sourceWasCancelled = false;
+    final source = StreamController<Uint8List>(
+      onCancel: () {
+        sourceWasCancelled = true;
+      },
+    );
+    addTearDown(source.close);
+    final cancellation = Completer<void>();
+    final options = RequestOptions(path: 'https://example.test/upload');
+    final fetching = dio.httpClientAdapter.fetch(
+      options,
+      source.stream,
+      cancellation.future,
+    );
+
+    cancellation.complete();
+
+    await expectLater(
+      fetching,
+      throwsA(
+        isA<DioException>().having(
+          (error) => error.type,
+          'type',
+          DioExceptionType.cancel,
+        ),
+      ),
+    );
+    expect(sourceWasCancelled, isTrue);
+    expect(inner.fetchCount, 0);
+  });
+
+  test('consumes an active request stream once before failing closed',
+      () async {
+    final session = await engine.startRecording('streamed');
+    addTearDown(session.discard);
+    var listenCount = 0;
+    final stream = Stream<Uint8List>.multi((controller) {
+      listenCount += 1;
+      controller.add(Uint8List.fromList(<int>[1, 2]));
+      unawaited(controller.close());
+    }, isBroadcast: false);
+    final options = RequestOptions(path: 'https://example.test/upload');
+
+    await expectLater(
+      dio.httpClientAdapter.fetch(options, stream, null),
+      throwsA(isA<DioException>()),
+    );
+
+    expect(listenCount, 1);
+    expect(inner.fetchCount, 0);
+  });
+
   test('closes the wrapped adapter at most once', () {
     dio.close(force: true);
     dio.close();
