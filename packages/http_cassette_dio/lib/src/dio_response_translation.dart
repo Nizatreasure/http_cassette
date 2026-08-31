@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
@@ -42,5 +44,19 @@ Future<CapturedDioResponse> captureDioResponse(
   return (
     canonicalResponse: canonicalResponse,
     replacementResponse: replacementResponse,
+  );
+}
+
+/// Reconstructs a raw Dio response from a canonical replay [response].
+ResponseBody reconstructDioResponse(CassetteResponse response) {
+  final headers = <String, List<String>>{
+    for (final entry in response.headers.toMap().entries)
+      entry.key: List<String>.of(entry.value),
+  };
+  return ResponseBody.fromBytes(
+    Uint8List.fromList(response.body),
+    response.statusCode,
+    statusMessage: response.reasonPhrase,
+    headers: headers,
   );
 }

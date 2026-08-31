@@ -14,6 +14,8 @@
   translation with an equivalent raw Dio response.
 - Added safe internal translation from Dio transport failure types to portable
   failure outcomes without retaining raw exception values.
+- Added internal reconstruction of canonical replay responses as independent
+  raw Dio responses.
 
 ## 0.1.0
 

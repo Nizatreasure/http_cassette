@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette_dio/src/dio_byte_stream_buffer.dart';
 import 'package:http_cassette_dio/src/dio_response_translation.dart';
 import 'package:test/test.dart';
@@ -79,5 +80,35 @@ void main() {
       captureDioResponse(response, maximumBytes: 2),
       throwsA(isA<DioByteStreamLimitExceeded>()),
     );
+  });
+
+  test('reconstructs a canonical response for Dio replay', () async {
+    final canonical = CassetteResponse(
+      statusCode: 503,
+      reasonPhrase: 'Service Unavailable',
+      headers: CassetteHeaders(<String, List<String>>{
+        'set-cookie': <String>['first=1', 'second=2'],
+      }),
+      body: <int>[1, 2, 3],
+    );
+
+    final reconstructed = reconstructDioResponse(canonical);
+    final bytes = await reconstructed.stream.single;
+
+    expect(reconstructed.statusCode, 503);
+    expect(reconstructed.statusMessage, 'Service Unavailable');
+    expect(
+      reconstructed.headers['set-cookie'],
+      <String>['first=1', 'second=2'],
+    );
+    expect(reconstructed.isRedirect, isFalse);
+    expect(reconstructed.redirects, isNull);
+    expect(bytes, <int>[1, 2, 3]);
+
+    bytes[0] = 9;
+    reconstructed.headers['set-cookie']![0] = 'changed=1';
+    expect(canonical.body, <int>[1, 2, 3]);
+    expect(canonical.headers.values('set-cookie'),
+        <String>['first=1', 'second=2']);
   });
 }
