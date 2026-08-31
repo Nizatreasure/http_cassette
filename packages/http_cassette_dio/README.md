@@ -25,6 +25,30 @@ wrapper buffers the request rather than as bytes reach the network. Original
 stream chunk boundaries, timing and back-pressure are not preserved. Inactive
 requests retain Dio's ordinary streaming and progress behaviour.
 
+## Recordable outcomes
+
+HTTP Cassette distinguishes an outcome of the remote attempt from a local or
+caller-controlled failure:
+
+- Every completed HTTP response is recordable, including redirects and 4xx or
+  5xx responses.
+- A genuine transport failure is recordable when no complete response was
+  received. Examples include a timeout, connection failure or secure connection
+  failure. Recording these outcomes makes offline, retry and error-handling
+  scenarios reproducible during replay.
+- Caller cancellation is not recordable because it is a decision made for one
+  particular request.
+- Cassette failures, such as a body-limit, sanitisation, matching or storage
+  failure, are not remote outcomes and are not recorded.
+
+The Dio adapter uses fixed safe descriptions for recordable transport failures.
+It never copies raw Dio messages, causes, response values or stack traces into a
+cassette. A transport failure encountered while recording an intended success
+scenario would become that request's outcome once active execution is
+connected. The developer should discard that recording rather than commit it.
+The current implementation defines and tests this mapping, but active Dio
+recording and replay are not connected yet.
+
 ## Installation
 
 The package is not ready for publication. During development in this workspace,

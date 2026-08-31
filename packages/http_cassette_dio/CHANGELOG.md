@@ -12,6 +12,8 @@
   streams, including safe limit and cancellation failures.
 - Added shared bounded Dio byte-stream capture and internal canonical response
   translation with an equivalent raw Dio response.
+- Added safe internal translation from Dio transport failure types to portable
+  failure outcomes without retaining raw exception values.
 
 ## 0.1.0
 
