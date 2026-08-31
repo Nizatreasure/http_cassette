@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
+import 'dio_byte_stream_buffer.dart';
 import 'dio_request_body_buffer.dart';
 import 'dio_request_translation.dart';
 
@@ -55,9 +56,9 @@ final class CassetteHttpClientAdapter implements HttpClientAdapter {
         maximumBytes: maximumBytes,
         cancellation: cancelFuture,
       );
-    } on DioRequestBodyLimitExceeded {
+    } on DioByteStreamLimitExceeded {
       throw _requestBodyLimitException(options);
-    } on DioRequestBodyBufferCancelled catch (_, stackTrace) {
+    } on DioByteStreamBufferCancelled catch (_, stackTrace) {
       throw DioException.requestCancelled(
         requestOptions: options,
         reason: options.cancelToken?.cancelError,

@@ -10,6 +10,8 @@
   bytes to the transport-neutral request model.
 - Added bounded single-use buffering and canonicalisation of active Dio request
   streams, including safe limit and cancellation failures.
+- Added shared bounded Dio byte-stream capture and internal canonical response
+  translation with an equivalent raw Dio response.
 
 ## 0.1.0
 
