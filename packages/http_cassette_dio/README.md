@@ -49,6 +49,28 @@ connected. The developer should discard that recording rather than commit it.
 The current implementation defines and tests this mapping, but active Dio
 recording and replay are not connected yet.
 
+## Cassette system failures
+
+HTTP Cassette system failures travel through Dio as `DioException` values so
+they follow Dio's ordinary error pipeline. The exact safe `CassetteException`
+is retained in `DioException.error` and is available through the extension
+getter:
+
+```dart
+try {
+  await dio.get<void>('/users');
+} on DioException catch (error) {
+  final cassetteFailure = error.cassetteException;
+  if (cassetteFailure != null) {
+    // Inspect cassetteFailure.diagnostic.
+  }
+}
+```
+
+The getter returns `null` for ordinary Dio failures and for replayed portable
+transport failures. Active execution is not connected yet, but active request
+body-limit failures already use this structured boundary.
+
 ## Installation
 
 The package is not ready for publication. During development in this workspace,

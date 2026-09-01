@@ -146,6 +146,7 @@ void main() {
     expect(listenCount, 0);
     expect(limitedInner.fetchCount, 0);
     expect(caught?.error, isA<CassetteException>());
+    expect(caught?.cassetteException, same(caught?.error));
     expect(
       (caught?.error as CassetteException).diagnostic.category,
       DiagnosticCategory.bodyLimitExceeded,

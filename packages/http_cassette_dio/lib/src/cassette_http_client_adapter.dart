@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
 import 'dio_byte_stream_buffer.dart';
+import 'dio_cassette_exception.dart';
 import 'dio_request_body_buffer.dart';
 import 'dio_request_translation.dart';
 
@@ -101,10 +102,8 @@ DioException _requestBodyLimitException(RequestOptions options) {
       networkAccess: NetworkAccess.notAttempted,
     ),
   );
-  return DioException(
+  return wrapCassetteExceptionForDio(
+    error,
     requestOptions: options,
-    type: DioExceptionType.unknown,
-    error: error,
-    message: error.toString(),
   );
 }

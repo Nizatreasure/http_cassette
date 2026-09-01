@@ -18,6 +18,8 @@
   raw Dio responses.
 - Added internal reconstruction of portable replay failures as the closest Dio
   exception while retaining their safe core category.
+- Added public access to structured cassette-system failures carried by Dio
+  exceptions and used it for active request body-limit failures.
 
 ## 0.1.0
 
