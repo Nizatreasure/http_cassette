@@ -40,6 +40,9 @@ JsonBodySanitisationResult sanitiseJsonBody(
   List<int> body,
   SanitisationConfiguration configuration,
 ) {
+  if (body.isEmpty) {
+    return _unchangedBody(body);
+  }
   final parsed = parseJsonBody(headers, body);
   if (parsed.status == JsonBodyStatus.notJsonMediaType) {
     return _unchangedBody(body);

@@ -685,11 +685,12 @@ Automatic sanitisation reduces risk but cannot recognise every secret or item
 of personal information. Add project rules for domain-specific data and review
 every generated cassette before committing it.
 
-A body that declares a JSON media type must be valid UTF-8 JSON without
-duplicate object member names before built-in sanitisation can inspect it. The
-internal body sanitisation foundation fails safely rather than retaining
-uninspectable claimed JSON. Non-JSON bodies are opaque to built-in sanitisation
-and remain unchanged. A body with `Content-Encoding` is also opaque even when
+A non-empty body that declares a JSON media type must be valid UTF-8 JSON
+without duplicate object member names before built-in sanitisation can inspect
+it. An empty body remains empty even when its headers declare JSON. The internal
+body sanitisation foundation fails safely rather than retaining uninspectable
+claimed JSON. Non-JSON bodies are opaque to built-in sanitisation and remain
+unchanged. A body with `Content-Encoding` is also opaque even when
 its media type says JSON, because its canonical bytes still represent the
 encoded payload. Projects must decode and sanitise such content explicitly,
 returning headers consistent with the replacement bytes. The explicit unsafe

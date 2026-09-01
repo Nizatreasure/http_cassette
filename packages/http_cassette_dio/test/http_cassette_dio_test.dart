@@ -130,6 +130,37 @@ void main() {
     expect(inner.fetchCount, 1);
   });
 
+  test('records a bodyless JSON-labelled GET request', () async {
+    inner.response = ResponseBody.fromString(
+      '{"@odata.context":"https://example.test/metadata","value":[]}',
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+      },
+    );
+    final recording = await engine.startRecording('empty-json-get');
+
+    final live = await dio.get<Map<String, Object?>>(
+      'https://example.test/policies',
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    await recording.close();
+
+    expect(live.data?['value'], isEmpty);
+    expect(inner.fetchCount, 1);
+
+    final replay = await engine.startReplay('empty-json-get');
+    addTearDown(replay.discard);
+
+    final replayed = await dio.get<Map<String, Object?>>(
+      'https://example.test/policies',
+      options: Options(contentType: Headers.jsonContentType),
+    );
+
+    expect(replayed.data, live.data);
+    expect(inner.fetchCount, 1);
+  });
+
   test('records and replays a status rejected later by Dio', () async {
     inner.response = ResponseBody.fromString(
       'server failed',

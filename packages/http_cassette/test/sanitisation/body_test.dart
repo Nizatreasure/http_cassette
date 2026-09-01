@@ -7,6 +7,18 @@ import 'package:test/test.dart';
 
 void main() {
   group('sanitiseJsonBody', () {
+    test('leaves an empty JSON-labelled body unchanged', () {
+      final result = sanitiseJsonBody(
+        _headers('application/json'),
+        const <int>[],
+        SanitisationConfiguration(),
+      );
+
+      expect(result.body, isEmpty);
+      expect(result.sanitisedPointers, isEmpty);
+      expect(() => result.body.add(0), throwsUnsupportedError);
+    });
+
     test('sanitises valid JSON and returns exact matching exclusions', () {
       final result = sanitiseJsonBody(
         _headers('application/problem+json; charset=utf-8'),

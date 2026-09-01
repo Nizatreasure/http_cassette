@@ -2,6 +2,8 @@
 
 ## 0.1.0
 
+- Preserved empty bodies without JSON parsing when a transport attaches a JSON
+  content type.
 - Created the initial package scaffold.
 - Added structured diagnostic categories, network-access status and the base
   cassette exception.
