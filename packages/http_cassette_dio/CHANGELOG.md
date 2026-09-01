@@ -25,6 +25,8 @@
 - Connected active Dio recording and replay through the public core
   interception contract, with one authorised live attempt and no replay
   network access.
+- Completed adapter-level cancellation ordering tests for live recording and
+  replay selection, including non-retention of late outcomes.
 
 ## 0.1.0
 

@@ -88,6 +88,12 @@ Replay never calls it, including when the cassette is missing, unmatched or
 exhausted. Discard a recording instead of closing it when its captured outcome
 is not the scenario you intended to keep.
 
+Caller cancellation is never stored as a reusable interaction. Cancellation
+before replay selection consumes nothing. During recording, Dio's original
+cancellation future still reaches the wrapped adapter; if cancellation wins the
+race with the complete captured outcome, the later outcome is ignored and the
+recording cannot retain that request.
+
 ## Installation
 
 The package is not ready for publication. During development in this workspace,

@@ -10,9 +10,11 @@ void main() {
   late CassetteEngine engine;
   late Dio dio;
   late _StubHttpClientAdapter inner;
+  late MemoryCassetteStore store;
 
   setUp(() {
-    engine = CassetteEngine(store: MemoryCassetteStore());
+    store = MemoryCassetteStore();
+    engine = CassetteEngine(store: store);
     inner = _StubHttpClientAdapter();
     dio = Dio()..httpClientAdapter = inner;
     dio.installHttpCassette(engine);
@@ -303,6 +305,78 @@ void main() {
     expect(inner.fetchCount, 0);
   });
 
+  test('does not retain a recording when cancellation wins the live race',
+      () async {
+    final response = Completer<ResponseBody>();
+    final fetchStarted = Completer<void>();
+    inner
+      ..responseFuture = response.future
+      ..fetchStarted = fetchStarted;
+    final session = await engine.startRecording('cancelled-attempt');
+    addTearDown(session.discard);
+    final token = CancelToken();
+    final options = RequestOptions(
+      path: 'https://example.test/slow',
+      cancelToken: token,
+    );
+    final fetching = dio.httpClientAdapter.fetch(
+      options,
+      null,
+      token.whenCancel,
+    );
+
+    await fetchStarted.future;
+    expect(inner.cancelFuture, same(token.whenCancel));
+
+    token.cancel('caller stopped the request');
+
+    await expectLater(fetching, throwsA(same(token.cancelError)));
+
+    response.complete(ResponseBody.fromString('late response', 200));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    await session.discard();
+
+    expect(
+      await store.exists(CassetteName('cancelled-attempt')),
+      isFalse,
+    );
+  });
+
+  test('pre-cancelled replay consumes nothing and never reaches network',
+      () async {
+    inner.response = ResponseBody.fromString('recorded', 200);
+    final recording = await engine.startRecording('cancelled-replay');
+    await dio.get<String>('https://example.test/replay');
+    await recording.close();
+    final replay = await engine.startReplay('cancelled-replay');
+    addTearDown(replay.discard);
+    final token = CancelToken()..cancel('already cancelled');
+    final cancelledOptions = RequestOptions(
+      path: 'https://example.test/replay',
+      cancelToken: token,
+    );
+
+    await expectLater(
+      dio.httpClientAdapter.fetch(
+        cancelledOptions,
+        null,
+        token.whenCancel,
+      ),
+      throwsA(same(token.cancelError)),
+    );
+
+    final replayed = await dio.httpClientAdapter.fetch(
+      RequestOptions(path: 'https://example.test/replay'),
+      null,
+      null,
+    );
+
+    expect(await replayed.stream.expand((chunk) => chunk).toList(),
+        'recorded'.codeUnits);
+    expect(inner.fetchCount, 1);
+  });
+
   test('consumes an active request stream once and delegates its replacement',
       () async {
     final session = await engine.startRecording('streamed');
@@ -373,6 +447,8 @@ void main() {
 
 final class _StubHttpClientAdapter implements HttpClientAdapter {
   ResponseBody response = ResponseBody.fromString('', 200);
+  Future<ResponseBody>? responseFuture;
+  Completer<void>? fetchStarted;
   String? failureMessage;
   DioException? failure;
   int fetchCount = 0;
@@ -392,11 +468,19 @@ final class _StubHttpClientAdapter implements HttpClientAdapter {
     requestOptions = options;
     this.requestStream = requestStream;
     this.cancelFuture = cancelFuture;
+    final started = fetchStarted;
+    if (started != null && !started.isCompleted) {
+      started.complete();
+    }
     final message = failureMessage;
     if (message != null) {
       final error = DioException(requestOptions: options, message: message);
       failure = error;
       throw error;
+    }
+    final pendingResponse = responseFuture;
+    if (pendingResponse != null) {
+      return pendingResponse;
     }
     return response;
   }
