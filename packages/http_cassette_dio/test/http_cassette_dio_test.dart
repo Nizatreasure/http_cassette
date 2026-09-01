@@ -93,22 +93,99 @@ void main() {
     expect(caught, same(inner.failure));
   });
 
-  test('fails closed during an active session', () async {
-    final session = await engine.startRecording('active');
-    addTearDown(session.discard);
-
-    await expectLater(
-      dio.get<void>('https://example.test/active'),
-      throwsA(
-        isA<DioException>().having(
-          (error) => error.message,
-          'message',
-          'Active HTTP Cassette Dio execution is not available yet.',
-        ),
-      ),
+  test('records one live response and replays it without network access',
+      () async {
+    inner.response = ResponseBody.fromString(
+      'recorded response',
+      201,
+      statusMessage: 'Created',
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['text/plain'],
+        'x-trace': <String>['first', 'second'],
+      },
     );
+    final recording = await engine.startRecording('active-response');
 
-    expect(inner.fetchCount, 0);
+    final live = await dio.get<String>('https://example.test/active');
+    await recording.close();
+
+    expect(live.statusCode, 201);
+    expect(live.statusMessage, 'Created');
+    expect(live.data, 'recorded response');
+    expect(live.headers['x-trace'], <String>['first', 'second']);
+    expect(inner.fetchCount, 1);
+
+    inner.response = ResponseBody.fromString('network response', 200);
+    final replay = await engine.startReplay('active-response');
+    addTearDown(replay.discard);
+
+    final replayed = await dio.get<String>('https://example.test/active');
+
+    expect(replayed.statusCode, 201);
+    expect(replayed.statusMessage, 'Created');
+    expect(replayed.data, 'recorded response');
+    expect(replayed.headers['x-trace'], <String>['first', 'second']);
+    expect(inner.fetchCount, 1);
+  });
+
+  test('records a live transport failure and reconstructs it on replay',
+      () async {
+    inner.failureMessage = 'machine-specific live failure';
+    final recording = await engine.startRecording('active-failure');
+    DioException? liveFailure;
+
+    try {
+      await dio.get<void>('https://example.test/failure');
+    } on DioException catch (failure) {
+      liveFailure = failure;
+    }
+    await recording.close();
+
+    expect(liveFailure, same(inner.failure));
+    expect(inner.fetchCount, 1);
+
+    final replay = await engine.startReplay('active-failure');
+    addTearDown(replay.discard);
+    DioException? replayedFailure;
+
+    try {
+      await dio.get<void>('https://example.test/failure');
+    } on DioException catch (failure) {
+      replayedFailure = failure;
+    }
+
+    expect(replayedFailure, isNotNull);
+    expect(replayedFailure, isNot(same(liveFailure)));
+    expect(replayedFailure?.type, DioExceptionType.unknown);
+    expect(replayedFailure?.message, 'The HTTP transport failed.');
+    expect(replayedFailure?.error, isA<CassetteTransportFailure>());
+    expect(replayedFailure?.cassetteException, isNull);
+    expect(inner.fetchCount, 1);
+  });
+
+  test('reports a replay mismatch without network access', () async {
+    final recording = await engine.startRecording('no-match');
+    await dio.get<void>('https://example.test/recorded');
+    await recording.close();
+    final replay = await engine.startReplay('no-match');
+    addTearDown(replay.discard);
+    DioException? caught;
+
+    try {
+      await dio.get<void>('https://example.test/different');
+    } on DioException catch (failure) {
+      caught = failure;
+    }
+
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.noMatchingInteraction,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.disabled,
+    );
+    expect(inner.fetchCount, 1);
   });
 
   test('rejects a declared oversized active body before listening', () async {
@@ -226,7 +303,7 @@ void main() {
     expect(inner.fetchCount, 0);
   });
 
-  test('consumes an active request stream once before failing closed',
+  test('consumes an active request stream once and delegates its replacement',
       () async {
     final session = await engine.startRecording('streamed');
     addTearDown(session.discard);
@@ -238,13 +315,51 @@ void main() {
     }, isBroadcast: false);
     final options = RequestOptions(path: 'https://example.test/upload');
 
-    await expectLater(
-      dio.httpClientAdapter.fetch(options, stream, null),
-      throwsA(isA<DioException>()),
-    );
+    final response = await dio.httpClientAdapter.fetch(options, stream, null);
 
     expect(listenCount, 1);
-    expect(inner.fetchCount, 0);
+    expect(response.statusCode, 200);
+    expect(inner.fetchCount, 1);
+    expect(
+      await inner.requestStream!.expand((chunk) => chunk).toList(),
+      <int>[1, 2],
+    );
+  });
+
+  test('rejects an oversized live response after one network attempt',
+      () async {
+    final limitedEngine = CassetteEngine(
+      store: MemoryCassetteStore(),
+      configuration: CassetteConfiguration(
+        bodyLimits: BodyLimits(responseBytes: 2),
+      ),
+    );
+    final limitedInner = _StubHttpClientAdapter()
+      ..response = ResponseBody.fromBytes(<int>[1, 2, 3], 200);
+    final adapter = CassetteHttpClientAdapter(
+      engine: limitedEngine,
+      inner: limitedInner,
+    );
+    final session = await limitedEngine.startRecording('response-limit');
+    addTearDown(session.discard);
+    final options = RequestOptions(path: 'https://example.test/items');
+    DioException? caught;
+
+    try {
+      await adapter.fetch(options, null, null);
+    } on DioException catch (failure) {
+      caught = failure;
+    }
+
+    expect(limitedInner.fetchCount, 1);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.bodyLimitExceeded,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.attempted,
+    );
   });
 
   test('closes the wrapped adapter at most once', () {

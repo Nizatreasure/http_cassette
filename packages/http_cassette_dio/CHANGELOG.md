@@ -22,6 +22,9 @@
   exceptions and used it for active request body-limit failures.
 - Added an internal monotonic bridge from Dio cancellation state to the
   transport-neutral core cancellation contract.
+- Connected active Dio recording and replay through the public core
+  interception contract, with one authorised live attempt and no replay
+  network access.
 
 ## 0.1.0
 

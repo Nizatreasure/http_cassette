@@ -4,15 +4,18 @@ import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
 import 'dio_byte_stream_buffer.dart';
+import 'dio_cancellation.dart';
 import 'dio_cassette_exception.dart';
 import 'dio_request_body_buffer.dart';
 import 'dio_request_translation.dart';
+import 'dio_response_translation.dart';
+import 'dio_transport_failure_translation.dart';
 
 /// Connects Dio's final transport boundary to a shared [CassetteEngine].
 ///
-/// Requests pass through unchanged while [engine] is inactive. Active request
-/// execution is not implemented yet, so active requests fail before [inner]
-/// can access the network.
+/// Requests pass through unchanged while [engine] is inactive. Recording uses
+/// [inner] only when the core authorises one real attempt. Replay never uses
+/// [inner].
 final class CassetteHttpClientAdapter implements HttpClientAdapter {
   /// Creates a cassette adapter that owns [inner] for Dio's lifetime.
   CassetteHttpClientAdapter({
@@ -39,6 +42,7 @@ final class CassetteHttpClientAdapter implements HttpClientAdapter {
       return inner.fetch(options, requestStream, cancelFuture);
     }
 
+    final cancellation = createDioCassetteCancellation(options, cancelFuture);
     final cancellationError = options.cancelToken?.cancelError;
     if (cancellationError != null) {
       throw cancellationError;
@@ -55,7 +59,7 @@ final class CassetteHttpClientAdapter implements HttpClientAdapter {
       bufferedBody = await bufferDioRequestBody(
         requestStream,
         maximumBytes: maximumBytes,
-        cancellation: cancelFuture,
+        cancellation: cancellation?.whenCancelled,
       );
     } on DioByteStreamLimitExceeded {
       throw _requestBodyLimitException(options);
@@ -67,12 +71,75 @@ final class CassetteHttpClientAdapter implements HttpClientAdapter {
       );
     }
 
-    canonicaliseDioRequest(options, bufferedBody.bytes);
-    throw DioException(
-      requestOptions: options,
-      type: DioExceptionType.unknown,
-      message: 'Active HTTP Cassette Dio execution is not available yet.',
-    );
+    late final CassetteRequest request;
+    try {
+      request = canonicaliseDioRequest(options, bufferedBody.bytes);
+    } on ArgumentError catch (_, stackTrace) {
+      throw wrapCassetteExceptionForDio(
+        _invalidRequestException(),
+        requestOptions: options,
+        stackTrace: stackTrace,
+      );
+    }
+
+    ResponseBody? liveResponse;
+    DioException? liveFailure;
+    late final CassetteOutcome outcome;
+    try {
+      outcome = await interception.proceed(
+        request,
+        () async {
+          try {
+            final response = await inner.fetch(
+              options,
+              bufferedBody.replacementStream,
+              cancelFuture,
+            );
+            late final CapturedDioResponse captured;
+            try {
+              captured = await captureDioResponse(
+                response,
+                maximumBytes: interception.bodyLimits!.responseBytes,
+                cancellation: cancellation?.whenCancelled,
+              );
+            } on DioByteStreamLimitExceeded {
+              throw _responseBodyLimitException();
+            }
+            liveResponse = captured.replacementResponse;
+            return CassetteResponseOutcome(captured.canonicalResponse);
+          } on DioException catch (failure) {
+            if (failure.type == DioExceptionType.cancel ||
+                failure.type == DioExceptionType.badResponse) {
+              rethrow;
+            }
+            liveFailure = failure;
+            return translateDioTransportFailure(failure);
+          }
+        },
+        cancellation: cancellation,
+      );
+    } on CassetteException catch (failure, stackTrace) {
+      if (failure.diagnostic.category == DiagnosticCategory.cancelled) {
+        throw options.cancelToken?.cancelError ??
+            DioException.requestCancelled(
+              requestOptions: options,
+              reason: null,
+              stackTrace: stackTrace,
+            );
+      }
+      throw wrapCassetteExceptionForDio(
+        failure,
+        requestOptions: options,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return switch (outcome) {
+      CassetteResponseOutcome(:final response) =>
+        liveResponse ?? reconstructDioResponse(response),
+      final CassetteTransportFailure failure =>
+        throw liveFailure ?? reconstructDioTransportFailure(failure, options),
+    };
   }
 
   @override
@@ -107,3 +174,20 @@ DioException _requestBodyLimitException(RequestOptions options) {
     requestOptions: options,
   );
 }
+
+CassetteException _responseBodyLimitException() => CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.bodyLimitExceeded,
+        summary:
+            'The HTTP response body exceeded its configured cassette limit.',
+        networkAccess: NetworkAccess.attempted,
+      ),
+    );
+
+CassetteException _invalidRequestException() => CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.invalidCanonicalRequest,
+        summary: 'Dio request data could not form a canonical HTTP request.',
+        networkAccess: NetworkAccess.notAttempted,
+      ),
+    );

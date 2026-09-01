@@ -3,16 +3,15 @@
 `http_cassette_dio` connects Dio to the transport-neutral `http_cassette`
 package.
 
-The current implementation wraps Dio's transport adapter and passes requests
-through unchanged while its cassette engine is inactive. It does not buffer
-request bodies on this path.
+The package wraps Dio's transport adapter and passes requests through unchanged
+while its cassette engine is inactive. It does not buffer request bodies on
+this path.
 
-Active requests are now read once from Dio's final encoded request stream,
-bounded by the engine's request-body limit and translated into the canonical
-core request. Recording and replay execution are not connected yet, so the
-wrapper then rejects the request before Dio can access the network. This
-fail-closed boundary prevents an incomplete replay path from silently reaching
-the network.
+Active requests are read once from Dio's final encoded request stream, bounded
+by the engine's request-body limit and translated into the canonical core
+request. Recording permits one real transport attempt, captures its response or
+portable transport failure and returns the equivalent live Dio result. Replay
+returns the recorded outcome without calling the wrapped transport adapter.
 
 A null request stream remains an empty canonical body. Non-null streams,
 including single-subscription and empty streams, are consumed exactly once and
@@ -46,8 +45,8 @@ It never copies raw Dio messages, causes, response values or stack traces into a
 cassette. A transport failure encountered while recording an intended success
 scenario would become that request's outcome once active execution is
 connected. The developer should discard that recording rather than commit it.
-The current implementation defines and tests this mapping, but active Dio
-recording and replay are not connected yet.
+The current implementation defines and applies this mapping during recording
+and replay.
 
 ## Cassette system failures
 
@@ -68,8 +67,26 @@ try {
 ```
 
 The getter returns `null` for ordinary Dio failures and for replayed portable
-transport failures. Active execution is not connected yet, but active request
-body-limit failures already use this structured boundary.
+transport failures.
+
+## Recording and replay
+
+Start and complete sessions through the same engine installed on Dio:
+
+```dart
+final recording = await engine.startRecording('account/details');
+await dio.get<void>('https://api.example.test/account');
+await recording.close();
+
+final replay = await engine.startReplay('account/details');
+await dio.get<void>('https://api.example.test/account'); // No network access.
+await replay.close();
+```
+
+Recording calls the wrapped Dio adapter at most once for each admitted request.
+Replay never calls it, including when the cassette is missing, unmatched or
+exhausted. Discard a recording instead of closing it when its captured outcome
+is not the scenario you intended to keep.
 
 ## Installation
 
