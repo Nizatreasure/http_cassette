@@ -540,6 +540,101 @@ void main() {
     );
   });
 
+  test('maps an unmapped adapter error without retaining its value', () async {
+    const secret = 'private adapter path and credentials';
+    inner.thrownFailure = StateError(secret);
+    final session = await engine.startRecording('unmapped-adapter');
+    addTearDown(session.discard);
+    DioException? caught;
+
+    try {
+      await dio.httpClientAdapter.fetch(
+        RequestOptions(path: 'https://example.test/unmapped'),
+        null,
+        null,
+      );
+    } on DioException catch (failure) {
+      caught = failure;
+    }
+
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.adapterContractViolation,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.attempted,
+    );
+    expect(caught?.error, isNot(isA<StateError>()));
+    expect(caught.toString(), isNot(contains(secret)));
+    expect(await store.exists(CassetteName('unmapped-adapter')), isFalse);
+  });
+
+  test('maps a failing response stream without retaining its value', () async {
+    const secret = 'private response stream detail';
+    inner.response = ResponseBody(
+      Stream<Uint8List>.error(StateError(secret)),
+      200,
+    );
+    final session = await engine.startRecording('failing-response-stream');
+    addTearDown(session.discard);
+    DioException? caught;
+
+    try {
+      await dio.httpClientAdapter.fetch(
+        RequestOptions(path: 'https://example.test/stream-failure'),
+        null,
+        null,
+      );
+    } on DioException catch (failure) {
+      caught = failure;
+    }
+
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.adapterContractViolation,
+    );
+    expect(caught.toString(), isNot(contains(secret)));
+    expect(
+      await store.exists(CassetteName('failing-response-stream')),
+      isFalse,
+    );
+  });
+
+  test('rejects badResponse thrown from the transport boundary', () async {
+    final transportOptions = RequestOptions(
+      path: 'https://example.test/invalid-boundary',
+    );
+    inner.thrownFailure = DioException.badResponse(
+      statusCode: 500,
+      requestOptions: transportOptions,
+      response: Response<void>(
+        requestOptions: transportOptions,
+        statusCode: 500,
+      ),
+    );
+    final session = await engine.startRecording('invalid-bad-response');
+    addTearDown(session.discard);
+    DioException? caught;
+
+    try {
+      await dio.httpClientAdapter.fetch(
+        RequestOptions(path: 'https://example.test/invalid-boundary'),
+        null,
+        null,
+      );
+    } on DioException catch (failure) {
+      caught = failure;
+    }
+
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.adapterContractViolation,
+    );
+    expect(caught?.type, DioExceptionType.unknown);
+    expect(await store.exists(CassetteName('invalid-bad-response')), isFalse);
+  });
+
   test('closes the wrapped adapter at most once', () {
     dio.close(force: true);
     dio.close();
@@ -553,6 +648,7 @@ final class _StubHttpClientAdapter implements HttpClientAdapter {
   ResponseBody response = ResponseBody.fromString('', 200);
   Future<ResponseBody>? responseFuture;
   Completer<void>? fetchStarted;
+  Object? thrownFailure;
   String? failureMessage;
   DioException? failure;
   int fetchCount = 0;
@@ -575,6 +671,10 @@ final class _StubHttpClientAdapter implements HttpClientAdapter {
     final started = fetchStarted;
     if (started != null && !started.isCompleted) {
       started.complete();
+    }
+    final directFailure = thrownFailure;
+    if (directFailure != null) {
+      throw directFailure;
     }
     final message = failureMessage;
     if (message != null) {

@@ -29,6 +29,9 @@
   replay selection, including non-retention of late outcomes.
 - Verified that Dio status validation remains outside cassette capture and
   documented direct and followed redirect behaviour.
+- Verified value-free adapter-contract failures for unmapped adapter errors,
+  failing response streams and invalid transport-level `badResponse` errors.
+- Documented interceptor, retry, buffering, progress and streaming limitations.
 
 ## 0.1.0
 

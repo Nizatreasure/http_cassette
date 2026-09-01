@@ -43,8 +43,8 @@ caller-controlled failure:
 The Dio adapter uses fixed safe descriptions for recordable transport failures.
 It never copies raw Dio messages, causes, response values or stack traces into a
 cassette. A transport failure encountered while recording an intended success
-scenario would become that request's outcome once active execution is
-connected. The developer should discard that recording rather than commit it.
+scenario becomes that request's outcome. The developer should discard that
+recording rather than commit it.
 The current implementation defines and applies this mapping during recording
 and replay.
 
@@ -103,6 +103,31 @@ cancellation future still reaches the wrapped adapter; if cancellation wins the
 race with the complete captured outcome, the later outcome is ignored and the
 recording cannot retain that request.
 
+## Composition and streaming limitations
+
+The adapter sits below Dio's request interceptors and transformers:
+
+- A request interceptor which resolves or rejects without transport dispatch
+  never reaches HTTP Cassette and is not recorded.
+- Retry behaviour depends on where the retry is implemented. Each retry which
+  independently reaches `HttpClientAdapter.fetch` is a separate cassette
+  observation; a retry layer above that boundary may expose only its final
+  attempt.
+- Active request and response bodies are completely buffered within the
+  configured limits. Original chunk boundaries, timing and back-pressure are
+  not reproduced during replay.
+- Send progress may complete while HTTP Cassette reads the encoded request,
+  before the authorised recording request reaches the network. Response
+  delivery waits until the complete bounded response has been captured.
+- SSE, endless streams and bodies exceeding the configured limits are not
+  supported in V1.
+
+A custom wrapped adapter must return every completed HTTP status as a
+`ResponseBody`. Throwing Dio `badResponse` from this transport boundary, a raw
+non-Dio error or a raw response-stream error is treated as a safe adapter
+contract violation and is not recorded. Raw error values and messages are not
+retained in the diagnostic.
+
 ## Installation
 
 The package is not ready for publication. During development in this workspace,
@@ -135,8 +160,8 @@ most once; cassette sessions remain controlled explicitly through the engine.
 
 ## Example
 
-The example is a compile check that installs the adapter without making a
-network request.
+The example records and replays one response through a local fake transport. It
+does not make a network request.
 
 ```sh
 dart run example/http_cassette_dio_example.dart
