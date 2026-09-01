@@ -27,6 +27,8 @@
   network access.
 - Completed adapter-level cancellation ordering tests for live recording and
   replay selection, including non-retention of late outcomes.
+- Verified that Dio status validation remains outside cassette capture and
+  documented direct and followed redirect behaviour.
 
 ## 0.1.0
 

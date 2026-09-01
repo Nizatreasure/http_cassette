@@ -48,6 +48,15 @@ connected. The developer should discard that recording rather than commit it.
 The current implementation defines and applies this mapping during recording
 and replay.
 
+Dio applies `validateStatus` after the transport adapter returns. HTTP Cassette
+therefore records a completed 4xx or 5xx response before Dio may expose it as a
+`badResponse`, and replay follows the same Dio status policy. A directly
+observed redirect preserves its status, reason, headers and body. V1 does not
+persist Dio's `isRedirect` flag, redirect history or transport `extra`, so those
+values are available on the live response but not reconstructed during replay.
+When Dio's transport follows redirects itself, HTTP Cassette records the final
+response observed at the adapter boundary.
+
 ## Cassette system failures
 
 HTTP Cassette system failures travel through Dio as `DioException` values so

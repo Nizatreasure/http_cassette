@@ -130,6 +130,110 @@ void main() {
     expect(inner.fetchCount, 1);
   });
 
+  test('records and replays a status rejected later by Dio', () async {
+    inner.response = ResponseBody.fromString(
+      'server failed',
+      500,
+      statusMessage: 'Internal Server Error',
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['text/plain'],
+      },
+    );
+    final recording = await engine.startRecording('error-status');
+    DioException? liveFailure;
+
+    try {
+      await dio.get<String>('https://example.test/error-status');
+    } on DioException catch (failure) {
+      liveFailure = failure;
+    }
+    await recording.close();
+
+    expect(liveFailure?.type, DioExceptionType.badResponse);
+    expect(liveFailure?.response?.statusCode, 500);
+    expect(liveFailure?.response?.statusMessage, 'Internal Server Error');
+    expect(liveFailure?.response?.data, 'server failed');
+    expect(inner.fetchCount, 1);
+
+    inner.response = ResponseBody.fromString('network response', 200);
+    final replay = await engine.startReplay('error-status');
+    addTearDown(replay.discard);
+    DioException? replayedFailure;
+
+    try {
+      await dio.get<String>('https://example.test/error-status');
+    } on DioException catch (failure) {
+      replayedFailure = failure;
+    }
+
+    expect(replayedFailure?.type, DioExceptionType.badResponse);
+    expect(replayedFailure?.response?.statusCode, 500);
+    expect(replayedFailure?.response?.statusMessage, 'Internal Server Error');
+    expect(replayedFailure?.response?.data, 'server failed');
+    expect(replayedFailure?.cassetteException, isNull);
+    expect(inner.fetchCount, 1);
+  });
+
+  test('records and replays a directly observed redirect response', () async {
+    final redirects = <RedirectRecord>[
+      RedirectRecord(
+        301,
+        'GET',
+        Uri.parse('https://example.test/redirected'),
+      ),
+    ];
+    inner.response = ResponseBody.fromString(
+      'redirect body',
+      302,
+      statusMessage: 'Found',
+      isRedirect: true,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['text/plain'],
+        'location': <String>[
+          'https://example.test/destination',
+        ],
+      },
+    )..redirects = redirects;
+    final recording = await engine.startRecording('direct-redirect');
+    DioException? liveFailure;
+
+    try {
+      await dio.get<String>('https://example.test/redirect');
+    } on DioException catch (failure) {
+      liveFailure = failure;
+    }
+    await recording.close();
+
+    expect(liveFailure?.type, DioExceptionType.badResponse);
+    expect(liveFailure?.response?.statusCode, 302);
+    expect(liveFailure?.response?.isRedirect, isTrue);
+    expect(liveFailure?.response?.redirects, same(redirects));
+    expect(inner.fetchCount, 1);
+
+    final replay = await engine.startReplay('direct-redirect');
+    addTearDown(replay.discard);
+    DioException? replayedFailure;
+
+    try {
+      await dio.get<String>('https://example.test/redirect');
+    } on DioException catch (failure) {
+      replayedFailure = failure;
+    }
+
+    final replayed = replayedFailure?.response;
+    expect(replayedFailure?.type, DioExceptionType.badResponse);
+    expect(replayed?.statusCode, 302);
+    expect(replayed?.statusMessage, 'Found');
+    expect(replayed?.data, 'redirect body');
+    expect(
+      replayed?.headers.value('location'),
+      'https://example.test/destination',
+    );
+    expect(replayed?.isRedirect, isFalse);
+    expect(replayed?.redirects, isEmpty);
+    expect(inner.fetchCount, 1);
+  });
+
   test('records a live transport failure and reconstructs it on replay',
       () async {
     inner.failureMessage = 'machine-specific live failure';
