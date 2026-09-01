@@ -20,6 +20,8 @@
   exception while retaining their safe core category.
 - Added public access to structured cassette-system failures carried by Dio
   exceptions and used it for active request body-limit failures.
+- Added an internal monotonic bridge from Dio cancellation state to the
+  transport-neutral core cancellation contract.
 
 ## 0.1.0
 
