@@ -7,3 +7,5 @@
   active behaviour and single ownership of its inner client.
 - Added bounded, cancellation-aware internal buffering for active HTTP byte
   streams.
+- Added an internal monotonic bridge from `package:http` abort triggers to the
+  transport-neutral cancellation contract.
