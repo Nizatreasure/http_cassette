@@ -15,3 +15,5 @@
   replacement of standard `package:http` request behaviour.
 - Added bounded live response capture with canonical translation and an
   equivalent fresh response stream for the caller.
+- Added conservative, value-free translation from `package:http` client
+  failures to portable transport outcomes while excluding cancellation.
