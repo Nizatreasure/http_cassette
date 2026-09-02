@@ -13,3 +13,5 @@
   metadata and already-buffered body bytes.
 - Added one-time active request finalisation, bounded buffering and equivalent
   replacement of standard `package:http` request behaviour.
+- Added bounded live response capture with canonical translation and an
+  equivalent fresh response stream for the caller.
