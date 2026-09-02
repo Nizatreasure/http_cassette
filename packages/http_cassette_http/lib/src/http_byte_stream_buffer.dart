@@ -83,9 +83,14 @@ Future<Uint8List> bufferHttpByteStream(
   }
   if (cancellation case final cancellationFuture?) {
     unawaited(
-      cancellationFuture.then((_) {
-        fail(const HttpByteStreamBufferCancelled());
-      }),
+      cancellationFuture.then<void>(
+        (_) {
+          fail(const HttpByteStreamBufferCancelled());
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          fail(error, stackTrace);
+        },
+      ),
     );
   }
 

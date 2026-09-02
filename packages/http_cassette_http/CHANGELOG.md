@@ -11,3 +11,5 @@
   transport-neutral cancellation contract.
 - Added internal canonical translation of effective `package:http` request
   metadata and already-buffered body bytes.
+- Added one-time active request finalisation, bounded buffering and equivalent
+  replacement of standard `package:http` request behaviour.
