@@ -5,3 +5,5 @@
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.
+- Added bounded, cancellation-aware internal buffering for active HTTP byte
+  streams.
