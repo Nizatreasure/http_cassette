@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
+import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette_http/src/http_byte_stream_buffer.dart';
 import 'package:http_cassette_http/src/http_response_translation.dart';
 import 'package:test/test.dart';
@@ -147,6 +148,89 @@ void main() {
       ),
       throwsA(same(failure)),
     );
+  });
+
+  test('reconstructs a canonical response without transport-only metadata',
+      () async {
+    final canonical = CassetteResponse(
+      statusCode: 503,
+      reasonPhrase: 'Service Unavailable',
+      headers: CassetteHeaders(<String, List<String>>{
+        'content-length': <String>['3'],
+        'set-cookie': <String>[
+          'first=1; Expires=Wed, 21 Oct 2015 07:28:00 GMT',
+          'second=2',
+        ],
+        'x-trace': <String>['first', 'second'],
+      }),
+      body: <int>[1, 2, 3],
+    );
+
+    final reconstructed = reconstructHttpResponse(
+      canonical,
+      request: callerRequest,
+    );
+    final chunk = await reconstructed.stream.single;
+
+    expect(reconstructed.statusCode, 503);
+    expect(reconstructed.reasonPhrase, 'Service Unavailable');
+    expect(reconstructed.contentLength, 3);
+    expect(reconstructed.request, same(callerRequest));
+    expect(reconstructed.headers['x-trace'], 'first, second');
+    expect(
+      reconstructed.headersSplitValues['set-cookie'],
+      <String>[
+        'first=1; Expires=Wed, 21 Oct 2015 07:28:00 GMT',
+        'second=2',
+      ],
+    );
+    expect(reconstructed.isRedirect, isFalse);
+    expect(reconstructed.persistentConnection, isTrue);
+    expect(reconstructed, isNot(isA<http.BaseResponseWithUrl>()));
+    expect(chunk, <int>[1, 2, 3]);
+
+    chunk[0] = 9;
+    reconstructed.headers['x-trace'] = 'changed';
+    expect(canonical.body, <int>[1, 2, 3]);
+    expect(canonical.headers.values('x-trace'), <String>['first', 'second']);
+  });
+
+  test('does not invent content length from replay body bytes', () {
+    final canonical = CassetteResponse(
+      statusCode: 200,
+      body: <int>[1, 2, 3],
+    );
+
+    final reconstructed = reconstructHttpResponse(
+      canonical,
+      request: callerRequest,
+    );
+
+    expect(reconstructed.contentLength, isNull);
+  });
+
+  test('ignores an unusable persisted content-length value', () {
+    final cases = <List<String>>[
+      <String>['invalid'],
+      <String>['-1'],
+      <String>['1', '2'],
+    ];
+
+    for (final values in cases) {
+      final canonical = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, List<String>>{
+          'content-length': values,
+        }),
+      );
+
+      final reconstructed = reconstructHttpResponse(
+        canonical,
+        request: callerRequest,
+      );
+
+      expect(reconstructed.contentLength, isNull);
+    }
   });
 }
 

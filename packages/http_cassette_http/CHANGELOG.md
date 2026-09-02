@@ -17,3 +17,5 @@
   equivalent fresh response stream for the caller.
 - Added conservative, value-free translation from `package:http` client
   failures to portable transport outcomes while excluding cancellation.
+- Added replay reconstruction of canonical responses as fresh
+  `package:http` response streams without invented transport metadata.

@@ -76,6 +76,38 @@ Future<CapturedHttpResponse> captureHttpResponse(
   );
 }
 
+/// Reconstructs a canonical replay [response] for a `package:http` caller.
+///
+/// Repeated canonical header values are joined because `package:http` exposes
+/// one string per response header. Redirect state, connection persistence and
+/// a final response URL are not cassette data and are not invented.
+http.StreamedResponse reconstructHttpResponse(
+  CassetteResponse response, {
+  required http.BaseRequest request,
+}) {
+  final headers = <String, String>{
+    for (final entry in response.headers.toMap().entries)
+      entry.key: entry.value.join(', '),
+  };
+  return http.StreamedResponse(
+    http.ByteStream.fromBytes(response.body.toList(growable: false)),
+    response.statusCode,
+    contentLength: _persistedContentLength(response.headers),
+    request: request,
+    headers: headers,
+    reasonPhrase: response.reasonPhrase,
+  );
+}
+
+int? _persistedContentLength(CassetteHeaders headers) {
+  final values = headers.values('content-length');
+  if (values == null || values.length != 1) {
+    return null;
+  }
+  final value = int.tryParse(values.single);
+  return value != null && value >= 0 ? value : null;
+}
+
 final class _HttpStreamedResponseWithUrl extends http.StreamedResponse
     implements http.BaseResponseWithUrl {
   _HttpStreamedResponseWithUrl(
