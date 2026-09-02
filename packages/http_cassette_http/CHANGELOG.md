@@ -9,3 +9,5 @@
   streams.
 - Added an internal monotonic bridge from `package:http` abort triggers to the
   transport-neutral cancellation contract.
+- Added internal canonical translation of effective `package:http` request
+  metadata and already-buffered body bytes.
