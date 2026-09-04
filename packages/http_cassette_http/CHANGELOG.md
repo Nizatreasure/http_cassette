@@ -4,6 +4,8 @@
 
 - Added repository contract coverage proving basic canonical request
   equivalence with the official Dio adapter.
+- Verified that equivalent successful responses produce the same canonical
+  persisted outcome through both official adapters.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.

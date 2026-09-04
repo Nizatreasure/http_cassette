@@ -4,6 +4,8 @@
 
 - Added repository contract coverage proving basic canonical request
   equivalence with the official `package:http` adapter.
+- Verified that equivalent successful responses produce the same canonical
+  persisted outcome through both official adapters.
 - Supported recording bodyless requests that carry a JSON content type.
 - Added the public Dio transport-adapter wrapper, one-call installation and
   inactive request pass-through.

@@ -24,10 +24,19 @@ final class TransportEquivalenceFixture {
 
   static List<int> get responseBody => utf8.encode(responseBodyText);
 
-  static Map<String, Object?> recordedRequest(CassetteSnapshot snapshot) {
+  static Map<String, Object?> recordedInteraction(CassetteSnapshot snapshot) {
     final document = jsonDecode(utf8.decode(snapshot.bytes)) as Map;
     final interactions = document['interactions'] as List;
-    final interaction = interactions.single as Map;
-    return Map<String, Object?>.from(interaction['request'] as Map);
+    return Map<String, Object?>.from(interactions.single as Map);
   }
+
+  static Map<String, Object?> recordedRequest(
+    Map<String, Object?> interaction,
+  ) =>
+      Map<String, Object?>.from(interaction['request'] as Map);
+
+  static Map<String, Object?> recordedOutcome(
+    Map<String, Object?> interaction,
+  ) =>
+      Map<String, Object?>.from(interaction['outcome'] as Map);
 }

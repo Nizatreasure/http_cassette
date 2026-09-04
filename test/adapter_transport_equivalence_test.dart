@@ -11,14 +11,31 @@ import 'support/transport_equivalence_fixture.dart';
 
 void main() {
   test('official adapters persist equivalent canonical requests', () async {
-    final dioRequest = await _recordDioRequest();
-    final httpRequest = await _recordHttpRequest();
+    final dioInteraction = await _recordDioInteraction();
+    final httpInteraction = await _recordHttpInteraction();
+    final dioRequest =
+        TransportEquivalenceFixture.recordedRequest(dioInteraction);
+    final httpRequest =
+        TransportEquivalenceFixture.recordedRequest(httpInteraction);
 
     expect(dioRequest, httpRequest);
   });
+
+  test('official adapters persist equivalent canonical responses', () async {
+    final dioInteraction = await _recordDioInteraction();
+    final httpInteraction = await _recordHttpInteraction();
+    final dioOutcome =
+        TransportEquivalenceFixture.recordedOutcome(dioInteraction);
+    final httpOutcome =
+        TransportEquivalenceFixture.recordedOutcome(httpInteraction);
+
+    expect(dioOutcome['type'], 'response');
+    expect(httpOutcome['type'], 'response');
+    expect(dioOutcome, httpOutcome);
+  });
 }
 
-Future<Map<String, Object?>> _recordDioRequest() async {
+Future<Map<String, Object?>> _recordDioInteraction() async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(store: store);
   final inner = _DioTransport();
@@ -40,10 +57,10 @@ Future<Map<String, Object?>> _recordDioRequest() async {
   adapter.close(force: true);
 
   final snapshot = await store.read(CassetteName('equivalence/request'));
-  return TransportEquivalenceFixture.recordedRequest(snapshot);
+  return TransportEquivalenceFixture.recordedInteraction(snapshot);
 }
 
-Future<Map<String, Object?>> _recordHttpRequest() async {
+Future<Map<String, Object?>> _recordHttpInteraction() async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(store: store);
   final client = CassetteHttpClient(engine, inner: _HttpTransport());
@@ -61,7 +78,7 @@ Future<Map<String, Object?>> _recordHttpRequest() async {
   client.close();
 
   final snapshot = await store.read(CassetteName('equivalence/request'));
-  return TransportEquivalenceFixture.recordedRequest(snapshot);
+  return TransportEquivalenceFixture.recordedInteraction(snapshot);
 }
 
 final class _DioTransport implements HttpClientAdapter {
