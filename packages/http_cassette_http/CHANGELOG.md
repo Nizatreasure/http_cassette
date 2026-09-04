@@ -29,3 +29,5 @@
   bodyless JSON-labelled requests across recording and replay.
 - Verified body limits, empty streams and value-free failure handling for
   invalid abort triggers, custom-client errors and response-stream errors.
+- Documented middleware and retry ordering, active buffering, custom request
+  boundaries and the header representation exposed by `package:http`.

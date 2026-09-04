@@ -1,5 +1,5 @@
 name: http_cassette_http
-description: package:http integration scaffold for the transport-neutral http_cassette package.
+description: Deterministic package:http recording and replay with the transport-neutral http_cassette engine.
 version: 0.1.0
 repository: https://github.com/Nizatreasure/http_cassette/tree/main/packages/http_cassette_http
 issue_tracker: https://github.com/Nizatreasure/http_cassette/issues

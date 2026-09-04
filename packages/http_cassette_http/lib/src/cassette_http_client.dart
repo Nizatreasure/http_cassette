@@ -14,6 +14,12 @@ import 'http_transport_failure_translation.dart';
 /// client without inspection or finalisation. Recording uses the inner client
 /// only when the core authorises one real attempt. Replay never uses it.
 ///
+/// Active requests and responses are completely buffered within the engine's
+/// body limits. Place request-changing or per-attempt retry middleware outside
+/// this client when each resulting request must be visible to the cassette.
+/// Custom request-subclass state beyond the public [http.BaseRequest]
+/// properties is not preserved on the active replacement request.
+///
 /// The wrapper owns its inner client. Calling [close] closes that client at
 /// most once, including when it was supplied by the caller.
 final class CassetteHttpClient extends http.BaseClient {

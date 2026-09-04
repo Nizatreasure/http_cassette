@@ -1,6 +1,6 @@
 # http_cassette_http
 
-`http_cassette_http` provides the developing `package:http` integration for
+`http_cassette_http` provides the `package:http` integration for
 HTTP Cassette. `CassetteHttpClient` supports inactive pass-through, explicit
 recording and network-free replay, and owns the client it wraps.
 
@@ -49,6 +49,28 @@ await replay.close();
 Replay failures never fall back to the wrapped client. A missing cassette,
 mismatch or exhausted interaction therefore cannot access the network.
 
+## Client composition
+
+Place request-changing middleware outside `CassetteHttpClient` when its changes
+must be recorded and matched:
+
+```text
+application -> request middleware -> CassetteHttpClient -> transport
+```
+
+The cassette client then sees the effective request produced by that
+middleware. Middleware which returns a response without calling the cassette
+client is not observed. Middleware inside the cassette boundary receives the
+rebuilt active request, so any later changes are not part of the canonical
+request used for matching.
+
+The same boundary matters for retries. A retry client outside
+`CassetteHttpClient` presents every attempt as a separate cassette interaction.
+A retry client inside it can make several transport attempts within the one
+authorised call, while HTTP Cassette sees only the final result returned by that
+client. Choose the order deliberately; place retries outside when each attempt
+must be recorded and replayed separately.
+
 ## Cancellation
 
 Cancellation is supported for requests implementing `http.Abortable` with a
@@ -83,8 +105,26 @@ for requests and 5 MiB for responses, configured through the core
 A response over its limit fails after one authorised attempt. Content is never
 truncated, and empty streams remain empty.
 
-Chunk boundaries, timing and back-pressure are not replayed. Endless streams,
-server-sent events and bodies above the configured limits are unsupported.
+Buffering delays the live network attempt until the whole active request is
+available, and delays delivery to the caller until the whole response is
+available. It does not preserve chunk boundaries, timing or back-pressure.
+Endless streams, server-sent events and bodies above the configured limits are
+unsupported. Inactive requests retain the inner client's normal streaming
+behaviour.
+
+Ordinary requests, streamed requests and multipart requests are supported from
+their final encoded bytes. In active mode the replacement request preserves
+the standard public `BaseRequest` properties. It cannot preserve a custom
+request subclass's identity or private fields. A custom inner client which
+requires such a subtype is therefore incompatible inside the cassette
+boundary; inactive pass-through still receives the exact original request.
+
+`package:http` exposes request headers as one string per case-insensitive name,
+so the adapter cannot recover earlier repeated fields or infer that a comma
+separates values. Response capture uses `headersSplitValues`; replay joins
+canonical repeated values because `package:http` again requires one string per
+name. Exact wire casing and field-line multiplicity are not preserved beyond
+the public values exposed by `package:http`.
 
 A custom inner client must follow the public `package:http` contract: return a
 valid `StreamedResponse`, use `ClientException` for transport failures, emit
