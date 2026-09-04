@@ -234,12 +234,123 @@ void main() {
     );
   });
 
+  test('records and replays a completed server-error response', () async {
+    inner.responseOverride = http.StreamedResponse(
+      Stream<List<int>>.value('server failed'.codeUnits),
+      500,
+      headers: <String, String>{'content-type': 'text/plain'},
+      reasonPhrase: 'Internal Server Error',
+    );
+    final uri = Uri.parse('https://example.test/error-status');
+    final recording = await engine.startRecording('error-status');
+
+    final live = await client.send(http.Request('GET', uri));
+    expect(live.statusCode, 500);
+    expect(live.reasonPhrase, 'Internal Server Error');
+    expect(await live.stream.bytesToString(), 'server failed');
+    await recording.close();
+
+    final replay = await engine.startReplay('error-status');
+    addTearDown(replay.discard);
+    final replayed = await client.send(http.Request('GET', uri));
+
+    expect(replayed.statusCode, 500);
+    expect(replayed.reasonPhrase, 'Internal Server Error');
+    expect(await replayed.stream.bytesToString(), 'server failed');
+    expect(inner.sendCount, 1);
+  });
+
+  test('replays canonical redirect data without live-only metadata', () async {
+    final requestUri = Uri.parse('https://example.test/redirect');
+    final finalUri = Uri.parse('https://example.test/final');
+    inner.responseOverride = _UrlStreamedResponse(
+      Stream<List<int>>.value('redirect body'.codeUnits),
+      302,
+      url: finalUri,
+      headers: <String, String>{
+        'content-type': 'text/plain',
+        'location': finalUri.toString(),
+      },
+      isRedirect: true,
+      persistentConnection: false,
+      reasonPhrase: 'Found',
+    );
+    final recording = await engine.startRecording('direct-redirect');
+
+    final live = await client.send(http.Request('GET', requestUri));
+    expect(live.statusCode, 302);
+    expect(live.isRedirect, isTrue);
+    expect(live.persistentConnection, isFalse);
+    expect((live as http.BaseResponseWithUrl).url, finalUri);
+    expect(await live.stream.bytesToString(), 'redirect body');
+    await recording.close();
+
+    final replay = await engine.startReplay('direct-redirect');
+    addTearDown(replay.discard);
+    final replayed = await client.send(http.Request('GET', requestUri));
+
+    expect(replayed.statusCode, 302);
+    expect(replayed.reasonPhrase, 'Found');
+    expect(replayed.headers['location'], finalUri.toString());
+    expect(await replayed.stream.bytesToString(), 'redirect body');
+    expect(replayed.isRedirect, isFalse);
+    expect(replayed.persistentConnection, isTrue);
+    expect(replayed, isNot(isA<http.BaseResponseWithUrl>()));
+    expect(inner.sendCount, 1);
+  });
+
+  test('records a bodyless JSON-labelled GET request', () async {
+    inner.responseOverride = http.StreamedResponse(
+      Stream<List<int>>.value(
+        '{"@odata.context":"https://example.test/metadata","value":[]}'
+            .codeUnits,
+      ),
+      200,
+      headers: <String, String>{'content-type': 'application/json'},
+    );
+    final uri = Uri.parse('https://example.test/policies');
+    final request = http.Request('GET', uri)
+      ..headers['content-type'] = 'application/json';
+    final recording = await engine.startRecording('empty-json-get-http');
+
+    final live = await client.send(request);
+    await recording.close();
+
+    expect(await live.stream.bytesToString(), contains('@odata.context'));
+    expect(inner.request?.contentLength, 0);
+
+    final replay = await engine.startReplay('empty-json-get-http');
+    addTearDown(replay.discard);
+    final replayedRequest = http.Request('GET', uri)
+      ..headers['content-type'] = 'application/json';
+    final replayed = await client.send(replayedRequest);
+
+    expect(await replayed.stream.bytesToString(), contains('@odata.context'));
+    expect(inner.sendCount, 1);
+  });
+
   test('closes the inner client at most once', () {
     client.close();
     client.close();
 
     expect(inner.closeCount, 1);
   });
+}
+
+final class _UrlStreamedResponse extends http.StreamedResponse
+    implements http.BaseResponseWithUrl {
+  _UrlStreamedResponse(
+    super.stream,
+    super.statusCode, {
+    required this.url,
+    super.headers,
+    super.isRedirect,
+    super.persistentConnection,
+    super.reasonPhrase,
+  });
+
+  @override
+  final Uri url;
 }
 
 final class _StubClient extends http.BaseClient {

@@ -25,3 +25,5 @@
   contract, with one authorised inner-client call and no replay network access.
 - Verified abort ordering before request buffering, replay selection and live
   response completion, including non-retention of late outcomes.
+- Verified completed error statuses, direct redirect metadata boundaries and
+  bodyless JSON-labelled requests across recording and replay.

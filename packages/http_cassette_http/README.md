@@ -61,6 +61,20 @@ An ordinary `BaseRequest` has no cancellation signal. Cancelling before replay
 selection consumes no interaction. If cancellation wins during recording, a
 later response is ignored and no interaction is retained.
 
+## Response behaviour
+
+Every completed HTTP exchange is a response, including 3xx, 4xx and 5xx status
+codes. `package:http` convenience operations such as `get` return those status
+responses normally. Higher-level operations such as `read` may reject a status
+after `send` returns; that client policy does not turn the recorded exchange
+into a transport failure.
+
+A directly observed redirect records and replays its status, reason phrase,
+headers and body. The live response retains its exposed final URL, redirect
+flag and connection-persistence value. Those transport-only values are not in
+the cassette schema, so replay does not invent them. If the inner client follows
+a redirect, HTTP Cassette records only the final response it observes.
+
 ## Failure inspection
 
 The package adds safe inspection getters to `http.ClientException`:
