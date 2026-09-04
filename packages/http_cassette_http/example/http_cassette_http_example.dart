@@ -9,10 +9,19 @@ Future<void> main() async {
   final transport = _ExampleClient();
   final client = CassetteHttpClient(engine, inner: transport);
 
-  final response = await client.get(Uri.parse('https://example.test/status'));
+  final recording = await engine.startRecording('example/status');
+  final live = await client.get(Uri.parse('https://example.test/status'));
+  await recording.close();
 
-  if (response.statusCode != 200 || response.body != 'Available') {
-    throw StateError('Inactive HTTP traffic was not preserved.');
+  final replay = await engine.startReplay('example/status');
+  final recorded = await client.get(Uri.parse('https://example.test/status'));
+  await replay.close();
+
+  if (live.body != 'Available' || recorded.body != 'Available') {
+    throw StateError('The HTTP response was not preserved.');
+  }
+  if (transport.sendCount != 1) {
+    throw StateError('Replay unexpectedly reached the wrapped client.');
   }
 
   client.close();
@@ -22,16 +31,19 @@ Future<void> main() async {
 }
 
 final class _ExampleClient extends http.BaseClient {
+  var sendCount = 0;
   var closeCount = 0;
 
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
-      http.StreamedResponse(
-        Stream<List<int>>.value('Available'.codeUnits),
-        200,
-        request: request,
-        headers: <String, String>{'content-type': 'text/plain'},
-      );
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    sendCount += 1;
+    return http.StreamedResponse(
+      Stream<List<int>>.value('Available'.codeUnits),
+      200,
+      request: request,
+      headers: <String, String>{'content-type': 'text/plain'},
+    );
+  }
 
   @override
   void close() {

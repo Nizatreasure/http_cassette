@@ -21,3 +21,5 @@
   `package:http` response streams without invented transport metadata.
 - Added safe public inspection of cassette-system and replayed transport
   failures carried by `ClientException`, without retaining request URIs.
+- Connected active recording and replay through the public core interception
+  contract, with one authorised inner-client call and no replay network access.

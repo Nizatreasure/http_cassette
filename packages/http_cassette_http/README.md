@@ -1,11 +1,8 @@
 # http_cassette_http
 
 `http_cassette_http` provides the developing `package:http` integration for
-HTTP Cassette. `CassetteHttpClient` currently provides exact inactive
-pass-through and owns the client it wraps.
-
-Active recording and replay translation are not implemented yet. An active
-session fails locally without calling the wrapped client.
+HTTP Cassette. `CassetteHttpClient` supports inactive pass-through, explicit
+recording and network-free replay, and owns the client it wraps.
 
 ## Installation
 
@@ -29,13 +26,28 @@ When the engine has no active session, `send` delegates the exact request to
 the wrapped client. It does not inspect or finalise the request. The exact
 response or failure is passed back unchanged.
 
+During recording, the client finalises and buffers the request once, then lets
+the core authorise one call to the wrapped client. The complete response or a
+portable `ClientException` failure is captured before the result is returned.
+During replay, the request is buffered for deterministic matching but the
+wrapped client is never called.
+
 The wrapper owns the inner client, including one supplied by the caller.
 Closing `CassetteHttpClient` closes that client at most once. It does not close
 or discard a cassette session on the shared engine.
 
-Do not start recording or replay with this adapter yet. Until active request
-and response translation is implemented, an active call fails locally and
-does not access the network.
+```dart
+final recording = await engine.startRecording('policies/list');
+final live = await client.get(Uri.parse('https://example.test/policies'));
+await recording.close();
+
+final replay = await engine.startReplay('policies/list');
+final recorded = await client.get(Uri.parse('https://example.test/policies'));
+await replay.close();
+```
+
+Replay failures never fall back to the wrapped client. A missing cassette,
+mismatch or exhausted interaction therefore cannot access the network.
 
 ## Failure inspection
 
@@ -58,13 +70,11 @@ The two values are mutually exclusive.
 
 HTTP Cassette-created client exceptions deliberately omit `ClientException.uri`
 because an incoming URL may contain credentials or sensitive query values.
-The currently disconnected active client path does not produce these wrapped
-failures yet.
 
 ## Example
 
-The example demonstrates construction, inactive pass-through and ownership
-using a local fake client. It does not contact the network.
+The example records and replays one response using a local fake client. It does
+not contact the network.
 
 ```sh
 dart run example/http_cassette_http_example.dart

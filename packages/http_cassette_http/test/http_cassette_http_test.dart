@@ -32,7 +32,7 @@ void main() {
 
     expect(inner.sendCount, 1);
     expect(inner.request, same(request));
-    expect(response, same(inner.response));
+    expect(response, same(inner.lastResponse));
     expect(request.finalized, isFalse);
   });
 
@@ -51,27 +51,93 @@ void main() {
     expect(request.finalized, isFalse);
   });
 
-  test('fails closed during an active session', () async {
-    final session = await engine.startRecording('active');
-    addTearDown(session.discard);
-    final request = http.Request(
-      'GET',
-      Uri.parse('https://example.test/items'),
+  test('records one live response and replays without inner-client access',
+      () async {
+    inner.responseBody = <int>[1, 2, 3];
+    final recording = await engine.startRecording('active-response');
+
+    final live = await client.send(
+      http.Request('GET', Uri.parse('https://example.test/items')),
     );
+    expect(await live.stream.toBytes(), <int>[1, 2, 3]);
+    await recording.close();
+
+    expect(inner.sendCount, 1);
+
+    inner.responseBody = <int>[9];
+    final replay = await engine.startReplay('active-response');
+    addTearDown(replay.discard);
+    final replayed = await client.send(
+      http.Request('GET', Uri.parse('https://example.test/items')),
+    );
+
+    expect(await replayed.stream.toBytes(), <int>[1, 2, 3]);
+    expect(inner.sendCount, 1);
+  });
+
+  test('records a live client failure and reconstructs it on replay', () async {
+    final requestUri = Uri.parse('https://example.test/failure');
+    final liveFailure =
+        http.ClientException('private live failure', requestUri);
+    inner.failure = liveFailure;
+    final recording = await engine.startRecording('active-failure');
+
+    await expectLater(
+      client.send(http.Request('GET', requestUri)),
+      throwsA(same(liveFailure)),
+    );
+    await recording.close();
+
+    expect(inner.sendCount, 1);
+
+    inner.failure = null;
+    final replay = await engine.startReplay('active-failure');
+    addTearDown(replay.discard);
+    http.ClientException? replayedFailure;
+    try {
+      await client.send(http.Request('GET', requestUri));
+    } on http.ClientException catch (failure) {
+      replayedFailure = failure;
+    }
+
+    expect(replayedFailure, isNotNull);
+    expect(replayedFailure, isNot(same(liveFailure)));
+    expect(replayedFailure?.message, 'The HTTP transport failed.');
+    expect(
+      replayedFailure?.cassetteTransportFailure?.category,
+      TransportFailureCategory.other,
+    );
+    expect(replayedFailure?.cassetteException, isNull);
+    expect(inner.sendCount, 1);
+  });
+
+  test('reports a replay mismatch without inner-client access', () async {
+    final recording = await engine.startRecording('no-match');
+    await client.send(
+      http.Request('GET', Uri.parse('https://example.test/recorded')),
+    );
+    await recording.close();
+    final replay = await engine.startReplay('no-match');
+    addTearDown(replay.discard);
+    http.ClientException? caught;
+
+    try {
+      await client.send(
+        http.Request('GET', Uri.parse('https://example.test/different')),
+      );
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
 
     expect(
-      () => client.send(request),
-      throwsA(
-        isA<StateError>().having(
-          (error) => error.message,
-          'message',
-          'Active package:http cassette execution is not implemented yet.',
-        ),
-      ),
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.noMatchingInteraction,
     );
-
-    expect(inner.sendCount, 0);
-    expect(request.finalized, isFalse);
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.disabled,
+    );
+    expect(inner.sendCount, 1);
   });
 
   test('closes the inner client at most once', () {
@@ -83,10 +149,12 @@ void main() {
 }
 
 final class _StubClient extends http.BaseClient {
-  http.StreamedResponse response = http.StreamedResponse(
-    const Stream<List<int>>.empty(),
-    200,
-  );
+  http.StreamedResponse get response => http.StreamedResponse(
+        Stream<List<int>>.value(responseBody),
+        200,
+      );
+  List<int> responseBody = const <int>[];
+  http.StreamedResponse? lastResponse;
   Object? failure;
   var sendCount = 0;
   http.BaseRequest? request;
@@ -100,7 +168,9 @@ final class _StubClient extends http.BaseClient {
     if (error != null) {
       throw error;
     }
-    return response;
+    final result = response;
+    lastResponse = result;
+    return result;
   }
 
   @override
