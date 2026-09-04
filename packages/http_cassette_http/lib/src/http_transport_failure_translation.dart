@@ -1,6 +1,8 @@
 import 'package:http/http.dart' as http;
 import 'package:http_cassette/http_cassette.dart';
 
+import 'http_client_exception.dart';
+
 /// Translates a recordable `package:http` [failure] to a portable outcome.
 ///
 /// `ClientException` exposes no stable typed cause or failure category, so the
@@ -20,3 +22,12 @@ CassetteTransportFailure translateHttpTransportFailure(
     message: 'The HTTP transport failed.',
   );
 }
+
+/// Reconstructs a portable replay [failure] as an HTTP client exception.
+///
+/// The safe canonical message and exact portable failure remain available,
+/// while the potentially sensitive request URI is deliberately omitted.
+http.ClientException reconstructHttpTransportFailure(
+  CassetteTransportFailure failure,
+) =>
+    wrapHttpTransportFailureForReplay(failure);

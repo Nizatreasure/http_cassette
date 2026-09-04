@@ -37,6 +37,30 @@ Do not start recording or replay with this adapter yet. Until active request
 and response translation is implemented, an active call fails locally and
 does not access the network.
 
+## Failure inspection
+
+The package adds safe inspection getters to `http.ClientException`:
+
+```dart
+try {
+  await client.get(uri);
+} on http.ClientException catch (failure) {
+  final cassetteFailure = failure.cassetteException;
+  final replayedTransportFailure = failure.cassetteTransportFailure;
+}
+```
+
+An ordinary client failure and `RequestAbortedException` return `null` from
+both getters. A cassette-system exception carries its exact safe
+`CassetteException`. A reconstructed transport failure carries its exact
+`CassetteTransportFailure`, including the portable category and safe message.
+The two values are mutually exclusive.
+
+HTTP Cassette-created client exceptions deliberately omit `ClientException.uri`
+because an incoming URL may contain credentials or sensitive query values.
+The currently disconnected active client path does not produce these wrapped
+failures yet.
+
 ## Example
 
 The example demonstrates construction, inactive pass-through and ownership

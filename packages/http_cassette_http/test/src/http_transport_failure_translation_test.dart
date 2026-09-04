@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette_http/http_cassette_http.dart';
 import 'package:http_cassette_http/src/http_transport_failure_translation.dart';
 import 'package:test/test.dart';
 
@@ -46,5 +47,21 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  test('reconstructs every portable category with safe metadata', () {
+    for (final category in TransportFailureCategory.values) {
+      final portable = CassetteTransportFailure(
+        category: category,
+        message: 'Safe replay failure.',
+      );
+
+      final reconstructed = reconstructHttpTransportFailure(portable);
+
+      expect(reconstructed.message, 'Safe replay failure.');
+      expect(reconstructed.uri, isNull);
+      expect(reconstructed.cassetteException, isNull);
+      expect(reconstructed.cassetteTransportFailure, same(portable));
+    }
   });
 }

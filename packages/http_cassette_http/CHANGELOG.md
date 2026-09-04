@@ -19,3 +19,5 @@
   failures to portable transport outcomes while excluding cancellation.
 - Added replay reconstruction of canonical responses as fresh
   `package:http` response streams without invented transport metadata.
+- Added safe public inspection of cassette-system and replayed transport
+  failures carried by `ClientException`, without retaining request URIs.
