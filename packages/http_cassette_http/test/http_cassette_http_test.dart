@@ -9,9 +9,11 @@ void main() {
   late CassetteEngine engine;
   late _StubClient inner;
   late CassetteHttpClient client;
+  late MemoryCassetteStore store;
 
   setUp(() {
-    engine = CassetteEngine(store: MemoryCassetteStore());
+    store = MemoryCassetteStore();
+    engine = CassetteEngine(store: store);
     inner = _StubClient();
     client = CassetteHttpClient(engine, inner: inner);
   });
@@ -140,6 +142,98 @@ void main() {
     expect(inner.sendCount, 1);
   });
 
+  test('pre-aborted replay consumes nothing and never reaches the inner client',
+      () async {
+    final uri = Uri.parse('https://example.test/replay');
+    inner.responseBody = <int>[1, 2, 3];
+    final recording = await engine.startRecording('cancelled-replay');
+    await client.send(http.Request('GET', uri));
+    await recording.close();
+    final replay = await engine.startReplay('cancelled-replay');
+    addTearDown(replay.discard);
+    final trigger = Completer<void>()..complete();
+    final cancelled = http.AbortableStreamedRequest(
+      'GET',
+      uri,
+      abortTrigger: trigger.future,
+    );
+    unawaited(cancelled.sink.close());
+
+    await expectLater(
+      client.send(cancelled),
+      throwsA(isA<http.RequestAbortedException>()),
+    );
+
+    final replayed = await client.send(http.Request('GET', uri));
+    expect(await replayed.stream.toBytes(), <int>[1, 2, 3]);
+    expect(inner.sendCount, 1);
+  });
+
+  test('cancels request buffering before an inner-client call', () async {
+    final trigger = Completer<void>();
+    final request = http.AbortableStreamedRequest(
+      'POST',
+      Uri.parse('https://example.test/upload'),
+      abortTrigger: trigger.future,
+    );
+    final recording = await engine.startRecording('cancelled-buffering');
+    final sending = client.send(request);
+
+    await Future<void>.delayed(Duration.zero);
+    trigger.complete();
+
+    await expectLater(
+      sending,
+      throwsA(isA<http.RequestAbortedException>()),
+    );
+    unawaited(request.sink.close());
+    await recording.discard();
+
+    expect(inner.sendCount, 0);
+    expect(
+      await store.exists(CassetteName('cancelled-buffering')),
+      isFalse,
+    );
+  });
+
+  test('discards a late response after cancellation wins recording', () async {
+    final responseStarted = Completer<void>();
+    final responseController = StreamController<List<int>>(
+      onListen: responseStarted.complete,
+    );
+    addTearDown(responseController.close);
+    inner.responseOverride = http.StreamedResponse(
+      responseController.stream,
+      200,
+    );
+    final trigger = Completer<void>();
+    final request = http.AbortableStreamedRequest(
+      'GET',
+      Uri.parse('https://example.test/slow'),
+      abortTrigger: trigger.future,
+    );
+    unawaited(request.sink.close());
+    final recording = await engine.startRecording('cancelled-response');
+    final sending = client.send(request);
+
+    await responseStarted.future;
+    trigger.complete();
+
+    await expectLater(
+      sending,
+      throwsA(isA<http.RequestAbortedException>()),
+    );
+    responseController.add(<int>[1, 2, 3]);
+    await Future<void>.delayed(Duration.zero);
+    await recording.discard();
+
+    expect(inner.sendCount, 1);
+    expect(
+      await store.exists(CassetteName('cancelled-response')),
+      isFalse,
+    );
+  });
+
   test('closes the inner client at most once', () {
     client.close();
     client.close();
@@ -154,6 +248,7 @@ final class _StubClient extends http.BaseClient {
         200,
       );
   List<int> responseBody = const <int>[];
+  http.StreamedResponse? responseOverride;
   http.StreamedResponse? lastResponse;
   Object? failure;
   var sendCount = 0;
@@ -168,7 +263,7 @@ final class _StubClient extends http.BaseClient {
     if (error != null) {
       throw error;
     }
-    final result = response;
+    final result = responseOverride ?? response;
     lastResponse = result;
     return result;
   }

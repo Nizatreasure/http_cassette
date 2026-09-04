@@ -23,3 +23,5 @@
   failures carried by `ClientException`, without retaining request URIs.
 - Connected active recording and replay through the public core interception
   contract, with one authorised inner-client call and no replay network access.
+- Verified abort ordering before request buffering, replay selection and live
+  response completion, including non-retention of late outcomes.

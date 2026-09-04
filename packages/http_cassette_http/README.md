@@ -49,6 +49,18 @@ await replay.close();
 Replay failures never fall back to the wrapped client. A missing cassette,
 mismatch or exhausted interaction therefore cannot access the network.
 
+## Cancellation
+
+Cancellation is supported for requests implementing `http.Abortable` with a
+non-null `abortTrigger`. The same trigger controls active request buffering,
+the authorised live request, response capture and core selection. Cancellation
+is returned as `RequestAbortedException` and is never recorded as a reusable
+transport outcome.
+
+An ordinary `BaseRequest` has no cancellation signal. Cancelling before replay
+selection consumes no interaction. If cancellation wins during recording, a
+later response is ignored and no interaction is retained.
+
 ## Failure inspection
 
 The package adds safe inspection getters to `http.ClientException`:
