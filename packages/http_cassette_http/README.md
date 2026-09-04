@@ -75,6 +75,24 @@ flag and connection-persistence value. Those transport-only values are not in
 the cassette schema, so replay does not invent them. If the inner client follows
 a redirect, HTTP Cassette records only the final response it observes.
 
+## Bodies and custom clients
+
+Active requests and responses are completely buffered. The defaults are 2 MiB
+for requests and 5 MiB for responses, configured through the core
+`BodyLimits`. A request over its limit fails before the inner client is called.
+A response over its limit fails after one authorised attempt. Content is never
+truncated, and empty streams remain empty.
+
+Chunk boundaries, timing and back-pressure are not replayed. Endless streams,
+server-sent events and bodies above the configured limits are unsupported.
+
+A custom inner client must follow the public `package:http` contract: return a
+valid `StreamedResponse`, use `ClientException` for transport failures, emit
+valid byte values and make abort triggers complete normally. Raw errors,
+failing response streams and invalid abort triggers become safe
+`adapterContractViolation` failures. They are not recorded, and their original
+values are not retained in cassette diagnostics.
+
 ## Failure inspection
 
 The package adds safe inspection getters to `http.ClientException`:

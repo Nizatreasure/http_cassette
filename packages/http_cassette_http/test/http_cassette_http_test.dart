@@ -329,6 +329,252 @@ void main() {
     expect(inner.sendCount, 1);
   });
 
+  test('rejects a declared oversized request before inner-client access',
+      () async {
+    final limitedStore = MemoryCassetteStore();
+    final limitedEngine = CassetteEngine(
+      store: limitedStore,
+      configuration: CassetteConfiguration(
+        bodyLimits: BodyLimits(requestBytes: 2),
+      ),
+    );
+    final limitedInner = _StubClient();
+    final limitedClient = CassetteHttpClient(
+      limitedEngine,
+      inner: limitedInner,
+    );
+    addTearDown(limitedClient.close);
+    final recording = await limitedEngine.startRecording('declared-limit');
+    final request = http.StreamedRequest(
+      'POST',
+      Uri.parse('https://example.test/upload'),
+    )..contentLength = 3;
+    http.ClientException? caught;
+
+    try {
+      await limitedClient.send(request);
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
+    await recording.discard();
+
+    expect(request.finalized, isFalse);
+    expect(limitedInner.sendCount, 0);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.bodyLimitExceeded,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.notAttempted,
+    );
+    expect(
+      await limitedStore.exists(CassetteName('declared-limit')),
+      isFalse,
+    );
+  });
+
+  test('rejects a measured oversized request before inner-client access',
+      () async {
+    final limitedStore = MemoryCassetteStore();
+    final limitedEngine = CassetteEngine(
+      store: limitedStore,
+      configuration: CassetteConfiguration(
+        bodyLimits: BodyLimits(requestBytes: 2),
+      ),
+    );
+    final limitedInner = _StubClient();
+    final limitedClient = CassetteHttpClient(
+      limitedEngine,
+      inner: limitedInner,
+    );
+    addTearDown(limitedClient.close);
+    final recording = await limitedEngine.startRecording('measured-limit');
+    final request = http.StreamedRequest(
+      'POST',
+      Uri.parse('https://example.test/upload'),
+    );
+    request.sink.add(<int>[1, 2, 3]);
+    unawaited(request.sink.close());
+    http.ClientException? caught;
+
+    try {
+      await limitedClient.send(request);
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
+    await recording.discard();
+
+    expect(limitedInner.sendCount, 0);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.bodyLimitExceeded,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.notAttempted,
+    );
+    expect(
+      await limitedStore.exists(CassetteName('measured-limit')),
+      isFalse,
+    );
+  });
+
+  test('rejects an oversized response after one inner-client attempt',
+      () async {
+    final limitedStore = MemoryCassetteStore();
+    final limitedEngine = CassetteEngine(
+      store: limitedStore,
+      configuration: CassetteConfiguration(
+        bodyLimits: BodyLimits(responseBytes: 2),
+      ),
+    );
+    final limitedInner = _StubClient()..responseBody = <int>[1, 2, 3];
+    final limitedClient = CassetteHttpClient(
+      limitedEngine,
+      inner: limitedInner,
+    );
+    addTearDown(limitedClient.close);
+    final recording = await limitedEngine.startRecording('response-limit');
+    http.ClientException? caught;
+
+    try {
+      await limitedClient.send(
+        http.Request('GET', Uri.parse('https://example.test/items')),
+      );
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
+    await recording.discard();
+
+    expect(limitedInner.sendCount, 1);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.bodyLimitExceeded,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.attempted,
+    );
+    expect(
+      await limitedStore.exists(CassetteName('response-limit')),
+      isFalse,
+    );
+  });
+
+  test('records and replays empty request and response streams', () async {
+    inner.responseOverride = http.StreamedResponse(
+      const Stream<List<int>>.empty(),
+      204,
+    );
+    final uri = Uri.parse('https://example.test/empty');
+    final request = http.StreamedRequest('POST', uri);
+    unawaited(request.sink.close());
+    final recording = await engine.startRecording('empty-streams');
+
+    final live = await client.send(request);
+    expect(await live.stream.toBytes(), isEmpty);
+    await recording.close();
+
+    final replay = await engine.startReplay('empty-streams');
+    addTearDown(replay.discard);
+    final replayRequest = http.StreamedRequest('POST', uri);
+    unawaited(replayRequest.sink.close());
+    final replayed = await client.send(replayRequest);
+
+    expect(replayed.statusCode, 204);
+    expect(await replayed.stream.toBytes(), isEmpty);
+    expect(inner.sendCount, 1);
+  });
+
+  test('maps an invalid abort trigger without retaining its value', () async {
+    const secret = 'private abort trigger detail';
+    final trigger = Completer<void>();
+    final request = http.AbortableStreamedRequest(
+      'GET',
+      Uri.parse('https://example.test/invalid-abort'),
+      abortTrigger: trigger.future,
+    );
+    unawaited(request.sink.close());
+    final recording = await engine.startRecording('invalid-abort');
+    trigger.completeError(StateError(secret));
+    http.ClientException? caught;
+
+    try {
+      await client.send(request);
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
+    await recording.discard();
+
+    expect(inner.sendCount, 0);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.adapterContractViolation,
+    );
+    expect(caught.toString(), isNot(contains(secret)));
+    expect(await store.exists(CassetteName('invalid-abort')), isFalse);
+  });
+
+  test('maps an unmapped inner-client error without retaining its value',
+      () async {
+    const secret = 'private custom client error';
+    inner.failure = StateError(secret);
+    final recording = await engine.startRecording('unmapped-client');
+    http.ClientException? caught;
+
+    try {
+      await client.send(
+        http.Request('GET', Uri.parse('https://example.test/unmapped')),
+      );
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
+    await recording.discard();
+
+    expect(inner.sendCount, 1);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.adapterContractViolation,
+    );
+    expect(
+      caught?.cassetteException?.diagnostic.networkAccess,
+      NetworkAccess.attempted,
+    );
+    expect(caught.toString(), isNot(contains(secret)));
+    expect(await store.exists(CassetteName('unmapped-client')), isFalse);
+  });
+
+  test('maps a failing response stream without retaining its value', () async {
+    const secret = 'private response stream error';
+    inner.responseOverride = http.StreamedResponse(
+      Stream<List<int>>.error(StateError(secret)),
+      200,
+    );
+    final recording = await engine.startRecording('failing-response-stream');
+    http.ClientException? caught;
+
+    try {
+      await client.send(
+        http.Request('GET', Uri.parse('https://example.test/stream-failure')),
+      );
+    } on http.ClientException catch (failure) {
+      caught = failure;
+    }
+    await recording.discard();
+
+    expect(inner.sendCount, 1);
+    expect(
+      caught?.cassetteException?.diagnostic.category,
+      DiagnosticCategory.adapterContractViolation,
+    );
+    expect(caught.toString(), isNot(contains(secret)));
+    expect(
+      await store.exists(CassetteName('failing-response-stream')),
+      isFalse,
+    );
+  });
+
   test('closes the inner client at most once', () {
     client.close();
     client.close();

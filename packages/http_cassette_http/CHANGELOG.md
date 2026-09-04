@@ -27,3 +27,5 @@
   response completion, including non-retention of late outcomes.
 - Verified completed error statuses, direct redirect metadata boundaries and
   bodyless JSON-labelled requests across recording and replay.
+- Verified body limits, empty streams and value-free failure handling for
+  invalid abort triggers, custom-client errors and response-stream errors.
