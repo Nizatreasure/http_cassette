@@ -10,6 +10,8 @@ final class TransportEquivalenceFixture {
   static const method = 'POST';
   static const requestBodyText = '{"name":"cassette"}';
   static const responseBodyText = '{"id":1}';
+  static const privateFailureMessage = 'private transport details';
+  static const safeFailureMessage = 'The HTTP transport failed.';
 
   static const requestHeaders = <String, String>{
     'accept': 'application/json',
