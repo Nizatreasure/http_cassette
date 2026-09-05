@@ -4,6 +4,8 @@
 
 - Added an immutable engine activation policy with enabled and fail-closed
   session-start behaviour.
+- Added explicit disabled pass-through sessions which perform no cassette work
+  and leave adapter interception inactive.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.

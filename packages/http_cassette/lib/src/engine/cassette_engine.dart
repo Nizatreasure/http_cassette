@@ -110,7 +110,10 @@ final class CassetteEngine {
     String name, {
     RecordingOptions options = const RecordingOptions(),
   }) async {
-    _ensureActivationAllowed();
+    final disabledSession = _sessionWhenDisabled(name, CassetteMode.record);
+    if (disabledSession != null) {
+      return disabledSession;
+    }
     return _state.startRecording(CassetteName(name), options);
   }
 
@@ -140,7 +143,10 @@ final class CassetteEngine {
     String name, {
     ReplayOptions options = const ReplayOptions(),
   }) async {
-    _ensureActivationAllowed();
+    final disabledSession = _sessionWhenDisabled(name, CassetteMode.replay);
+    if (disabledSession != null) {
+      return disabledSession;
+    }
     final cassetteName = CassetteName(name);
     final reservation = _state.sessions.reserve(CassetteMode.replay);
     late final ReplayCassetteLoadResult result;
@@ -171,19 +177,30 @@ final class CassetteEngine {
     }
   }
 
-  void _ensureActivationAllowed() {
-    if (activationPolicy == CassetteActivationPolicy.enabled) {
-      return;
-    }
-    throw CassetteException(
+  CassetteSession? _sessionWhenDisabled(String name, CassetteMode mode) =>
+      switch (activationPolicy) {
+        CassetteActivationPolicy.enabled => null,
+        CassetteActivationPolicy.disabledWithException =>
+          throw _activationDisabledException(),
+        CassetteActivationPolicy.disabledWithPassThrough =>
+          createCassetteSession(
+            name: CassetteName(name),
+            mode: mode,
+            closeAction: _completeInertSession,
+            discardAction: _completeInertSession,
+          ),
+      };
+}
+
+CassetteException _activationDisabledException() => CassetteException(
       CassetteDiagnostic(
         category: DiagnosticCategory.cassetteActivationDisabled,
         summary: 'HTTP Cassette activation is disabled for this engine.',
         networkAccess: NetworkAccess.notAttempted,
       ),
     );
-  }
-}
+
+Future<void> _completeInertSession() async {}
 
 /// Dependencies and mutable session ownership retained by one engine.
 ///
