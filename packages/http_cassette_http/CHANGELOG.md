@@ -13,6 +13,8 @@
 - Documented the portable cassette contract and transport-specific boundaries.
 - Verified and documented explicit disabled command pass-through to the inner
   `package:http` client.
+- Added end-to-end file-backed create and replay coverage through the public
+  HTTP client wrapper.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.

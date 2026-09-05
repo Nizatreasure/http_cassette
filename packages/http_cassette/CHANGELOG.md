@@ -6,6 +6,8 @@
   session-start behaviour.
 - Added explicit disabled pass-through sessions which perform no cassette work
   and leave adapter interception inactive.
+- Added end-to-end coverage for file-backed cassette creation and network-free
+  replay through a public adapter.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.
