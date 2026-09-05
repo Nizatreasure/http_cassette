@@ -8,6 +8,7 @@ export 'src/adapter/cancellation.dart' show CassetteCancellation;
 export 'src/adapter/interception.dart' show CassetteInterception;
 export 'src/adapter/real_http_attempt.dart' show RealHttpAttempt;
 export 'src/cassette/name.dart';
+export 'src/configuration/activation_policy.dart' show CassetteActivationPolicy;
 export 'src/configuration/body_limits.dart';
 export 'src/configuration/cassette_configuration.dart';
 export 'src/configuration/matching_configuration.dart';

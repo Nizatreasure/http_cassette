@@ -17,6 +17,9 @@ enum DiagnosticCategory {
   /// A session operation conflicts with the current lifecycle state.
   conflictingSessionOperation,
 
+  /// This engine's policy does not permit cassette session activation.
+  cassetteActivationDisabled,
+
   /// An operation requires an active cassette session, but none exists.
   noActiveSession,
 

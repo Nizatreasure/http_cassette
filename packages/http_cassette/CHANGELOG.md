@@ -2,6 +2,8 @@
 
 ## 0.1.0
 
+- Added an immutable engine activation policy with enabled and fail-closed
+  session-start behaviour.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.

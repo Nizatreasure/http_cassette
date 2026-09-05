@@ -4,6 +4,7 @@ import '../adapter/cancellation.dart';
 import '../adapter/interception.dart';
 import '../adapter/real_http_attempt.dart';
 import '../cassette/name.dart';
+import '../configuration/activation_policy.dart';
 import '../configuration/cassette_configuration.dart';
 import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
@@ -39,17 +40,23 @@ final class CassetteEngine {
   factory CassetteEngine({
     required CassetteStore store,
     CassetteConfiguration? configuration,
+    CassetteActivationPolicy activationPolicy =
+        CassetteActivationPolicy.enabled,
   }) =>
       CassetteEngine._(
         EngineState(
           store: store,
           configuration: configuration ?? CassetteConfiguration(),
         ),
+        activationPolicy,
       );
 
-  const CassetteEngine._(this._state);
+  const CassetteEngine._(this._state, this.activationPolicy);
 
   final EngineState _state;
+
+  /// The immutable policy controlling whether this engine may start sessions.
+  final CassetteActivationPolicy activationPolicy;
 
   /// Whether this engine owns a pending, active or uncertain session.
   bool get isActive => _state.sessions.isActive;
@@ -102,8 +109,10 @@ final class CassetteEngine {
   Future<CassetteSession> startRecording(
     String name, {
     RecordingOptions options = const RecordingOptions(),
-  }) =>
-      _state.startRecording(CassetteName(name), options);
+  }) async {
+    _ensureActivationAllowed();
+    return _state.startRecording(CassetteName(name), options);
+  }
 
   /// Runs [action] within an explicit replay session named [name].
   ///
@@ -131,6 +140,7 @@ final class CassetteEngine {
     String name, {
     ReplayOptions options = const ReplayOptions(),
   }) async {
+    _ensureActivationAllowed();
     final cassetteName = CassetteName(name);
     final reservation = _state.sessions.reserve(CassetteMode.replay);
     late final ReplayCassetteLoadResult result;
@@ -159,6 +169,19 @@ final class CassetteEngine {
           discardAction: _state.completeReplayLifecycleOnly,
         );
     }
+  }
+
+  void _ensureActivationAllowed() {
+    if (activationPolicy == CassetteActivationPolicy.enabled) {
+      return;
+    }
+    throw CassetteException(
+      CassetteDiagnostic(
+        category: DiagnosticCategory.cassetteActivationDisabled,
+        summary: 'HTTP Cassette activation is disabled for this engine.',
+        networkAccess: NetworkAccess.notAttempted,
+      ),
+    );
   }
 }
 
