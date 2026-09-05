@@ -1,10 +1,11 @@
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
 import 'package:http_cassette/file.dart';
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette_http/http_cassette_http.dart';
 import 'package:test/test.dart';
+
+import '../support/synthetic_http_transport.dart';
 
 void main() {
   test('creates and replays a file-backed cassette without replay transport',
@@ -19,7 +20,7 @@ void main() {
     });
     final store = FileCassetteStore(root);
     final engine = CassetteEngine(store: store);
-    final transport = _SyntheticTransport('recorded response');
+    final transport = SyntheticHttpTransport('recorded response');
     final client = CassetteHttpClient(engine, inner: transport);
     addTearDown(client.close);
     final uri = Uri.parse('https://example.test/workflows/create');
@@ -48,23 +49,4 @@ void main() {
     expect(replayed.body, 'recorded response');
     expect(transport.sendCount, 1);
   });
-}
-
-final class _SyntheticTransport extends http.BaseClient {
-  _SyntheticTransport(this.responseBody);
-
-  String responseBody;
-  var sendCount = 0;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    sendCount += 1;
-    return http.StreamedResponse(
-      Stream<List<int>>.value(responseBody.codeUnits),
-      201,
-      request: request,
-      reasonPhrase: 'Created',
-      headers: const <String, String>{'content-type': 'text/plain'},
-    );
-  }
 }

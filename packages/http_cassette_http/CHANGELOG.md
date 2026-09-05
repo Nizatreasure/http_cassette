@@ -15,6 +15,8 @@
   `package:http` client.
 - Added end-to-end file-backed create and replay coverage through the public
   HTTP client wrapper.
+- Added end-to-end file-backed replacement coverage through the public HTTP
+  client wrapper.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.
