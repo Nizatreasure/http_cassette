@@ -49,6 +49,27 @@ await replay.close();
 Replay failures never fall back to the wrapped client. A missing cassette,
 mismatch or exhausted interaction therefore cannot access the network.
 
+## Disabling cassette commands
+
+`CassetteHttpClient` does not need to be removed when cassette behaviour must be
+disabled. Configure the shared engine once:
+
+```dart
+final engine = CassetteEngine(
+  store: store,
+  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
+);
+```
+
+`disabledWithException` rejects recording and replay commands before store or
+transport work. `disabledWithPassThrough` returns inert sessions and leaves the
+engine inactive, so requests reach the inner client normally and no cassette
+is read or changed.
+
+> Under `disabledWithPassThrough`, even a replay command permits real network
+> access because no active replay session is created. The ordinary guarantee
+> that an active replay never reaches the network remains unchanged.
+
 ## Cassette portability
 
 `package:http` and Dio use the same canonical cassette format. Contract tests

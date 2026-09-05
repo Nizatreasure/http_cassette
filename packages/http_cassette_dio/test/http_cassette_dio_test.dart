@@ -95,6 +95,36 @@ void main() {
     expect(caught, same(inner.failure));
   });
 
+  test('passes through a disabled replay command to the wrapped adapter',
+      () async {
+    final disabledStore = MemoryCassetteStore();
+    final disabledEngine = CassetteEngine(
+      store: disabledStore,
+      activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
+    );
+    final disabledInner = _StubHttpClientAdapter()
+      ..response = ResponseBody.fromString('production response', 200);
+    final disabledDio = Dio()..httpClientAdapter = disabledInner;
+    addTearDown(() => disabledDio.close(force: true));
+    disabledDio.installHttpCassette(disabledEngine);
+
+    final response = await disabledEngine.replay<String>(
+      'disabled/replay',
+      () async => (await disabledDio.get<String>(
+        'https://example.test/production',
+      ))
+          .data!,
+    );
+
+    expect(response, 'production response');
+    expect(disabledInner.fetchCount, 1);
+    expect(disabledEngine.isActive, isFalse);
+    expect(
+      await disabledStore.exists(CassetteName('disabled/replay')),
+      isFalse,
+    );
+  });
+
   test('records one live response and replays it without network access',
       () async {
     inner.response = ResponseBody.fromString(

@@ -1,12 +1,12 @@
 # http_cassette
 
-`http_cassette` is the planned transport-neutral core of HTTP Cassette, a Dart
+`http_cassette` is the transport-neutral core of HTTP Cassette, a Dart
 package family for recording and replaying HTTP interactions in tests.
 
 This package is under active development. Its transport-neutral core can now
 record and replay canonical HTTP interactions through the public adapter
-contract. The Dio and `package:http` adapters are not implemented yet, so it is
-not ready for ordinary client traffic.
+contract. Official Dio and `package:http` adapters are implemented, but the
+package family is not yet ready for publication.
 
 ## Installation
 
@@ -14,6 +14,32 @@ The package is not ready for use or publication. During development in this
 workspace, it can be resolved with `dart pub get` from the repository root.
 
 ## Current API
+
+### Engine activation
+
+Each engine has one immutable `CassetteActivationPolicy`. The default is
+`enabled`, which preserves normal recording and replay behaviour.
+
+`disabledWithException` rejects recording and replay commands before store or
+transport work. It is useful when an environment must expose accidental
+cassette commands.
+
+`disabledWithPassThrough` returns detached inert sessions. Scoped callbacks
+still run, the engine remains inactive and installed adapters use their normal
+wrapped transports. No cassette is read, created, matched, sanitised or
+changed. Inert sessions retain logical-name validation and support idempotent
+close and discard.
+
+```dart
+final engine = CassetteEngine(
+  store: store,
+  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
+);
+```
+
+> `disabledWithPassThrough` permits real network access even when code calls
+> `startReplay()` or `replay()`. It does not create an active replay session.
+> Select it deliberately for environments where ordinary traffic must continue.
 
 `CassetteName` validates portable slash-separated logical names. Stores will own
 the physical path and `.json` suffix:

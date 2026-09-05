@@ -97,6 +97,27 @@ Replay never calls it, including when the cassette is missing, unmatched or
 exhausted. Discard a recording instead of closing it when its captured outcome
 is not the scenario you intended to keep.
 
+### Disabling cassette commands
+
+The installed Dio adapter does not need to be removed when cassette behaviour
+must be disabled. Configure the shared engine once:
+
+```dart
+final engine = CassetteEngine(
+  store: store,
+  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
+);
+```
+
+`disabledWithException` rejects recording and replay commands before store or
+transport work. `disabledWithPassThrough` returns inert sessions and leaves the
+engine inactive, so Dio delegates requests to its wrapped adapter normally and
+no cassette is read or changed.
+
+> Under `disabledWithPassThrough`, even a replay command permits real network
+> access because no active replay session is created. The ordinary guarantee
+> that an active replay never reaches the network remains unchanged.
+
 ## Cassette portability
 
 Dio and `package:http` use the same canonical cassette format. Contract tests

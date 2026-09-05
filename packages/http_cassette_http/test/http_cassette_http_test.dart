@@ -53,6 +53,38 @@ void main() {
     expect(request.finalized, isFalse);
   });
 
+  test('passes through a disabled replay command to the inner client',
+      () async {
+    final disabledStore = MemoryCassetteStore();
+    final disabledEngine = CassetteEngine(
+      store: disabledStore,
+      activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
+    );
+    final disabledInner = _StubClient()
+      ..responseBody = 'production response'.codeUnits;
+    final disabledClient = CassetteHttpClient(
+      disabledEngine,
+      inner: disabledInner,
+    );
+    addTearDown(disabledClient.close);
+
+    final response = await disabledEngine.replay<String>(
+      'disabled/replay',
+      () async => (await disabledClient.get(
+        Uri.parse('https://example.test/production'),
+      ))
+          .body,
+    );
+
+    expect(response, 'production response');
+    expect(disabledInner.sendCount, 1);
+    expect(disabledEngine.isActive, isFalse);
+    expect(
+      await disabledStore.exists(CassetteName('disabled/replay')),
+      isFalse,
+    );
+  });
+
   test('records one live response and replays without inner-client access',
       () async {
     inner.responseBody = <int>[1, 2, 3];
