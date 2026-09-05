@@ -54,9 +54,63 @@ void main() {
       isNot(contains(TransportEquivalenceFixture.privateFailureMessage)),
     );
   });
+
+  test('replays a Dio recording through package:http without transport',
+      () async {
+    final snapshot = await _recordDioSnapshot();
+    final store = MemoryCassetteStore();
+    await store.create(CassetteName('equivalence/request'), snapshot.bytes);
+    final engine = CassetteEngine(store: store);
+    final inner = _HttpTransport();
+    final client = CassetteHttpClient(engine, inner: inner);
+    final replay = await engine.startReplay('equivalence/request');
+
+    final response = await client.send(_httpRequest());
+    final body = await response.stream.toBytes();
+    await replay.close();
+    client.close();
+
+    expect(response.statusCode, 200);
+    expect(response.headers, TransportEquivalenceFixture.responseHeaders);
+    expect(body, TransportEquivalenceFixture.responseBody);
+    expect(inner.sendCount, 0);
+  });
+
+  test('replays a package:http recording through Dio without transport',
+      () async {
+    final snapshot = await _recordHttpSnapshot();
+    final store = MemoryCassetteStore();
+    await store.create(CassetteName('equivalence/request'), snapshot.bytes);
+    final engine = CassetteEngine(store: store);
+    final inner = _DioTransport();
+    final adapter = CassetteHttpClientAdapter(engine: engine, inner: inner);
+    final replay = await engine.startReplay('equivalence/request');
+
+    final response = await adapter.fetch(
+      _dioRequestOptions(),
+      _dioRequestStream(),
+      null,
+    );
+    final body = await response.stream.expand((chunk) => chunk).toList();
+    await replay.close();
+    adapter.close(force: true);
+
+    expect(response.statusCode, 200);
+    expect(
+      response.headers['content-type'],
+      <String>['application/json'],
+    );
+    expect(body, TransportEquivalenceFixture.responseBody);
+    expect(inner.fetchCount, 0);
+  });
 }
 
-Future<Map<String, Object?>> _recordDioInteraction() async {
+Future<Map<String, Object?>> _recordDioInteraction() async =>
+    TransportEquivalenceFixture.recordedInteraction(
+      await _recordDioSnapshot(),
+    );
+
+Future<CassetteSnapshot> _recordDioSnapshot() async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(store: store);
   final inner = _DioTransport();
@@ -64,42 +118,32 @@ Future<Map<String, Object?>> _recordDioInteraction() async {
   final recording = await engine.startRecording('equivalence/request');
 
   await adapter.fetch(
-    RequestOptions(
-      path: TransportEquivalenceFixture.uri.toString(),
-      method: TransportEquivalenceFixture.method,
-      headers: TransportEquivalenceFixture.requestHeaders,
-    ),
-    Stream<Uint8List>.value(
-      Uint8List.fromList(TransportEquivalenceFixture.requestBody),
-    ),
+    _dioRequestOptions(),
+    _dioRequestStream(),
     null,
   );
   await recording.close();
   adapter.close(force: true);
 
-  final snapshot = await store.read(CassetteName('equivalence/request'));
-  return TransportEquivalenceFixture.recordedInteraction(snapshot);
+  return store.read(CassetteName('equivalence/request'));
 }
 
-Future<Map<String, Object?>> _recordHttpInteraction() async {
+Future<Map<String, Object?>> _recordHttpInteraction() async =>
+    TransportEquivalenceFixture.recordedInteraction(
+      await _recordHttpSnapshot(),
+    );
+
+Future<CassetteSnapshot> _recordHttpSnapshot() async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(store: store);
   final client = CassetteHttpClient(engine, inner: _HttpTransport());
   final recording = await engine.startRecording('equivalence/request');
-  final request = http.Request(
-    TransportEquivalenceFixture.method,
-    TransportEquivalenceFixture.uri,
-  )
-    ..headers.addAll(TransportEquivalenceFixture.requestHeaders)
-    ..bodyBytes = TransportEquivalenceFixture.requestBody;
-
-  final response = await client.send(request);
+  final response = await client.send(_httpRequest());
   await response.stream.drain<void>();
   await recording.close();
   client.close();
 
-  final snapshot = await store.read(CassetteName('equivalence/request'));
-  return TransportEquivalenceFixture.recordedInteraction(snapshot);
+  return store.read(CassetteName('equivalence/request'));
 }
 
 Future<Map<String, Object?>> _recordDioFailureInteraction() async {
@@ -113,14 +157,8 @@ Future<Map<String, Object?>> _recordDioFailureInteraction() async {
 
   await expectLater(
     adapter.fetch(
-      RequestOptions(
-        path: TransportEquivalenceFixture.uri.toString(),
-        method: TransportEquivalenceFixture.method,
-        headers: TransportEquivalenceFixture.requestHeaders,
-      ),
-      Stream<Uint8List>.value(
-        Uint8List.fromList(TransportEquivalenceFixture.requestBody),
-      ),
+      _dioRequestOptions(),
+      _dioRequestStream(),
       null,
     ),
     throwsA(isA<DioException>()),
@@ -137,14 +175,10 @@ Future<Map<String, Object?>> _recordHttpFailureInteraction() async {
   final engine = CassetteEngine(store: store);
   final client = CassetteHttpClient(engine, inner: _FailingHttpTransport());
   final recording = await engine.startRecording('equivalence/failure');
-  final request = http.Request(
-    TransportEquivalenceFixture.method,
-    TransportEquivalenceFixture.uri,
-  )
-    ..headers.addAll(TransportEquivalenceFixture.requestHeaders)
-    ..bodyBytes = TransportEquivalenceFixture.requestBody;
-
-  await expectLater(client.send(request), throwsA(isA<http.ClientException>()));
+  await expectLater(
+    client.send(_httpRequest()),
+    throwsA(isA<http.ClientException>()),
+  );
   await recording.close();
   client.close();
 
@@ -152,13 +186,33 @@ Future<Map<String, Object?>> _recordHttpFailureInteraction() async {
   return TransportEquivalenceFixture.recordedInteraction(snapshot);
 }
 
+RequestOptions _dioRequestOptions() => RequestOptions(
+      path: TransportEquivalenceFixture.uri.toString(),
+      method: TransportEquivalenceFixture.method,
+      headers: TransportEquivalenceFixture.requestHeaders,
+    );
+
+Stream<Uint8List> _dioRequestStream() => Stream<Uint8List>.value(
+      Uint8List.fromList(TransportEquivalenceFixture.requestBody),
+    );
+
+http.Request _httpRequest() => http.Request(
+      TransportEquivalenceFixture.method,
+      TransportEquivalenceFixture.uri,
+    )
+      ..headers.addAll(TransportEquivalenceFixture.requestHeaders)
+      ..bodyBytes = TransportEquivalenceFixture.requestBody;
+
 final class _DioTransport implements HttpClientAdapter {
+  var fetchCount = 0;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    fetchCount += 1;
     await requestStream?.drain<void>();
     return ResponseBody.fromBytes(
       TransportEquivalenceFixture.responseBody,
@@ -175,8 +229,11 @@ final class _DioTransport implements HttpClientAdapter {
 }
 
 final class _HttpTransport extends http.BaseClient {
+  var sendCount = 0;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    sendCount += 1;
     await request.finalize().drain<void>();
     return http.StreamedResponse(
       Stream<List<int>>.value(TransportEquivalenceFixture.responseBody),

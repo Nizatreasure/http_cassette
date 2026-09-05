@@ -8,6 +8,8 @@
   persisted outcome through both official adapters.
 - Verified common portable transport-failure equivalence without retaining
   private client failure details.
+- Verified that cassettes recorded through either official adapter replay
+  through the other without transport access.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.
