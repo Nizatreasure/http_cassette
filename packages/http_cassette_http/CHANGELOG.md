@@ -10,6 +10,7 @@
   private client failure details.
 - Verified that cassettes recorded through either official adapter replay
   through the other without transport access.
+- Documented the portable cassette contract and transport-specific boundaries.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.

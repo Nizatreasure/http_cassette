@@ -10,6 +10,7 @@
   private client failure details.
 - Verified that cassettes recorded through either official adapter replay
   through the other without transport access.
+- Documented the portable cassette contract and transport-specific boundaries.
 - Supported recording bodyless requests that carry a JSON content type.
 - Added the public Dio transport-adapter wrapper, one-call installation and
   inactive request pass-through.

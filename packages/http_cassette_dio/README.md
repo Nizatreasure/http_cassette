@@ -97,6 +97,22 @@ Replay never calls it, including when the cassette is missing, unmatched or
 exhausted. Discard a recording instead of closing it when its captured outcome
 is not the scenario you intended to keep.
 
+## Cassette portability
+
+Dio and `package:http` use the same canonical cassette format. Contract tests
+verify equivalent basic requests, successful responses and common portable
+transport failures. A successful Dio recording can therefore replay through
+the official `package:http` adapter, and the reverse direction also works,
+without contacting the receiving transport.
+
+The cassette preserves canonical HTTP values, not every Dio value. It does not
+store progress, stream chunks or timing, redirect history, connection state,
+request `extra` or other transport-specific options. Portability is also
+limited by the receiving client: `package:http`, for example, cannot represent
+repeated request-header field lines separately. Transport failure categories
+remain available as portable cassette data, but each adapter reconstructs the
+closest failure its client supports.
+
 Caller cancellation is never stored as a reusable interaction. Cancellation
 before replay selection consumes nothing. During recording, Dio's original
 cancellation future still reaches the wrapped adapter; if cancellation wins the

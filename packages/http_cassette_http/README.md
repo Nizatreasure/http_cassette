@@ -49,6 +49,21 @@ await replay.close();
 Replay failures never fall back to the wrapped client. A missing cassette,
 mismatch or exhausted interaction therefore cannot access the network.
 
+## Cassette portability
+
+`package:http` and Dio use the same canonical cassette format. Contract tests
+verify equivalent basic requests, successful responses and common portable
+transport failures. A successful recording made through either official
+adapter can replay through the other without contacting its wrapped transport.
+
+The cassette preserves canonical HTTP values, not every client-specific value.
+It does not store stream chunks or timing, redirect history, connection state,
+Dio `extra` or custom `BaseRequest` state. Transport failure categories remain
+available as portable cassette data, but each adapter reconstructs the closest
+failure its client supports. Because `package:http` exposes one string per
+request header, it cannot preserve earlier repeated request-header field lines
+as separate canonical values.
+
 ## Client composition
 
 Place request-changing middleware outside `CassetteHttpClient` when its changes
