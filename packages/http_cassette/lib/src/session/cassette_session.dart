@@ -5,9 +5,9 @@ import 'session_lifecycle.dart';
 
 /// A handle to one active cassette operation.
 ///
-/// Sessions are created by a cassette engine in a later implementation stage.
-/// Closing or discarding may perform asynchronous completion work supplied by
-/// the engine.
+/// A [CassetteEngine] creates this handle after recording or replay startup
+/// succeeds. Use [close] to complete the operation or [discard] to abandon its
+/// pending completion work.
 final class CassetteSession {
   CassetteSession._({
     required CassetteName name,
@@ -37,11 +37,13 @@ final class CassetteSession {
   /// This remains false when completion fails and leaves an uncertain state.
   bool get isClosed => _lifecycle.isClosed;
 
-  /// Completes this session successfully.
+  /// Completes this recording or replay session.
   ///
-  /// Create and replacement recording sessions commit their complete cassette.
-  /// Append commit and replay verification are connected in later stages.
-  /// Concurrent completion or completion after a failure throws a
+  /// Recording close writes the complete sanitised cassette. Append close keeps
+  /// the existing interactions and conditionally replaces the original file.
+  /// Replay close performs unused-interaction verification when configured.
+  /// Repeated close after successful completion is harmless. Concurrent
+  /// completion, or completion after a failed close or discard, throws a
   /// [CassetteException].
   Future<void> close() async {
     if (_lifecycle.startClose() == SessionLifecycleStart.alreadyClosed) {
@@ -57,10 +59,12 @@ final class CassetteSession {
     _completionSucceeded();
   }
 
-  /// Abandons pending successful-completion work and closes this session.
+  /// Ends this session without running its successful completion work.
   ///
-  /// Concurrent completion or completion after a failure throws a
-  /// [CassetteException]. Recording discard performs no cassette write.
+  /// Recording discard performs no cassette write. Replay discard skips
+  /// unused-interaction verification. Repeated discard after successful
+  /// completion is harmless. Concurrent completion, or completion after a
+  /// failed close or discard, throws a [CassetteException].
   Future<void> discard() async {
     if (_lifecycle.startDiscard() == SessionLifecycleStart.alreadyClosed) {
       return;
@@ -76,10 +80,10 @@ final class CassetteSession {
   }
 }
 
-/// Creates a session for internal engine composition.
+/// Creates a session with validated identity and supplied completion actions.
 ///
-/// This function is deliberately not exported from the package's public
-/// library. [name] is already validated before lifecycle state is created.
+/// [closeAction] performs successful completion work, while [discardAction]
+/// abandons it. [completionSucceeded] runs after either action succeeds.
 CassetteSession createCassetteSession({
   required CassetteName name,
   required CassetteMode mode,

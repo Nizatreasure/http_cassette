@@ -1,7 +1,4 @@
 /// How a recording session handles its target cassette.
-///
-/// This value configures later recording behaviour. It does not inspect or
-/// modify a cassette by itself.
 enum ExistingCassette {
   /// Fail when the target cassette already exists.
   fail,
@@ -9,7 +6,7 @@ enum ExistingCassette {
   /// Replace an existing target when the recording closes successfully.
   replace,
 
-  /// Append to a valid target using the current writable schema version.
+  /// Keep a valid current-version target and add newly recorded interactions.
   append,
 }
 
@@ -23,7 +20,9 @@ final class RecordingOptions {
     this.existingCassette = ExistingCassette.fail,
   });
 
-  /// The requested handling of the target cassette.
+  /// How recording handles a cassette which already exists at the target name.
+  ///
+  /// The target name is supplied when starting the recording operation.
   final ExistingCassette existingCassette;
 
   @override

@@ -1,13 +1,12 @@
 /// Immutable limits for buffered canonical HTTP bodies.
 ///
-/// The defaults reflect measured memory amplification during canonical body
-/// processing. This value only describes limits; adapters and the core enforce
-/// them when buffering is implemented.
+/// Active adapters enforce the request limit before a real attempt and the
+/// response limit while capturing its outcome. Content which exceeds a limit
+/// fails instead of being truncated.
 final class BodyLimits {
   /// Creates validated request and response body limits.
   ///
-  /// Both limits are measured in bytes and must be positive. Larger bodies
-  /// require an explicit override.
+  /// Both limits are measured in bytes and must be positive.
   factory BodyLimits({
     int requestBytes = defaultRequestBytes,
     int responseBytes = defaultResponseBytes,

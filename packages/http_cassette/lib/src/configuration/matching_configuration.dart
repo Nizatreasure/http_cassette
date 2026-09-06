@@ -3,13 +3,17 @@ import '../matching/exclusions.dart';
 import '../matching/header_names.dart';
 import '../safety/safe_text.dart';
 
-/// Immutable configuration for built-in request matching.
+/// Configures how incoming requests match recorded interactions.
 abstract final class MatchingConfiguration {
   /// Creates validated matching configuration.
   ///
-  /// Method, URI and non-empty-body matching cannot be disabled. Header names
-  /// use the HTTP token grammar. Query names and JSON Pointers follow the
-  /// validation rules described by [MatchingExclusions].
+  /// Method, URI and non-empty-body matching are always active. Headers are
+  /// included only when named here. Query names and exact JSON Pointers listed
+  /// here keep their structure but ignore their values. Custom components add
+  /// comparisons after the built-in components.
+  ///
+  /// Header names must use the HTTP token grammar. JSON Pointers must use RFC
+  /// 6901 syntax. Custom component names must be unique safe single-line text.
   factory MatchingConfiguration({
     Iterable<String> includedHeaders = const <String>[],
     Iterable<String> ignoredQueryParameters = const <String>[],
@@ -32,19 +36,19 @@ abstract final class MatchingConfiguration {
     );
   }
 
-  /// An empty configuration using only the fixed default matcher components.
+  /// The default method, URI and non-empty-body matcher configuration.
   static final defaults = MatchingConfiguration();
 
   /// Canonical lower-case header names included in matching.
   Set<String> get includedHeaders;
 
-  /// Query parameter names whose values are ignored.
+  /// Normalised query parameter names whose values are ignored.
   Set<String> get ignoredQueryParameters;
 
   /// Exact RFC 6901 JSON Pointers whose values are ignored.
   Set<String> get ignoredJsonPointers;
 
-  /// Additive matcher components in deterministic registration order.
+  /// Extra matcher components in their deterministic execution order.
   List<RequestMatcherComponent> get customComponents;
 }
 

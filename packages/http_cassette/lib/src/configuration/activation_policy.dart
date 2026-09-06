@@ -1,11 +1,14 @@
-/// Controls whether one cassette engine may start sessions.
+/// Controls whether a cassette engine accepts recording and replay commands.
 enum CassetteActivationPolicy {
-  /// Recording and replay commands operate normally.
+  /// Starts ordinary recording and replay sessions.
   enabled,
 
-  /// Recording and replay commands fail before cassette or transport work.
+  /// Rejects session commands before cassette or transport work begins.
   disabledWithException,
 
-  /// Commands return inert sessions while normal transport traffic passes.
+  /// Returns inert sessions and leaves installed adapters in pass-through mode.
+  ///
+  /// No cassette is read or changed. Because the engine remains inactive,
+  /// transport requests may access the network normally.
   disabledWithPassThrough,
 }

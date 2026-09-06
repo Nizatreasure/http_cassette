@@ -1,7 +1,4 @@
 /// The strategy used to select from matching recorded interactions.
-///
-/// This value configures later replay behaviour. It does not itself select or
-/// consume interactions.
 enum ReplayPolicy {
   /// Consume each matching interaction once in recorded order.
   strict,
@@ -24,8 +21,8 @@ final class ReplayOptions {
   /// Creates replay options.
   ///
   /// A null [policy] uses the engine configuration's default.
-  /// [requireAllInteractions] controls successful-close verification once
-  /// replay execution is connected.
+  /// When [requireAllInteractions] is true, successful session close fails if
+  /// any recorded interaction was not used.
   const ReplayOptions({
     this.policy,
     this.requireAllInteractions = false,
@@ -34,7 +31,7 @@ final class ReplayOptions {
   /// The session policy override, or null to use the engine default.
   final ReplayPolicy? policy;
 
-  /// Whether successful session close must verify that every interaction ran.
+  /// Whether successful close requires every recorded interaction to be used.
   final bool requireAllInteractions;
 
   @override

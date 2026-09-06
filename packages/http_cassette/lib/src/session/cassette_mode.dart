@@ -2,9 +2,9 @@
 ///
 /// Recording and replay are never inferred from the environment.
 enum CassetteMode {
-  /// Identify an explicit recording operation.
+  /// An operation which captures real HTTP outcomes for persistence.
   record,
 
-  /// Identify an explicit replay operation.
+  /// An operation which returns persisted outcomes without network access.
   replay,
 }

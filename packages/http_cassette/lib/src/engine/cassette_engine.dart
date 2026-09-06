@@ -29,14 +29,15 @@ import 'session_ownership.dart';
 
 /// Coordinates cassette sessions independently of any HTTP transport.
 ///
-/// The current engine retains recording state and executes replay internally,
-/// but does not yet expose transport interception. Recording persistence is
-/// connected, while transport capture remains a later stage.
+/// One engine owns one store, one immutable configuration and at most one
+/// pending, active or uncertain session. HTTP client adapters use
+/// [beginInterception] to connect transport traffic to that session.
 final class CassetteEngine {
   /// Creates an inactive engine backed by [store].
   ///
   /// Omitting [configuration] uses secure matching and sanitisation defaults,
-  /// measured body limits and strict replay selection.
+  /// measured body limits and strict replay selection. [activationPolicy]
+  /// controls whether recording and replay commands may activate the engine.
   factory CassetteEngine({
     required CassetteStore store,
     CassetteConfiguration? configuration,
@@ -66,10 +67,12 @@ final class CassetteEngine {
 
   /// Begins one immutable adapter interception decision.
   ///
-  /// When this engine is inactive, the returned permit tells an adapter to
-  /// pass through without canonical buffering. An active permit pins the exact
-  /// prepared session and exposes its body limits. Request execution is
-  /// connected in a later stage.
+  /// An inactive permit tells an adapter to pass the original transport request
+  /// through without canonical buffering. An active permit pins the current
+  /// session, exposes its body limits and may execute one canonical request.
+  ///
+  /// Throws [StateError] when session startup is pending and no completed
+  /// session can be pinned safely.
   CassetteInterception beginInterception() {
     final session = activeSession;
     if (session != null) {
@@ -104,8 +107,13 @@ final class CassetteEngine {
 
   /// Starts a recording session named [name].
   ///
-  /// Default create and explicit replacement first check whether the target
-  /// has the required existence state. No cassette is written at startup.
+  /// The [options] determine whether an existing target is rejected, replaced
+  /// or appended. Startup validates the required target state but writes
+  /// nothing. The returned session collects interactions until it is closed or
+  /// discarded.
+  ///
+  /// Throws [CassetteException] when activation is disabled, another session
+  /// owns the engine, or cassette preparation fails.
   Future<CassetteSession> startRecording(
     String name, {
     RecordingOptions options = const RecordingOptions(),
@@ -136,9 +144,11 @@ final class CassetteEngine {
   /// Loads and starts a replay session named [name].
   ///
   /// The complete cassette is read and validated before [activeSession]
-  /// exposes the returned session. A loading failure leaves the engine
-  /// inactive and throws a safe [CassetteException]. Request interception is
-  /// not implemented yet.
+  /// exposes the returned session. [options] may override replay selection and
+  /// require every interaction to be used before successful close.
+  ///
+  /// A loading failure leaves the engine inactive and throws a safe
+  /// [CassetteException].
   Future<CassetteSession> startReplay(
     String name, {
     ReplayOptions options = const ReplayOptions(),
@@ -202,14 +212,12 @@ CassetteException _activationDisabledException() => CassetteException(
 
 Future<void> _completeInertSession() async {}
 
-/// Dependencies and mutable session ownership retained by one engine.
-///
-/// This internal value is not exported from the package's public library.
+/// Holds the dependencies and mutable session state owned by one engine.
 final class EngineState {
   /// Creates state retaining the engine's [store] and [configuration].
   EngineState({required this.store, required this.configuration});
 
-  /// The store used by later loading and persistence stages.
+  /// The store used to load and commit cassettes.
   final CassetteStore store;
 
   /// Immutable shared engine configuration.
@@ -313,8 +321,8 @@ final class EngineState {
 
   /// Resolves [request] through the currently active replay session.
   ///
-  /// This internal operation has no real-transport callback. Calling it while
-  /// no replay session is active throws a safe lifecycle exception.
+  /// Replay has no real-transport callback. Calling this method without an
+  /// active replay session throws a safe lifecycle exception.
   CassetteOutcome executeActiveReplayRequest(
     CassetteRequest request, {
     CassetteCancellation? cancellation,

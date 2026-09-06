@@ -1,7 +1,8 @@
-/// Transport-neutral foundations for HTTP recording and replay.
+/// Transport-neutral HTTP recording and replay.
 ///
-/// Recording and replay are not implemented yet. The current API provides the
-/// structured diagnostic foundations used by later behaviour.
+/// Provides cassette sessions, canonical HTTP models, matching, sanitisation,
+/// replay policies, diagnostics, in-memory storage and the public contract used
+/// by HTTP client adapters.
 library;
 
 export 'src/adapter/cancellation.dart' show CassetteCancellation;
