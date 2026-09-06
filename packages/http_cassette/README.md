@@ -1,34 +1,252 @@
 # http_cassette
 
-`http_cassette` is the transport-neutral core of HTTP Cassette, a Dart
-package family for recording and replaying HTTP interactions in tests.
+`http_cassette` is the transport-neutral core of HTTP Cassette. It records canonical HTTP interactions, stores them as deterministic JSON, and replays them without network access.
 
-This package is under active development. Its transport-neutral core can now
-record and replay canonical HTTP interactions through the public adapter
-contract. Official Dio and `package:http` adapters are implemented, but the
-package family is not yet ready for publication.
+The package owns cassette sessions, matching, replay policy, sanitisation, diagnostics, and storage. It does not depend on `dio`, `http`, Flutter, or any application framework.
+
+Most applications should use this package with [`http_cassette_dio`](https://pub.dev/packages/http_cassette_dio) or [`http_cassette_http`](https://pub.dev/packages/http_cassette_http). Use the core directly when implementing a custom transport adapter or custom cassette store.
+
+## Features
+
+- Explicit recording and replay sessions.
+- Deterministic request matching and replay selection.
+- Secure-default request and response sanitisation.
+- Human-readable, versioned JSON cassettes.
+- In-memory and file-backed storage.
+- Structured, value-safe diagnostics.
+- Portable canonical requests, responses, and transport failures.
+- Public contracts for custom HTTP adapters, matchers, sanitisers, and stores.
 
 ## Installation
 
-The package is not ready for use or publication. During development in this
-workspace, it can be resolved with `dart pub get` from the repository root.
+```sh
+dart pub add http_cassette
+```
 
-## Current API
+Import the main library for the engine, configuration, models, diagnostics, and in-memory storage:
 
-### Engine activation
+```dart
+import 'package:http_cassette/http_cassette.dart';
+```
 
-Each engine has one immutable `CassetteActivationPolicy`. The default is
-`enabled`, which preserves normal recording and replay behaviour.
+File-backed storage has a separate `dart:io` entry point:
 
-`disabledWithException` rejects recording and replay commands before store or
-transport work. It is useful when an environment must expose accidental
-cassette commands.
+```dart
+import 'package:http_cassette/file.dart';
+```
 
-`disabledWithPassThrough` returns detached inert sessions. Scoped callbacks
-still run, the engine remains inactive and installed adapters use their normal
-wrapped transports. No cassette is read, created, matched, sanitised or
-changed. Inert sessions retain logical-name validation and support idempotent
-close and discard.
+## Create an engine
+
+Every engine has one store and one immutable configuration. An engine is not a singleton. The adapter and the code which starts sessions must share the same engine instance.
+
+Use `MemoryCassetteStore` for temporary, isolate-local recordings:
+
+```dart
+final engine = CassetteEngine(
+  store: MemoryCassetteStore(),
+);
+```
+
+Use `FileCassetteStore` when recordings must survive between runs:
+
+```dart
+import 'dart:io';
+
+import 'package:http_cassette/file.dart';
+import 'package:http_cassette/http_cassette.dart';
+
+final engine = CassetteEngine(
+  store: FileCassetteStore(Directory('test/cassettes')),
+);
+```
+
+The file store is available only on platforms which support `dart:io`. It maps a logical name such as `checkout/declined-card` to a JSON file below the configured root. Absolute paths, traversal segments, and symbolic-link escapes are rejected.
+
+## Record a cassette
+
+Start recording before the application sends the requests that belong to the scenario. Close the session only when every intended request has completed.
+
+```dart
+final recording = await engine.startRecording('account/details');
+
+try {
+  await runAccountDetailsScenario();
+  await recording.close();
+} catch (_) {
+  await recording.discard();
+  rethrow;
+}
+```
+
+Closing a recording sanitises and writes the complete cassette. Discarding releases the session without writing it. Recording is explicit; installing an adapter alone does not create cassettes.
+
+The scoped form handles close and discard automatically:
+
+```dart
+final result = await engine.record(
+  'account/details',
+  () => runAccountDetailsScenario(),
+);
+```
+
+### Existing cassettes
+
+Recording fails by default if the target already exists. Choose replacement or append explicitly:
+
+```dart
+final replacement = await engine.startRecording(
+  'account/details',
+  options: const RecordingOptions(
+    existingCassette: ExistingCassette.replace,
+  ),
+);
+
+final append = await engine.startRecording(
+  'account/details',
+  options: const RecordingOptions(
+    existingCassette: ExistingCassette.append,
+  ),
+);
+```
+
+Append requires an existing, valid cassette whose schema version equals the engine's current writable schema version. Existing interactions are kept and new indices continue from the previous highest index. A detected concurrent change rejects the append without replacing the existing file.
+
+## Replay a cassette
+
+Replay loads and validates the complete cassette before the session becomes active:
+
+```dart
+final replay = await engine.startReplay('account/details');
+
+try {
+  await runAccountDetailsScenario();
+  await replay.close();
+} catch (_) {
+  await replay.discard();
+  rethrow;
+}
+```
+
+An active replay never calls the real transport. A missing cassette, invalid cassette, unmatched request, or exhausted interaction throws a `CassetteException` without network fallback.
+
+The scoped form is also available:
+
+```dart
+final result = await engine.replay(
+  'account/details',
+  () => runAccountDetailsScenario(),
+);
+```
+
+Set `requireAllInteractions` when successful close must confirm that every recorded interaction was used:
+
+```dart
+final replay = await engine.startReplay(
+  'account/details',
+  options: const ReplayOptions(requireAllInteractions: true),
+);
+```
+
+## Matching
+
+The default matcher compares:
+
+- the HTTP method;
+- the normalised URI, including query values;
+- every non-empty request body.
+
+Headers are ignored by default because credentials, dates, traces, and other volatile values commonly appear there. JSON bodies are compared structurally: object member order is ignored, array order is preserved, and scalar types and values must match. Other bodies use exact byte comparison.
+
+Add selected headers or exclusions through `MatchingConfiguration`:
+
+```dart
+final configuration = CassetteConfiguration(
+  matching: MatchingConfiguration(
+    includedHeaders: {'accept', 'x-api-version'},
+    ignoredQueryParameters: {'request_id'},
+    ignoredJsonPointers: {'/metadata/generated_at'},
+  ),
+);
+```
+
+Ignored JSON paths use exact RFC 6901 JSON Pointer syntax. A missing ignored query parameter or JSON path needs no special handling; matching simply has no value to exclude at that location.
+
+Custom `RequestMatcherComponent` implementations can add domain-specific comparisons. They receive canonical requests and the effective exclusions, and must return bounded, value-safe differences.
+
+## Replay policies
+
+`ReplayPolicy.strict` is the default. It consumes each matching interaction once and reports exhaustion after all matching interactions have been used.
+
+Other policies are available when reuse is intentional:
+
+- `first` always returns the first matching interaction.
+- `last` always returns the last matching interaction.
+- `sequence` advances through the matching interactions and then keeps returning the last one.
+- `cycle` advances through the matching interactions and then returns to the first one.
+
+Set an engine default or override one replay session:
+
+```dart
+final engine = CassetteEngine(
+  store: MemoryCassetteStore(),
+  configuration: CassetteConfiguration(
+    defaultReplayPolicy: ReplayPolicy.sequence,
+  ),
+);
+
+final replay = await engine.startReplay(
+  'polling/status',
+  options: const ReplayOptions(policy: ReplayPolicy.cycle),
+);
+```
+
+## Sanitisation
+
+Every recorded interaction passes through sanitisation before persistence. Built-in rules redact common sensitive headers and common credential-shaped query and JSON member names.
+
+Add project-specific rules when your API uses other sensitive fields:
+
+```dart
+final configuration = CassetteConfiguration(
+  sanitisation: SanitisationConfiguration(
+    additionalHeaders: {'x-project-secret'},
+    additionalQueryParameters: {'session_code'},
+    additionalJsonNames: {'account_number'},
+    additionalJsonPointers: {'/customer/private_note'},
+  ),
+);
+```
+
+Sensitive JSON names match every object member with that name, at any depth. Use an exact JSON Pointer when only one path is sensitive. Header rules apply to requests and responses. Query rules apply only to request URIs. JSON name and pointer rules apply to JSON request and response bodies.
+
+Sanitised request values are also excluded from the corresponding matcher component. This prevents replay from requiring the original secret. Body presence remains significant when a complete body value is excluded.
+
+Custom request and response sanitisers can handle domain-specific data. They must return valid canonical values and report every changed match-relevant request location. The built-in pipeline remains active around custom sanitisers.
+
+`SanitisationConfiguration.unsafeWithoutBuiltIns` disables the built-in rules. Its name is intentionally explicit because it can persist credentials and personal data. Prefer adding rules to the secure defaults.
+
+> Automatic sanitisation reduces risk but cannot guarantee that a cassette is safe to commit. Review every generated cassette before sharing it.
+
+## Body and cassette limits
+
+Active adapters buffer complete request and response bodies. The defaults are 2 MiB for requests and 5 MiB for responses:
+
+```dart
+final configuration = CassetteConfiguration(
+  bodyLimits: BodyLimits(
+    requestBytes: 4 * 1024 * 1024,
+    responseBytes: 10 * 1024 * 1024,
+  ),
+);
+```
+
+Larger bodies fail instead of being truncated. Stores also enforce one total encoded-cassette limit, which defaults to 64 MiB. The same store limit is used by the core before decoding.
+
+## Activation policy
+
+`CassetteActivationPolicy.enabled` allows normal session commands and is the default.
+
+`disabledWithException` rejects recording and replay commands before store or transport work. `disabledWithPassThrough` returns inert sessions and leaves the engine inactive, so an installed adapter sends traffic normally and performs no cassette work.
 
 ```dart
 final engine = CassetteEngine(
@@ -37,772 +255,66 @@ final engine = CassetteEngine(
 );
 ```
 
-> `disabledWithPassThrough` permits real network access even when code calls
-> `startReplay()` or `replay()`. It does not create an active replay session.
-> Select it deliberately for environments where ordinary traffic must continue.
+> `disabledWithPassThrough` permits real network access even when code calls `startReplay` or `replay`, because it does not create an active replay session.
 
-`CassetteName` validates portable slash-separated logical names. Stores will own
-the physical path and `.json` suffix:
+## Diagnostics and failures
 
-```dart
-final cassetteName = CassetteName('checkout/expired-discount');
-```
-
-`CassetteSnapshot` is the immutable encoded value returned by a store.
-It defensively copies its bytes and carries an identity-only
-`CassetteRevision`. The revision exposes no underlying value, has a redacted
-string form and exists only for conditional replacement.
-
-`CassetteStoreException` provides stable store failure and operation enums for
-programmatic handling. It retains only the logical cassette name and never a
-file path, encoded bytes, revision value or platform exception. The current
-categories distinguish missing and existing targets, changed revisions,
-unsupported operations and other operation failures.
-
-`CassetteStore` is the public transport-neutral persistence contract. It
-supports existence checks, immutable snapshot reads, create-only writes,
-explicit replacement and revision-checked replacement. Implementations must
-copy byte input and must not decode, match, sanitise or migrate cassette data.
-Direct callers are responsible for supplying sanitised, validated and encoded
-cassette bytes. Every store declares one positive `maximumBytes` value. The
-store enforces it while accepting encoded data, and the core independently uses
-the same value before decoding a snapshot.
-
-`MemoryCassetteStore` provides isolate-local storage with no file-system or
-network access. Each instance owns private state and accepts an optional
-positive `maximumBytes` override:
-
-```dart
-final store = MemoryCassetteStore(maximumBytes: 64 * 1024 * 1024);
-await store.create(cassetteName, encodedSafeCassetteBytes);
-final snapshot = await store.read(cassetteName);
-```
-
-Creation never replaces an existing cassette. `replace` is explicit, while
-`replaceIfUnchanged` rejects a stale snapshot. Directly supplied bytes must
-already be sanitised, validated and encoded.
-
-File-backed storage is available from
-`package:http_cassette/file.dart` on platforms supporting `dart:io`:
-
-```dart
-final store = FileCassetteStore(
-  Directory('test/cassettes'),
-  maximumBytes: 64 * 1024 * 1024,
-);
-final snapshot = await store.read(cassetteName);
-```
-
-Reads are bounded and format-neutral: the store returns exact immutable bytes
-without decoding UTF-8, parsing JSON or validating a schema. The core codec
-owns those later steps. A missing root behaves as an empty store. Path
-resolution rejects symbolic-link escapes without exposing absolute paths. File
-creation is supported and never replaces an existing target. Explicit
-replacement requires an existing regular file and uses a flushed,
-same-directory temporary file followed by replacement rename. It is atomic
-where the file system supports atomic replacement rename; no delete-and-rename
-fallback is used. Cross-process locking and directory durability across sudden
-power loss are not provided. File store revisions returned by reads privately
-retain the exact bounded bytes
-needed for content-based conditional replacement; they expose only an opaque
-identity. `replaceIfUnchanged` accepts only a revision issued by that store for
-that cassette and compares the complete current bytes twice, including
-immediately before rename. A detected change leaves the current file intact.
-This detects external changes observed before the final check, but another
-process can still race after it because cross-process locking is outside V1.
-The primary library does not import `dart:io`.
-
-`ReplayPolicy` defines the agreed `strict`, `first`, `last`, `sequence` and
-`cycle` choices. `ReplayOptions` holds an optional session override and the
-successful-close verification flag. A null policy uses the engine default,
-which is `strict` unless configured otherwise. Replay startup now resolves and
-retains these settings with the loaded cassette and configured matcher.
-The internal active state now applies matching-group selection and consumption
-synchronously. Successful replay close now verifies combined usage when
-`requireAllInteractions` is true. Failure reports safe total, used and unused
-facts and retains uncertain session ownership; discard skips verification.
-Public adapter interception now uses this matching and consumption state.
-
-`CassetteConfiguration` groups the matching, sanitisation, body-limit and
-default replay-policy values that an engine shares across its sessions. Its
-defaults retain secure sanitisation and strict replay:
-
-```dart
-final configuration = CassetteConfiguration(
-  defaultReplayPolicy: ReplayPolicy.strict,
-);
-```
-
-`CassetteMode.record` and `CassetteMode.replay` identify the explicit operation
-of an active session. They do not themselves start a session or permit traffic.
-
-The internal session foundation now serialises close and discard transitions.
-Successful completion is idempotent, while overlapping operations and attempts
-after an uncertain completion failure produce safe structured lifecycle
-failures. The public session handle and lifecycle-only engine use this state.
-
-`CassetteSession` is now the public read-only handle for a future active
-operation. It exposes its logical name, explicit mode and successful closed
-status. Its `close()` and `discard()` methods serialise injected asynchronous
-completion work and preserve failures. The lifecycle-only engine can now create
-the handle, but the handle performs no cassette I/O or traffic processing by
-itself.
-
-`RecordingOptions` makes existing-cassette handling explicit. Recording will
-fail by default when a target already exists; callers may instead select
-`ExistingCassette.replace` or `ExistingCassette.append`. Recording startup now
-checks that the default target is absent and that an explicit replacement
-target exists. A failed or pending check exposes no active session and cannot
-invoke a real attempt. These checks do not write the target and the later store
-operation remains authoritative if it changes. Append startup reads and fully
-validates the existing cassette before exposing a session. Its schema version
-must equal the implementation's current writable schema version, so a future
-implementation writing V2 will require a V2 append target rather than treating
-V1 as appendable merely because it can still be read. Preparation failures
-leave the engine inactive and do not attempt the real transport. Append close
-finalises the combined cassette and conditionally replaces the exact snapshot
-read at startup. A missing or concurrently changed target rejects the append
-without overwriting the current cassette. Discard remains write-free.
-
-The internal engine foundation now reserves at most one session synchronously.
-Ownership remains reserved while completion is running and after a completion
-failure leaves uncertain state. It is released only after close or discard
-succeeds. Separate engine instances own independent state.
-
-`CassetteEngine` retains a store and immutable shared configuration and reports
-its active session. Recording starts remain lifecycle-only. Replay starts now
-read and strictly validate the complete cassette before exposing a session.
-Missing, unreadable, malformed or incompatible cassettes throw a safe
-`CassetteException` and leave the engine inactive. While an asynchronous load
-is pending, the engine rejects another start but exposes no session. The loaded
-cassette is retained only for the active replay session and is released when
-that session closes or is discarded. The active internal state also retains
-the resolved replay policy, close-verification choice and configured matcher.
-It can internally assign, match and select a canonical request without an
-asynchronous gap while sharing policy state between equivalent matching groups.
-An actual no-match result now ranks the comparisons already produced during
-matching and assembles the existing value-safe diagnostic without comparing the
-request again. The engine exposes canonical request execution through
-`beginInterception()` and `CassetteInterception.proceed()`. Generic scoped
-recording and replay lifecycle methods are also available.
-
-### Scoped recording
-
-`CassetteEngine.record<T>()` starts an explicit recording session, awaits a
-synchronous or asynchronous callback, commits after success and returns the
-callback value. The existing-cassette options apply in the same way as
-`startRecording`.
-
-```dart
-final result = await engine.record<int>(
-  'examples/empty-recording',
-  () => 42,
-);
-```
-
-Traffic is captured only when an installed adapter routes it through
-`CassetteInterception.proceed()`. The official adapters are not implemented
-yet, so the callback alone does not intercept arbitrary HTTP clients.
-
-If the callback fails, the recording is discarded and the same error is
-re-thrown with its original stack trace. A startup failure occurs before the
-callback is invoked. A commit failure is propagated and leaves the engine in an
-uncertain active state rather than pretending that persistence succeeded.
-
-### Scoped replay
-
-`CassetteEngine.replay<T>()` loads and validates the complete cassette before
-invoking a synchronous or asynchronous callback. It closes the session before
-returning the callback value and honours the supplied `ReplayOptions`.
-
-```dart
-final result = await engine.replay<int>(
-  'examples/empty-recording',
-  () => 42,
-);
-```
-
-A missing or invalid cassette fails before the callback runs. A callback
-failure discards replay state and is re-thrown with its original stack trace.
-Successful close enforces `requireAllInteractions` when enabled; failed
-verification leaves uncertain active ownership.
-
-Traffic is replayed only when an installed adapter routes it through
-`CassetteInterception.proceed()`. The official adapters are not implemented
-yet. Replay through the public contract never invokes the supplied real attempt
-and never falls back to the network.
-
-### Scoped callback failures
-
-`ScopedCassetteException` defines the failure users receive in the rare case
-where a scoped callback and the cleanup triggered by that callback
-both fail. Ordinary callback failures will still be rethrown directly with
-their original stack trace, and ordinary close failures will still use their
-normal exception. Only the dual-failure case needs a wrapper because Dart has
-no suppressed-exception mechanism.
-
-The wrapper keeps the callback failure primary through `primaryError` and
-`primaryStackTrace`. `cleanupDiagnostic` contains safe structured information
-about the secondary cleanup failure. The cleanup exception, its message and its
-stack trace are not retained or printed.
+Operational failures use `CassetteException`. Its `diagnostic` contains a stable `DiagnosticCategory`, a safe summary, and the network-access status:
 
 ```dart
 try {
-  await engine.record<void>('example', () {
-    // Perform the scoped work.
-  });
-} on ScopedCassetteException catch (failure) {
-  final originalError = failure.primaryError;
-  final originalStackTrace = failure.primaryStackTrace;
-  final safeCleanupDetails = failure.cleanupDiagnostic;
-
-  // Inspect or report safeCleanupDetails as appropriate, then preserve the
-  // callback failure if it must continue through the application.
-  Error.throwWithStackTrace(originalError, originalStackTrace);
+  await engine.startReplay('account/details');
+} on CassetteException catch (failure) {
+  final category = failure.diagnostic.category;
+  final message = failure.toString();
 }
 ```
 
-Scoped recording and replay use this same failure contract.
+Mismatch diagnostics describe the request shape, matcher, replay policy, closest candidate, and value-free differences. They do not include sanitised values. `ScopedCassetteException` is used only when a scoped callback fails and session cleanup also fails; it keeps the original callback error and a separate safe cleanup diagnostic.
 
-### Adapter interception permits
+Store implementations throw `CassetteStoreException` with stable operation and failure enums. These exceptions use logical cassette names and do not expose file paths, bytes, revisions, or platform exceptions.
 
-`CassetteEngine.beginInterception()` now returns an immutable inactive
-`CassetteInterception` when no session is active. Its `isActive` value is false
-and `bodyLimits` is null. An adapter must use that decision to pass its original
-transport request through without constructing a `CassetteRequest` or buffering
-the body.
+## Custom adapters
 
-The permit remains inactive if a cassette session starts later. This pins the
-decision for that request and prevents traffic which began while inactive from
-drifting into a new session.
-
-After session preparation completes, `beginInterception()` returns an active
-permit with `isActive == true` and the exact configured `BodyLimits`. It pins
-that session by internal identity and remains pinned if the session closes and
-a later session starts. Startup which is still pending fails closed because
-there is no completed session to pin.
-
-Each active permit now has a private synchronous claim gate. The first claim
-retains its pinned session, while another claim fails safely before any later
-execution work can begin. Inactive permits cannot be claimed. This state is not
-public configuration and does not retarget a permit after its session closes.
-
-An active permit exposes `proceed()` for one canonical request and one prepared
-real attempt:
+A transport adapter asks the engine for one `CassetteInterception` before buffering or translating a request.
 
 ```dart
 final interception = engine.beginInterception();
+
 if (!interception.isActive) {
-  return sendNormally();
+  return sendOriginalRequest();
 }
 
 final outcome = await interception.proceed(
   canonicalRequest,
-  sendPreparedRequest,
+  () => sendOneRealCanonicalAttempt(),
   cancellation: cancellation,
 );
 ```
 
-Adapters must not call `proceed()` for an inactive permit. Each active permit
-can proceed once. Recording authorises the supplied attempt at most once;
-replay never invokes it.
+An inactive permit means exact pass-through: do not buffer, finalise, or rebuild the transport request. An active permit exposes the configured body limits and may be used once. The real-attempt callback must make at most one transport attempt and return one canonical `CassetteOutcome`. Replay resolves without invoking it.
 
-`RealHttpAttempt` is the transport-neutral callback type which adapters supply
-to that operation. It is argument-free because the adapter keeps
-ownership of its prepared transport request and replacement streams. The
-callback returns a `Future<CassetteOutcome>`, covering either a canonical HTTP
-response or a canonical transport failure. Only `proceed()` in an active
-recording session can authorise its invocation.
+Adapters are responsible for converting transport values to `CassetteRequest`, reconstructing transport responses and failures, buffering bounded streams, and connecting cancellation. They must not implement matching, sanitisation, replay policy, persistence, or cassette lifecycle.
 
-`CassetteCancellation` is the optional transport-neutral cancellation signal
-which adapters may pass alongside an attempt. Implementations expose a
-monotonic `isCancelled` state and a `whenCancelled` future which completes
-normally once that state becomes true. Transport-specific tokens remain in the
-adapter, and the signal is never cassette data.
+## Storage contract
 
-The interception boundary checks an optional signal before
-request admission. An already-cancelled recording reports that no network
-attempt occurred, while replay reports that network access was disabled. The
-claim is still spent once, but no canonical request is admitted and no replay
-interaction is consumed. Cancellation which occurs after this check remains a
-later implementation stage for replay.
+`CassetteStore` works with bounded encoded bytes. A store does not parse JSON, validate a schema, sanitise values, or match requests. It supports existence checks, immutable reads, create-only writes, explicit replacement, and conditional replacement using an opaque `CassetteRevision`.
 
-Internal recording attempts now make one deterministic completion decision
-between the real attempt and cancellation. An outcome which reaches the core
-first continues through sanitisation and retention. Cancellation which reaches
-the core first produces a safe `cancelled` failure and the later attempt result
-is observed but cannot be retained. Adapters remain responsible for propagating
-the signal to their transport so that underlying network work is stopped where
-the client supports it. This race is exposed through public `proceed()`.
+`MemoryCassetteStore` is isolate-local. `FileCassetteStore` uses same-directory temporary files and replacement rename. Atomic replacement depends on file-system support. Cross-process locking and guaranteed directory durability after sudden power loss are not provided.
 
-Internal replay execution now checks optional cancellation synchronously just
-before matching and selection. Cancellation already signalled at that point
-fails with network access disabled, assigns no replay arrival index and consumes
-no interaction. Once that check passes, selection has no asynchronous gap and
-wins deterministically; later cancellation does not undo the selected
-interaction. Public `proceed()` uses this route.
+## Limitations
 
-If an internal recording attempt throws instead of returning a canonical
-outcome, the core replaces that error with a fixed `adapterContractViolation`
-diagnostic. The diagnostic reports that network access was attempted but
-retains no original error, message or stack trace. No interaction is added.
-Adapters must therefore map completed transport failures to
-`CassetteTransportFailure` rather than throw them through this callback.
-
-The sole narrow exception is a base `CassetteException` carrying
-`bodyLimitExceeded` with `NetworkAccess.attempted`. This lets an adapter report
-that a response crossed its configured limit while it was being buffered after
-the real attempt began. The core preserves that already-safe exception and does
-not record an interaction. Other categories, inconsistent network states and
-exception subclasses still become `adapterContractViolation`.
-
-Active permits carry a private execution route bound to their exact engine
-session. Recording uses the existing guarded capture path. Replay uses the
-synchronous no-network path and never invokes the supplied real attempt. A
-permit whose session has closed or been replaced fails with
-`sessionAlreadyClosed` instead of drifting into the engine's newer session.
-Public `proceed()` is the only exported entry point to this router.
-
-The repository's reusable adapter contract suite now exercises inactive
-pass-through plus response and portable transport-failure recording and replay
-using a fake adapter built only from public `http_cassette` exports. It covers
-every current `TransportFailureCategory` and verifies that replay makes no new
-transport attempt. Cancellation scenarios cover an already-cancelled request,
-cancellation during a recording attempt and cancellation before replay
-selection. They verify that cancellation is not persisted and does not consume
-a replay interaction. Body-limit scenarios accept bodies exactly at their
-configured boundaries, reject an oversized request before transport and reject
-an oversized live response without persistence or truncation. This is
-development-time verification, not a runtime API. The fake adapter receives
-complete test byte lists; official streaming adapters must enforce the same
-limits incrementally while buffering.
-
-The internal replay-loading foundation now maps a missing store target to a
-`cassetteMissing` diagnostic and other expected replay read failures to
-`cassetteUnreadable`. It retains only the logical cassette name and safe store
-failure kind, always reports disabled network access, and performs no store read
-itself. Recording and append store-read failures remain a separate diagnostic
-category.
-
-Value-free decoder failures can now be projected into internal replay-loading
-diagnostics. Oversized input, invalid UTF-8 and JSON syntax failures remain
-decode failures; schema-shape failures and unsupported older or newer versions
-have distinct categories. The projection retains only safe structural
-positions, safe integer version facts and the configured total cassette limit.
-It does not retain cassette bytes or source lines and does not invoke decoding.
-
-Store-read and decoder projections now share one internal sealed replay-loading
-failure boundary. Its deterministic formatter displays the bounded logical
-cassette name, fixed category, safe source-specific facts and disabled-network
-status. Missing facts are omitted explicitly where necessary, and formatting
-does not log or inspect raw exceptions, paths, source lines or cassette bytes.
-
-The internal replay foundation can now build an immutable matching group from
-a validated cassette. It applies the configured matcher and each interaction's
-persisted exclusions, preserves recorded indices and identical interactions,
-and excludes mismatches. Policy selection and consumption are still not
-implemented, so this does not yet make requests replayable.
-
-Internal strict replay state now selects the lowest recorded-index unconsumed
-match and consumes each match once. It distinguishes an empty matching group
-from a group exhausted by earlier selections. Replay diagnostics and engine
-integration remain unimplemented, so exhaustion is not yet exposed through a
-public replay operation.
-
-Internal `first` and `last` replay state now reuse the lowest or highest
-recorded-index match respectively. Empty groups remain no-match results and
-these reusable policies never exhaust. Distinct-use tracking counts the reused
-interaction once for future unused-interaction verification.
-
-Internal `sequence` replay state now advances through matches in recorded-index
-order and then reuses the final match indefinitely. It returns no-match for an
-empty group and never exhausts.
-
-Internal `cycle` replay state advances through matches in recorded-index order,
-wraps from the final match to the first and continues indefinitely. It also
-returns no-match for an empty group and never exhausts. Matching and selection
-are still not connected to a public replay operation.
-
-Replay selection state can now produce immutable point-in-time snapshots of
-the distinct recorded indices it has used. An internal cassette-wide verifier
-combines snapshots from independent matching groups and, when explicitly
-enabled, returns either success or every unused index in recorded order.
-Verification is disabled by default and is connected to successful session
-close. A failed verification result retains
-the safe total and used interaction counts and can assemble a structured
-diagnostic with validated logical cassette identity, resolved replay policy,
-fixed unused-interaction category and disabled-network status. Its internal
-formatter renders the safe counts, policy and unused indices deterministically
-without logging. It uses the same 128-character cassette-name and 16-index
-display bounds as exhaustion diagnostics. Discard clears replay state without
-running this optional verification.
-
-Actual strict exhaustion can now be projected into immutable value-free facts:
-the active policy, matching-group size, distinct used count, recorded indices
-and disabled-network status. These facts retain no requests or outcomes. They
-can be paired with internal immutable context containing a validated logical
-cassette name and a value-free request summary. The summary retains only the
-canonical method, its character length, body presence and byte length, and
-request-arrival index. A method longer than 64 characters is omitted rather
-than truncated. The summary does not retain URI, query, header or body values.
-The context and verified exhaustion facts now assemble into an internal
-structured exhaustion diagnostic with a fixed exhaustion category, safe
-summary and disabled-network status. It cannot be mislabelled as a request
-mismatch. Its internal deterministic plain-text formatter shows the safe
-request facts, consumption state and policy without logging. Cassette names are
-explicitly truncated after 128 characters and at most 16 recorded indices are
-shown with an omitted count. Public replay exposes this failure through
-`CassetteInterception.proceed()`.
-
-The active replay foundation now assembles that safe exhaustion diagnostic only
-when strict selection actually exhausts a matching group. It uses the request's
-assigned arrival index and the state which produced the exhaustion result.
-Selected and no-match results do not carry an exhaustion diagnostic. Public
-request execution preserves these specialised safe failures.
-
-An internal replay execution boundary now returns the selected interaction's
-recorded canonical outcome. A no-match or exhausted result instead throws a
-`CassetteException` whose common diagnostic and detailed text remain safe and
-state that no real request was made. The boundary accepts no network callback.
-It is exposed through the public adapter integration contract.
-
-The engine's internal state now routes requests through that boundary only
-while its loaded replay session remains active. Calling the replay-only
-operation without a session, during recording or after replay closes fails with
-a safe lifecycle diagnostic and cannot attempt the network. Inactive permits
-tell adapters to pass their original request through without canonicalising it.
-
-The complete internal replay route is covered for matched requests, duplicate
-strict matches, no-match and exhaustion. Matching and consumption stay in one
-synchronous operation, and the route contains no real-attempt callback. Public
-adapter interception delegates to this route.
-
-An active recording session now retains its validated logical name, target
-handling option and the engine's fixed sanitisation configuration. Each session
-owns a synchronous arrival counter starting at zero, and successful close or
-discard clears that state. Starting the session itself performs no transport or
-store work, and nothing is persisted in this stage.
-
-An internal per-request recording guard can now invoke one argument-free real
-attempt and return its canonical response or transport-failure outcome
-unchanged. It reserves that invocation before awaiting completion and rejects a
-second call without invoking its callback. Adapter exception mapping,
-cancellation, sanitisation and interaction retention are connected around this
-guard.
-
-Active recording state can now admit a canonical request synchronously before
-transport work starts. Admission assigns its stable arrival index and returns a
-transient one-shot operation. Successful operations pair that index and request
-with the live canonical outcome even when responses finish out of order. These
-unsanitised results are not retained in session state or persisted.
-
-A successful transient result can now be sanitised into a valid interaction.
-The complete request pipeline supplies its matching exclusions, response
-outcomes pass through the complete response pipeline, and safe portable
-transport failures remain unchanged. The assigned arrival index is preserved.
-If sanitisation fails, no interaction is returned or retained.
-
-Active recording state can now retain that sanitised interaction exactly once.
-Only already admitted indices are accepted. Immutable point-in-time snapshots
-are sorted by request-arrival index, so reverse response completion cannot
-reorder recorded traffic. Pending attempts may leave temporary gaps and prevent
-successful cassette finalisation.
-
-One internal recording operation now composes admission, the guarded real
-attempt, sanitisation and ordered retention. The engine routes that operation
-only through its active recording session and returns the exact live canonical
-outcome after safe retention. Inactive and replay-session calls fail before the
-real-attempt callback is invoked. Attempt and sanitisation failures retain
-nothing. Public adapter interception delegates to this operation, and successful
-session close persists the complete cassette.
-
-Complete internal recording state can now be finalised into an immutable
-current-writable cassette, including an empty cassette. Finalisation preserves
-request-arrival order and rejects any gap left by a pending or failed admitted
-request. Finalisation alone does not encode or write the cassette.
-
-An internal recording committer can now finalise and deterministically encode a
-complete create or replacement recording, then invoke the corresponding
-authoritative store write. A target that appears before create or disappears
-before replacement fails safely, as do other expected store-write failures.
-Create, replacement and append session close now invoke this committer, while
-discard performs no write. Close seals request admission before finalisation or
-an asynchronous write begins, so late traffic cannot be omitted silently. A
-failed finalisation or commit keeps the sealed session in its uncertain
-lifecycle state. Append uses the opaque revision retained at startup and fails
-without overwriting the target if that revision is no longer current.
-
-The internal append preparer can now read exactly one immutable target
-snapshot, apply the store's cassette byte limit, strictly decode every
-interaction and retain the opaque revision for a later conditional write. A
-missing, unreadable, invalid or differently versioned target fails safely before
-recording. Version compatibility is compared with the implementation's current
-writable schema version. Engine startup now performs this preparation before
-exposing an append session.
-
-Internal recording state can now consume that preparation. It retains the exact
-snapshot revision, seeds every existing interaction without re-sanitising or
-deduplicating it, and assigns new arrivals from the existing interaction count.
-Finalisation produces one combined cassette in index order, preserving existing
-matching exclusions and duplicates. Engine startup and conditional persistence
-are connected through the same recording-session lifecycle.
-
-Internal no-match facts can now be created from the existing deterministic
-candidate ranking. They retain the complete considered count and, when the
-cassette is non-empty, the closest recorded index and the exact safe bounded
-comparison already used for ranking. Matching is not recomputed and canonical
-requests or interactions are not retained. Diagnostic assembly and formatting
-remain unimplemented.
-
-The active matcher can now be described internally without retaining configured
-names, paths or custom matcher objects. Fixed method, URI and non-empty-body
-matching remain explicit, while selected headers, ignored query parameters,
-ignored JSON locations and custom components are represented only by counts.
-This prevents confidential schema identifiers from crossing the diagnostic
-boundary before a dedicated confidentiality policy exists.
-
-The closest non-matching comparison can now be projected into internal
-location-safe facts. Built-in component order and state, custom registration
-order, bounded difference kinds and complete counts are preserved. All supplied
-locations are marked as suppressed, and custom component names are replaced by
-their registration indices. Exact-body byte lengths and first differing offset,
-body comparison strategy and JSON classifications remain available without
-retaining request values or body bytes.
-
-The logical cassette and value-free request context, resolved replay policy,
-safe matcher description, ranking counts and projected closest comparison now
-assemble into an internal structured no-match diagnostic. Its category, safe
-summary and disabled-network status are fixed. The diagnostic copies only the
-location-suppressed projection, so the original comparison and its pre-policy
-locations do not remain reachable. Human-readable formatting remains
-internal. The deterministic formatter shows every built-in component, at most
-eight custom components and at most eight retained difference kinds per
-component. Omitted counts are explicit. Locations appear only as suppressed,
-and body output is limited to comparison strategy, byte lengths, first
-differing offset and JSON classifications. It performs no logging.
-
-`CassetteDiagnostic` carries a stable category, concise safe summary and network
-access status. `CassetteException` carries that structured diagnostic without
-requiring consumers to parse exception text.
-
-Diagnostics provide deterministic plain-text formatting without logging
-automatically:
-
-```dart
-final text = diagnostic.format();
-```
-
-`CassetteHeaders` provides immutable, transport-neutral HTTP fields with
-case-insensitive lookup and ordered repeated values:
-
-```dart
-final headers = CassetteHeaders(<String, Iterable<String>>{
-  'Accept': <String>['application/json'],
-});
-```
-
-`CassetteRequest` and `CassetteResponse` provide immutable canonical messages
-with defensively protected byte bodies:
-
-```dart
-final request = CassetteRequest(
-  method: 'GET',
-  uri: Uri.parse('https://api.example.test/profile'),
-  headers: headers,
-);
-```
-
-`CassetteOutcome` represents either a received response or a portable transport
-failure. Caller cancellation and cassette-system failures are not outcomes:
-
-```dart
-final outcome = CassetteResponseOutcome(response);
-```
-
-`BodyLimits` provides measured byte limits for future bounded buffering:
-
-| Body | Default |
-| --- | ---: |
-| Request | 2 MiB |
-| Response | 5 MiB |
-
-Both values require positive byte counts and may be overridden explicitly.
-Buffering and limit enforcement are not implemented yet.
-
-`MatchingConfiguration` selects headers and exact query or JSON values to
-ignore. Method, URI and non-empty-body matching remain fixed:
-
-```dart
-final matching = MatchingConfiguration(
-  includedHeaders: <String>{'accept'},
-  ignoredQueryParameters: <String>{'request_id'},
-  ignoredJsonPointers: <String>{'/metadata/generated_at'},
-);
-```
-
-The internal matching foundation now normalises HTTP methods, URI origins,
-paths and queries conservatively. Query-name order is ignored, while repeated
-values retain their order. Headers are ignored unless explicitly selected;
-selected values preserve order and compare after surrounding HTTP whitespace is
-removed. JSON bodies are classified from `application/json` and structured
-`+json` content types, then parsed strictly as UTF-8 with duplicate object
-members rejected. Parsed JSON can be compared structurally: object order is
-ignored, array order is preserved and equivalent number spellings match without
-losing precision. This remains an internal matching foundation; full request
-comparison now composes these components without replay state. Opaque bodies
-compare as exact bytes; differences retain only safe length, empty-state and
-first-offset facts. Adapters must supply internationalised hosts in canonical
-ASCII form. Matching exclusions validate header names and exact JSON Pointers.
-Excluded query values retain their parameter names, multiplicity, order and
-equals-sign state. A whole-body exclusion is available for custom sanitisers
-that replace an opaque body or the complete body structure. It ignores the body
-value only: an empty body still does not match a non-empty body. Use exact JSON
-Pointers when only selected JSON locations changed.
-
-The transport-neutral custom matcher contract supports additional safe matching
-requirements. Registered components run after the built-in components in their
-configuration order and contribute to matching eligibility and closest-match
-ranking. Custom components cannot replace built-in matching in the current API.
-
-`SanitisationConfiguration` enables fixed rules for common credential headers,
-query parameters and JSON member names. Projects may add exact header names,
-query names, JSON member names and JSON Pointers. This configuration is
-available now, but the sanitisation pipeline is not implemented yet. These
-defaults reduce risk; they cannot guarantee that a future cassette is safe to
-commit, so generated cassettes will still require review.
-
-Built-in rules can be disabled only with the conspicuously named
-`SanitisationConfiguration.unsafeWithoutBuiltIns()` constructor. Recording with
-that configuration may persist raw credentials and personal data. It is not an
-ordinary setup option and is not used by the package example.
-
-The internal sanitisation foundation now replaces complete values for
-`authorization`, `cookie`, `proxy-authorization`, `set-cookie`, `x-api-key`,
-`api-key`, `x-auth-token`, `x-csrf-token` and `x-xsrf-token`, plus configured
-exact header names. Repeated values retain their count. It also replaces every
-present value of common credential-shaped query parameters and configured exact
-query names while preserving names, order, multiplicity, and missing versus
-empty values. URI user information is replaced as one complete value. The
-internal request-field result carries matching exclusions for every changed
-location. The internal JSON foundation recursively sanitises exact sensitive
-member names and exact RFC 6901 locations while retaining object and array
-shape. Body composition and the recording pipeline are not implemented yet.
-
-### Choosing JSON sanitisation rules
-
-An additional JSON member name applies at every object depth and is matched
-case-insensitively. For example, adding `customerReference` sanitises every
-member with that name, including members inside arrays. Use this form only when
-every occurrence is sensitive.
-
-An RFC 6901 JSON Pointer applies to one exact, case-sensitive location. For
-example, `/credentials/code` sanitises that value without changing
-`/metadata/code`. Use a pointer when the same member name is sensitive in one
-part of a document but safe elsewhere. Pointer tokens use RFC 6901 escaping:
-`~1` represents `/` and `~0` represents `~`.
-
-Built-in credential-shaped names such as `token`, `password` and
-`authorization` deliberately apply everywhere as a secure default. A selected
-object or array keeps its keys, length and nesting while all scalar descendants
-are replaced. That remaining shape can itself be sensitive, so projects should
-use a future custom body sanitiser when the structure must also be hidden.
-
-Automatic sanitisation reduces risk but cannot recognise every secret or item
-of personal information. Add project rules for domain-specific data and review
-every generated cassette before committing it.
-
-A non-empty body that declares a JSON media type must be valid UTF-8 JSON
-without duplicate object member names before built-in sanitisation can inspect
-it. An empty body remains empty even when its headers declare JSON. The internal
-body sanitisation foundation fails safely rather than retaining uninspectable
-claimed JSON. Non-JSON bodies are opaque to built-in sanitisation and remain
-unchanged. A body with `Content-Encoding` is also opaque even when
-its media type says JSON, because its canonical bytes still represent the
-encoded payload. Projects must decode and sanitise such content explicitly,
-returning headers consistent with the replacement bytes. The explicit unsafe
-no-built-ins configuration also disables the ordinary claimed-JSON inspection
-guarantee. Integration with the recording pipeline is not implemented yet. The
-internal composition layer now applies these built-ins to complete canonical
-requests and responses, and carries every changed request location into
-matching exclusions.
-
-### Custom sanitiser contracts
-
-`RequestSanitiser` and `ResponseSanitiser` are transport-neutral extension
-contracts. A request sanitiser returns a `SanitisedRequest` containing valid
-canonical data and a validated `MatchingExclusions` value for every changed
-location that affects matching. A response sanitiser returns a valid canonical
-response. Implementations must be deterministic and must not log their raw
-input. If a request sanitiser replaces the complete body, it may report a
-whole-body exclusion; body presence remains significant.
-
-Custom sanitisers may be registered through `SanitisationConfiguration` and are
-retained in explicit order. Registration is immutable and defensively copied.
-The unsafe no-built-ins constructor does not suppress custom sanitisers.
-Custom request sanitisers now execute internally in that order, with each output
-feeding the next. Each changed request is checked against the exclusions
-reported by that sanitiser; incomplete exclusions or changes to fixed request
-identity fail without retaining changed values in diagnostics. Response
-sanitisers also execute internally in registration order, with each canonical
-output feeding the next. Responses need no matching exclusions because they do
-not select recorded interactions. The complete internal pipeline now runs each
-custom chain first and the built-in rules last, then unions custom and built-in
-request exclusions. The explicit unsafe no-built-ins policy still runs custom
-sanitisers. Recording integration is not implemented yet.
-
-The internal cassette domain now represents one immutable sanitised
-interaction with its non-negative request-arrival index, canonical request,
-persisted matching exclusions and exactly one canonical response or portable
-transport failure. The immutable containing cassette fixes its writable schema
-version at `1`, defensively owns its interaction list and requires indices to
-start at zero and remain contiguous in ascending arrival order. Readable-version
-compatibility and the schema codec are not implemented yet.
-
-The persisted-body foundation represents zero-byte bodies explicitly, readable
-text as validated UTF-8 content, and opaque bytes as canonical padded Base64.
-Structured JSON is stored as a deeply immutable value with lexically ordered
-object members and preserved array order, then reconstructed as deterministic
-compact UTF-8 JSON. Each representation reconstructs immutable replay bytes.
-The internal selector now applies the fixed precedence: empty, valid
-media-type JSON, readable UTF-8 text, then Base64. Non-empty content-encoded
-bytes always select Base64. Callers and adapters do not select representations.
-Payload preparation updates an existing `content-length`, removes digest and
-ETag validators, and removes `content-encoding` when no encoded bytes remain.
-For requests, every changed header name must be added to that interaction's
-matching exclusions. Weak ETags are also removed until an explicit validation
-policy is introduced.
-
-The encoder foundation canonicalises persisted request URIs independently of
-their adapter-observed spelling. It normalises origin, default ports, paths,
-percent escapes and query-name order, preserves repeated-query value order and
-equals-sign state, and omits fragments.
-
-The internal persistence foundation now projects a complete cassette into the
-exact V1 field order. Projection prepares request and response bodies, corrects
-payload-derived headers, adds changed request header names to matching
-exclusions, and selects the response or transport-failure schema shape. The
-result is a deeply immutable schema tree. The internal encoder writes that tree
-as deterministic UTF-8 JSON with exact schema ordering, two-space indentation,
-LF line endings and one final line feed. It preserves lossless JSON number
-spelling and has a reviewed complete golden fixture. Reading persisted
-cassettes now validates UTF-8, strict JSON, schema compatibility and every
-interaction field before reconstructing a complete immutable cassette. The
-decoder rejects duplicate or unknown fields, non-canonical field order,
-malformed types, invalid body representations and non-contiguous interaction
-indices. Decode failures report only a safe category and bounded structural
-location; they do not quote recorded values. The codec remains internal while
-storage and session integration are unfinished; replay is not available yet.
-
-A reproducible encoder probe supports a 64 MiB default total cassette limit,
-separate from the 2 MiB request and 5 MiB response body limits. The internal
-decoder enforces the total limit before UTF-8 decoding or JSON parsing and
-accepts an explicit positive override. Storage integration is not implemented
-yet.
+- Engine and replay state are isolate-local.
+- Active bodies are buffered; endless streams and server-sent events are unsupported.
+- Replay does not reproduce chunk boundaries, timing, delays, or back-pressure.
+- Multipart bodies are matched as raw bytes rather than by individual parts.
+- Redirect chains and client-specific transport state are not stored.
+- Automatic schema migration, record-on-miss mode, and per-request replay policies are not part of V1.
+- Caller cancellation is never stored as a reusable interaction.
 
 ## Example
 
-The example constructs body and matching configuration with canonical HTTP
-values. It also formats a structured missing-cassette diagnostic.
+The package example shows a minimal custom adapter boundary recording and replaying one canonical response entirely in memory:
 
 ```sh
 dart run example/http_cassette_example.dart
@@ -810,4 +322,4 @@ dart run example/http_cassette_example.dart
 
 ## Licence
 
-This package is licensed under the BSD 3-Clause License.
+This package is available under the BSD 3-Clause License. See [`LICENSE`](LICENSE).

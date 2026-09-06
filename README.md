@@ -2,7 +2,7 @@
 
 HTTP Cassette records HTTP requests and their outcomes, then replays them without contacting the original server. It is designed for deterministic Dart tests and for capturing repeatable scenarios while developing an application.
 
-The project is pure Dart and does not depend on Flutter. Its core is independent of any HTTP client, with official integrations for Dio and `package:http`.
+The project is pure Dart and does not depend on Flutter. Its core is independent of any HTTP client, with official integrations for `dio` and `http`.
 
 ## Packages
 
@@ -11,8 +11,8 @@ Choose the integration used by your application:
 | Package | Purpose |
 | --- | --- |
 | [`http_cassette`](packages/http_cassette) | The transport-neutral engine, configuration, matching, sanitisation, diagnostics, cassette format, and storage. Use it directly when building a custom adapter. |
-| [`http_cassette_dio`](packages/http_cassette_dio) | Installs HTTP Cassette at Dio's `HttpClientAdapter` boundary. |
-| [`http_cassette_http`](packages/http_cassette_http) | Wraps a `package:http` client with `CassetteHttpClient`. |
+| [`http_cassette_dio`](packages/http_cassette_dio) | Installs HTTP Cassette at `dio`'s `HttpClientAdapter` boundary. |
+| [`http_cassette_http`](packages/http_cassette_http) | Wraps an `http` client with `CassetteHttpClient`. |
 
 Applications normally depend on `http_cassette` and one adapter package.
 
@@ -34,7 +34,7 @@ When no session is active, an installed adapter passes traffic to its wrapped tr
 - Recording is sanitised before persistence.
 - Diagnostic messages do not reveal sanitised values.
 - Cassette bodies and complete cassette files have configurable size limits.
-- Dio and `package:http` use the same portable cassette format.
+- `dio` and `http` use the same portable cassette format.
 
 ## Storage
 
@@ -54,7 +54,7 @@ Automatic sanitisation reduces risk but cannot prove that a cassette is safe to 
 
 ## Portability and limitations
 
-Cassettes contain portable HTTP information: method, normalised URI, visible headers, body bytes, response status and reason phrase, or a portable transport failure. They do not reproduce client-specific state such as progress events, connection objects, redirect history, Dio `extra`, stream timing, or original chunk boundaries.
+Cassettes contain portable HTTP information: method, normalised URI, visible headers, body bytes, response status and reason phrase, or a portable transport failure. They do not reproduce client-specific state such as progress events, connection objects, redirect history, `dio` `extra`, stream timing, or original chunk boundaries.
 
 Active request and response streams are buffered within configured limits. Endless streams, server-sent events, exact stream timing, and semantic multipart matching are outside the V1 contract.
 

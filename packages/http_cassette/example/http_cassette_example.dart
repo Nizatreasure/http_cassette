@@ -1,138 +1,57 @@
-import 'dart:convert';
-
 import 'package:http_cassette/http_cassette.dart';
 
 Future<void> main() async {
-  final cassetteName = CassetteName('profiles/current-user');
-  final bodyLimits = BodyLimits();
-  final matching = MatchingConfiguration(
-    includedHeaders: <String>{'accept'},
-    ignoredQueryParameters: <String>{'request_id'},
-    customComponents: const <RequestMatcherComponent>[_ApiVersionMatcher()],
-  );
-  final sanitisation = SanitisationConfiguration(
-    additionalHeaders: <String>{'x-project-secret'},
-    additionalJsonPointers: <String>{'/customer/account_number'},
-  );
-  const replayOptions = ReplayOptions(policy: ReplayPolicy.strict);
-  final headers = CassetteHeaders(<String, Iterable<String>>{
-    'Accept': <String>['application/json'],
-  });
+  final engine = CassetteEngine(store: MemoryCassetteStore());
+  final adapter = ExampleAdapter(engine);
   final request = CassetteRequest(
-    method: 'get',
+    method: 'GET',
     uri: Uri.parse('https://api.example.test/profile'),
-    headers: headers,
-  );
-  final response = CassetteResponse(
-    statusCode: 200,
     headers: CassetteHeaders(<String, Iterable<String>>{
-      'Content-Type': <String>['application/json'],
+      'accept': <String>['application/json'],
     }),
-    body: <int>[123, 125],
   );
-  final outcome = CassetteResponseOutcome(response);
-  final diagnostic = CassetteDiagnostic(
-    category: DiagnosticCategory.cassetteMissing,
-    summary: 'The cassette does not exist.',
-    networkAccess: NetworkAccess.disabled,
-  );
-  final store = MemoryCassetteStore();
-  await store.create(
-    cassetteName,
-    utf8.encode('{"schemaVersion":1,"interactions":[]}'),
-  );
-  final snapshot = await store.read(cassetteName);
-  final scopedResult = await CassetteEngine(store: store).record<int>(
-    'examples/empty-recording',
-    () => 42,
-  );
-  final replayResult = await CassetteEngine(store: store).replay<int>(
-    cassetteName.value,
-    () => 7,
-  );
-  final interceptionEngine = CassetteEngine(store: store);
-  final recordingSession = await interceptionEngine.startRecording(
-    'examples/interception',
-  );
-  final recordedOutcome = await interceptionEngine
-      .beginInterception()
-      .proceed(request, () async => outcome);
-  await recordingSession.close();
-  final replaySession = await interceptionEngine.startReplay(
-    'examples/interception',
-  );
-  var replayAttempted = false;
-  final replayedOutcome = await interceptionEngine.beginInterception().proceed(
-    request,
-    () async {
-      replayAttempted = true;
-      return outcome;
-    },
-  );
-  await replaySession.discard();
 
-  assert(
-    cassetteName.value == 'profiles/current-user' &&
-        bodyLimits.requestBytes == 2 * 1024 * 1024 &&
-        matching.includedHeaders.contains('accept') &&
-        sanitisation.additionalHeaders.contains('x-project-secret') &&
-        replayOptions.policy == ReplayPolicy.strict &&
-        request.method == 'GET' &&
-        outcome.response.body.length == 2 &&
-        snapshot.bytes.isNotEmpty &&
-        scopedResult == 42 &&
-        replayResult == 7 &&
-        recordedOutcome == outcome &&
-        replayedOutcome is CassetteResponseOutcome &&
-        replayedOutcome.response.statusCode == 200 &&
-        !replayAttempted &&
-        diagnostic.format().contains(
-              'Network access: disabled; no real request was made',
-            ),
-  );
+  final recording = await engine.startRecording('profiles/current-user');
+  final liveOutcome = await adapter.send(request);
+  await recording.close();
+
+  final replay = await engine.startReplay('profiles/current-user');
+  final replayedOutcome = await adapter.send(request);
+  await replay.close();
+
+  final liveResponse = (liveOutcome as CassetteResponseOutcome).response;
+  final replayedResponse =
+      (replayedOutcome as CassetteResponseOutcome).response;
+
+  assert(liveResponse.statusCode == 200);
+  assert(replayedResponse.statusCode == 200);
+  assert(adapter.realAttemptCount == 1);
 }
 
-final class _ApiVersionMatcher implements RequestMatcherComponent {
-  const _ApiVersionMatcher();
+final class ExampleAdapter {
+  ExampleAdapter(this.engine);
 
-  @override
-  String get name => 'api-version';
+  final CassetteEngine engine;
+  var realAttemptCount = 0;
 
-  @override
-  MatchComponentResult compare(
-    CassetteRequest expected,
-    CassetteRequest actual,
-    MatchContext context,
-  ) {
-    final matches = _equalValues(
-      expected.headers.values('x-api-version'),
-      actual.headers.values('x-api-version'),
-    );
-    return MatchComponentResult(
-      matches: matches,
-      differences: matches
-          ? const <MatchDifference>[]
-          : <MatchDifference>[
-              MatchDifference(
-                kind: MatchDifferenceKind.customComponentDifference,
-                location: 'x-api-version',
-              ),
-            ],
-    );
-  }
-}
-
-bool _equalValues(List<String>? first, List<String>? second) {
-  if (first == null || second == null) {
-    return first == null && second == null;
-  }
-  if (first.length != second.length) {
-    return false;
-  }
-  for (var index = 0; index < first.length; index += 1) {
-    if (first[index] != second[index]) {
-      return false;
+  Future<CassetteOutcome> send(CassetteRequest request) {
+    final interception = engine.beginInterception();
+    if (!interception.isActive) {
+      return _sendRealRequest();
     }
+    return interception.proceed(request, _sendRealRequest);
   }
-  return true;
+
+  Future<CassetteOutcome> _sendRealRequest() async {
+    realAttemptCount += 1;
+    return CassetteResponseOutcome(
+      CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+        }),
+        body: <int>[123, 125],
+      ),
+    );
+  }
 }
