@@ -14,6 +14,8 @@
 - Added end-to-end coverage for strict file-backed replay exhaustion.
 - Added end-to-end coverage for safe file-backed transport-failure persistence
   and replay.
+- Added end-to-end coverage proving caller cancellation is not persisted in a
+  file-backed cassette.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.

@@ -24,6 +24,8 @@
 - Added end-to-end strict replay-exhaustion coverage without wrapped-client
   access.
 - Added end-to-end file-backed transport-failure recording and replay coverage.
+- Added end-to-end file-backed recording cancellation coverage without
+  wrapped-client access or persistence.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.
