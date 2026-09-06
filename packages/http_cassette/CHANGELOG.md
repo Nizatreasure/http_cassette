@@ -9,6 +9,7 @@
 - Added end-to-end coverage for file-backed cassette creation and network-free
   replay through a public adapter.
 - Added end-to-end coverage for explicit file-backed cassette replacement.
+- Added end-to-end coverage for file-backed cassette append and replay.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.
