@@ -21,6 +21,8 @@
   wrapper.
 - Added end-to-end file-backed replay mismatch coverage without wrapped-client
   access.
+- Added end-to-end strict replay-exhaustion coverage without wrapped-client
+  access.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.
