@@ -12,6 +12,8 @@
 - Added end-to-end coverage for file-backed cassette append and replay.
 - Added end-to-end coverage for safe file-backed replay mismatch diagnostics.
 - Added end-to-end coverage for strict file-backed replay exhaustion.
+- Added end-to-end coverage for safe file-backed transport-failure persistence
+  and replay.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.
