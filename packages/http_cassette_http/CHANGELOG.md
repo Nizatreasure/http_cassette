@@ -19,6 +19,8 @@
   client wrapper.
 - Added end-to-end file-backed append coverage through the public HTTP client
   wrapper.
+- Added end-to-end file-backed replay mismatch coverage without wrapped-client
+  access.
 - Created the initial `package:http` integration package scaffold.
 - Added `CassetteHttpClient` with exact inactive pass-through, fail-closed
   active behaviour and single ownership of its inner client.

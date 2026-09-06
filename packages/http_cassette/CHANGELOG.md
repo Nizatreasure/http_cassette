@@ -10,6 +10,7 @@
   replay through a public adapter.
 - Added end-to-end coverage for explicit file-backed cassette replacement.
 - Added end-to-end coverage for file-backed cassette append and replay.
+- Added end-to-end coverage for safe file-backed replay mismatch diagnostics.
 - Preserved empty bodies without JSON parsing when a transport attaches a JSON
   content type.
 - Created the initial package scaffold.
