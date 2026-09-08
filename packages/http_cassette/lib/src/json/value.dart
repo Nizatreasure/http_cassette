@@ -1,5 +1,6 @@
 /// A validated JSON number retained without binary floating-point conversion.
 final class ParsedJsonNumber {
+  /// Creates a number from an already validated JSON number [source].
   const ParsedJsonNumber.internal(this.source);
 
   /// The fixed placeholder for a parsed JSON integer.

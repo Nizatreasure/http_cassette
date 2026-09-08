@@ -65,7 +65,7 @@ enum DiagnosticCategory {
   /// Required replay verification found interactions that were not used.
   unusedInteractions,
 
-  /// Internal replay state violated a required invariant.
+  /// Replay state violated a required invariant.
   replayStateInvariantFailure,
 
   /// Recording cannot create a cassette because the target already exists.

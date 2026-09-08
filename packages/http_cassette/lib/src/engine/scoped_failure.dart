@@ -2,7 +2,7 @@ import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
 import 'scoped_cleanup.dart';
 
-/// Composes one captured dual failure for the public exception boundary.
+/// Creates one exception for a callback failure followed by cleanup failure.
 ///
 /// The cleanup error and stack trace are deliberately projected away.
 ScopedCassetteException composeScopedCassetteException<T>(

@@ -1,3 +1,8 @@
+/// Validates and returns one safe line of display text.
+///
+/// [value] must be trimmed and non-empty, contain no control or bidirectional
+/// formatting characters, and contain no more than [maximumLength] Unicode
+/// code points. [description] identifies the value in any [ArgumentError].
 String validateSafeSingleLine(
   String value, {
   required String description,

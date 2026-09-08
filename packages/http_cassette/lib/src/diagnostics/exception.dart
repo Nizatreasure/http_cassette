@@ -74,7 +74,7 @@ final class ScopedCassetteException extends CassetteException {
       '${cleanupDiagnostic.format()}';
 }
 
-/// Converts one safe replay-loading failure to the public exception boundary.
+/// Creates an exception from one safe replay-loading [failure].
 CassetteException replayCassetteLoadException(
   ReplayCassetteLoadFailure failure,
 ) =>
@@ -89,7 +89,7 @@ final class _ReplayCassetteLoadException extends CassetteException {
   String toString() => failure.format();
 }
 
-/// Converts one safe no-match diagnostic to the public exception boundary.
+/// Creates an exception from one safe no-match [diagnostic].
 CassetteException replayNoMatchException(ReplayNoMatchDiagnostic diagnostic) =>
     _ReplayNoMatchException(diagnostic);
 
@@ -102,7 +102,7 @@ final class _ReplayNoMatchException extends CassetteException {
   String toString() => details.format();
 }
 
-/// Converts one safe exhaustion diagnostic to the public exception boundary.
+/// Creates an exception from one safe exhaustion [diagnostic].
 CassetteException replayExhaustionException(
   ReplayExhaustionDiagnostic diagnostic,
 ) =>
@@ -117,7 +117,7 @@ final class _ReplayExhaustionException extends CassetteException {
   String toString() => details.format();
 }
 
-/// Converts failed replay usage verification to the public exception boundary.
+/// Creates an exception from failed replay usage verification.
 CassetteException replayUnusedInteractionsException(
   ReplayUnusedInteractionsDiagnostic diagnostic,
 ) =>

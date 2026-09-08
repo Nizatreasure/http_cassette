@@ -31,7 +31,7 @@ final class ScopedCleanupFailure {
 /// Discards [session] after a failed scoped action.
 ///
 /// The original [failure] always remains primary. A cleanup failure is captured
-/// separately and is never thrown over it by this boundary.
+/// separately and is never thrown in place of it.
 Future<ScopedFailureCleanupResult<T>> cleanupFailedScopedAction<T>({
   required CassetteSession session,
   required ScopedActionFailed<T> failure,

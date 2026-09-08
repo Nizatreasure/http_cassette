@@ -23,7 +23,7 @@ final class ScopedActionSucceeded<T> extends ScopedActionResult<T> {
   final T value;
 }
 
-/// A failed scoped action result retained for later safe cleanup.
+/// A failed scoped action result retained while session cleanup runs.
 final class ScopedActionFailed<T> extends ScopedActionResult<T> {
   const ScopedActionFailed._(this.error, this.stackTrace) : super._();
 
@@ -36,8 +36,8 @@ final class ScopedActionFailed<T> extends ScopedActionResult<T> {
 
 /// Invokes [action] once and captures its synchronous or asynchronous result.
 ///
-/// This boundary deliberately performs no session cleanup and does not rethrow.
-/// The caller remains responsible for preserving failure ordering.
+/// This function performs no session cleanup and does not rethrow. Its caller
+/// remains responsible for preserving failure ordering.
 Future<ScopedActionResult<T>> runScopedAction<T>(
   FutureOr<T> Function() action,
 ) async {

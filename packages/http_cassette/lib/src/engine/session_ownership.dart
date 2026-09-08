@@ -94,7 +94,7 @@ final class EngineSessionOwnership {
   }
 }
 
-/// One provisional ownership reservation for asynchronous session preparation.
+/// A pending ownership reservation during asynchronous session preparation.
 final class EngineSessionReservation {
   EngineSessionReservation._(this._owner, this._token);
 
