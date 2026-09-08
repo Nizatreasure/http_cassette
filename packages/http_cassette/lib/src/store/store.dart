@@ -2,16 +2,16 @@ import '../cassette/name.dart';
 import 'exception.dart';
 import 'snapshot.dart';
 
-/// A transport-neutral store for encoded safe cassette bytes.
+/// A transport-neutral store for encoded cassette bytes.
 ///
 /// Implementations must defensively copy byte input before completing a write.
 /// Direct callers are responsible for supplying fully sanitised, validated and
 /// encoded cassette bytes. Stores do not decode, match, sanitise or migrate
 /// cassette content.
 abstract interface class CassetteStore {
-  /// The positive maximum encoded cassette size accepted by this store.
+  /// The positive maximum number of encoded bytes accepted for one cassette.
   ///
-  /// The core independently applies the same limit before decoding snapshots.
+  /// The core also checks this limit before decoding a stored snapshot.
   int get maximumBytes;
 
   /// Reports whether [name] currently exists.

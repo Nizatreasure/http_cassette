@@ -21,8 +21,9 @@ import 'temporary_file_writer.dart';
 final class FileCassetteStore implements CassetteStore {
   /// Creates a file store rooted at [root].
   ///
-  /// A missing root behaves as an empty store for reads. [maximumBytes] must be
-  /// positive and defaults to the measured V1 total-file limit.
+  /// A missing root behaves as an empty store for reads. It is created when the
+  /// first cassette is written. [maximumBytes] must be positive and defaults
+  /// to 64 MiB.
   factory FileCassetteStore(
     Directory root, {
     int maximumBytes = defaultMaximumCassetteBytesV1,
@@ -54,7 +55,7 @@ final class FileCassetteStore implements CassetteStore {
   final Map<CassetteName, Future<void>> _writeTails =
       <CassetteName, Future<void>>{};
 
-  /// The maximum encoded cassette bytes accepted by one read or write.
+  /// The maximum number of encoded bytes accepted for one cassette.
   @override
   final int maximumBytes;
 

@@ -147,7 +147,7 @@ enum NetworkAccess {
   attempted,
 }
 
-/// Safe, structured information about a cassette-system failure.
+/// Safe, structured information about an HTTP Cassette failure.
 ///
 /// A diagnostic is the authoritative failure representation. Consumers should
 /// inspect its fields rather than parse exception text.

@@ -10,7 +10,10 @@ import 'store.dart';
 /// in invocation order before their returned futures complete. No state is
 /// shared across instances or Dart isolates.
 final class MemoryCassetteStore implements CassetteStore {
-  /// Creates an empty in-memory store with a positive [maximumBytes].
+  /// Creates an empty in-memory store.
+  ///
+  /// [maximumBytes] is the positive maximum size of one encoded cassette and
+  /// defaults to 64 MiB.
   factory MemoryCassetteStore({
     int maximumBytes = defaultMaximumCassetteBytesV1,
   }) {

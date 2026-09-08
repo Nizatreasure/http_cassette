@@ -5,10 +5,9 @@ import 'exception.dart';
 
 /// Resolves logical cassette names beneath one existing file-store root.
 ///
-/// This internal foundation performs no cassette reads or writes. It
-/// canonicalises the root and every existing path component on each call so a
-/// symbolic-link change cannot rely on validation performed by an earlier
-/// operation.
+/// Resolution canonicalises the root and every existing path component on
+/// each call. This prevents a symbolic-link change from relying on validation
+/// performed by an earlier operation.
 final class FileCassettePathResolver {
   /// Creates a resolver for [root].
   FileCassettePathResolver(Directory root) : _root = root.absolute;
