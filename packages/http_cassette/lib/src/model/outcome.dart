@@ -1,7 +1,7 @@
 import '../safety/safe_text.dart';
 import 'http_message.dart';
 
-/// A transport-neutral category for a failed HTTP operation.
+/// A portable category for an HTTP transport failure without a response.
 enum TransportFailureCategory {
   /// The remote host name could not be resolved.
   nameResolution,
@@ -30,7 +30,7 @@ sealed class CassetteOutcome {
   const CassetteOutcome();
 }
 
-/// A successfully received HTTP response outcome.
+/// A completed HTTP response, including redirect and error status codes.
 final class CassetteResponseOutcome extends CassetteOutcome {
   /// Creates an outcome containing [response].
   const CassetteResponseOutcome(this.response);
@@ -51,7 +51,7 @@ final class CassetteResponseOutcome extends CassetteOutcome {
 ///
 /// The [message] must be a trimmed, non-empty single line containing no more
 /// than 256 Unicode code points. It must be written from safe, sanitised
-/// context rather than copied from an arbitrary transport exception.
+/// context rather than copied from a client exception, cause or stack trace.
 final class CassetteTransportFailure extends CassetteOutcome {
   /// Creates a validated transport failure.
   CassetteTransportFailure({

@@ -1,6 +1,6 @@
 import 'http_syntax.dart';
 
-/// Immutable, transport-neutral HTTP header fields.
+/// Immutable HTTP header fields shared by every transport adapter.
 ///
 /// Header names use lower-case ASCII canonical form. Lookup is
 /// case-insensitive, repeated values retain their observed order, and all input
@@ -34,7 +34,7 @@ abstract final class CassetteHeaders {
   /// Lookup is case-insensitive. An invalid lookup name returns `false`.
   bool contains(String name);
 
-  /// Returns an immutable map with immutable ordered value lists.
+  /// Returns a defensive immutable map with immutable ordered value lists.
   Map<String, List<String>> toMap();
 }
 

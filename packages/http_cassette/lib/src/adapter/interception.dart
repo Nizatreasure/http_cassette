@@ -8,9 +8,7 @@ import '../session/cassette_session.dart';
 import 'cancellation.dart';
 import 'real_http_attempt.dart';
 
-/// Routes one claimed interception through its exact pinned session.
-///
-/// This implementation callback is not exported from the public library.
+/// Executes one canonical request for the session pinned by an interception.
 typedef CassetteInterceptionExecutor = Future<CassetteOutcome> Function(
   CassetteSession session,
   CassetteRequest request,
@@ -18,12 +16,13 @@ typedef CassetteInterceptionExecutor = Future<CassetteOutcome> Function(
   CassetteCancellation? cancellation,
 );
 
-/// An immutable adapter decision for one intercepted transport request.
+/// The engine's immutable decision for one intercepted transport request.
 ///
 /// An inactive interception has [isActive] set to false and no [bodyLimits].
 /// The adapter must pass its original transport request through without
 /// canonical buffering. An active interception carries the exact buffering
-/// limits for the session to which the request is pinned.
+/// limits for the session to which the request is pinned and may [proceed]
+/// once.
 final class CassetteInterception {
   const CassetteInterception._inactive()
       : isActive = false,
@@ -38,23 +37,25 @@ final class CassetteInterception {
         bodyLimits = limits,
         _claimState = _CassetteInterceptionClaimState(session, executor);
 
-  /// Whether this request entered an active cassette session.
+  /// Whether the request must be processed by the pinned cassette session.
   final bool isActive;
 
-  /// Buffering limits for an active request, or null while inactive.
+  /// The limits an adapter must apply before proceeding, or `null` for exact
+  /// pass-through.
   final BodyLimits? bodyLimits;
 
   final _CassetteInterceptionClaimState? _claimState;
 
-  /// Executes [request] through this permit's pinned cassette session.
+  /// Resolves canonical [request] through the pinned cassette session.
   ///
-  /// Adapters must call this only for an active permit and at most once. During
-  /// recording, [realAttempt] is authorised at most once. During replay it is
-  /// never invoked. An optional [cancellation] follows the session mode's
-  /// deterministic cancellation ordering.
+  /// Adapters must call this only for an active permit and at most once.
+  /// [realAttempt] represents one prepared transport attempt. Recording may
+  /// invoke it once; replay never invokes it. [cancellation] connects the
+  /// caller's cancellation signal to deterministic session ordering.
   ///
-  /// A contract violation, cancelled request, unavailable pinned session,
-  /// replay failure or recording failure throws a [CassetteException].
+  /// Throws a [CassetteException] for repeated use, inactive use,
+  /// cancellation, an unavailable pinned session, or a recording or replay
+  /// failure.
   Future<CassetteOutcome> proceed(
     CassetteRequest request,
     RealHttpAttempt realAttempt, {
@@ -73,15 +74,11 @@ final class CassetteInterception {
   }
 }
 
-/// Creates the immutable inactive adapter decision.
-///
-/// This implementation function is not exported from the public library.
+/// Creates an interception which requires exact transport pass-through.
 CassetteInterception createInactiveCassetteInterception() =>
     const CassetteInterception._inactive();
 
-/// Creates one active decision pinned to [session].
-///
-/// This implementation function is not exported from the public library.
+/// Creates one active interception pinned to [session] and [bodyLimits].
 CassetteInterception createActiveCassetteInterception({
   required CassetteSession session,
   required BodyLimits bodyLimits,
@@ -93,18 +90,17 @@ CassetteInterception createActiveCassetteInterception({
       executor: executor,
     );
 
-/// Whether [interception] is pinned to the exact [session] object.
-///
-/// This implementation check is not exported from the public library.
+/// Whether [interception] is pinned to the exact [session] instance.
 bool cassetteInterceptionPinsSession(
   CassetteInterception interception,
   CassetteSession session,
 ) =>
     identical(interception._claimState?.session, session);
 
-/// Claims [interception] once and returns its pinned session.
+/// Claims [interception] for its only execution and returns its pinned session.
 ///
-/// This implementation operation is not exported from the public library.
+/// Throws a safe [CassetteException] when the interception is inactive, was
+/// already claimed, or was cancelled before execution.
 CassetteSession claimCassetteInterception(
   CassetteInterception interception, {
   CassetteCancellation? cancellation,

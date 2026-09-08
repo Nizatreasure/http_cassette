@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'headers.dart';
 import 'http_syntax.dart';
 
-/// An immutable, transport-neutral HTTP request.
+/// An immutable HTTP request in the canonical cassette representation.
 abstract final class CassetteRequest {
   /// Creates a validated canonical request.
   ///
@@ -32,11 +32,11 @@ abstract final class CassetteRequest {
   /// Immutable canonical request headers.
   CassetteHeaders get headers;
 
-  /// Immutable request body bytes.
+  /// Immutable request body bytes as observed by the adapter.
   Uint8List get body;
 }
 
-/// An immutable, transport-neutral HTTP response.
+/// An immutable HTTP response in the canonical cassette representation.
 abstract final class CassetteResponse {
   /// Creates a validated canonical response.
   ///
@@ -62,7 +62,7 @@ abstract final class CassetteResponse {
   /// Immutable canonical response headers.
   CassetteHeaders get headers;
 
-  /// Immutable response body bytes.
+  /// Immutable response body bytes as observed by the adapter.
   Uint8List get body;
 
   /// The observed reason phrase, or `null` when none was available.
