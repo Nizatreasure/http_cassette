@@ -30,14 +30,22 @@ const _builtInCredentialNames = <String>{
   'token',
 };
 
-/// Immutable secure-default sanitisation rule configuration.
+/// Configures secure sanitisation before a recording is persisted.
+///
+/// Built-in rules replace common credential-shaped header, query and JSON
+/// values. Project rules and custom sanitisers extend that protection.
 abstract final class SanitisationConfiguration {
-  /// Creates configuration with mandatory built-in rules and project additions.
+  /// Creates configuration with built-in rules and project additions.
+  ///
+  /// Header rules apply to requests and responses. Query rules apply to request
+  /// URIs. JSON name and pointer rules apply to JSON request and response
+  /// bodies. A JSON name matches that member at every object depth; use an exact
+  /// pointer when only one path is sensitive.
   ///
   /// Header names use the HTTP token grammar. Query names are URI-normalised.
-  /// Header, query and JSON member names are canonicalised to lower case for
-  /// exact case-insensitive rule matching. JSON Pointers use exact RFC 6901
-  /// syntax and remain case-sensitive.
+  /// Header, query and JSON member names compare case-insensitively. JSON
+  /// Pointers use exact case-sensitive RFC 6901 syntax. Custom sanitisers run in
+  /// registration order before the built-in rules.
   factory SanitisationConfiguration({
     Iterable<String> additionalHeaders = const <String>[],
     Iterable<String> additionalQueryParameters = const <String>[],
@@ -74,8 +82,8 @@ abstract final class SanitisationConfiguration {
   /// Creates explicitly unsafe configuration without built-in rules.
   ///
   /// Recording with this configuration may persist raw credentials and
-  /// personal data. Project custom sanitisers added by later configuration
-  /// stages will remain independent of this built-in policy.
+  /// personal data. The supplied custom sanitisers still run in registration
+  /// order, but they alone are responsible for protecting the interaction.
   factory SanitisationConfiguration.unsafeWithoutBuiltIns({
     Iterable<RequestSanitiser> requestSanitisers = const <RequestSanitiser>[],
     Iterable<ResponseSanitiser> responseSanitisers =
@@ -98,7 +106,7 @@ abstract final class SanitisationConfiguration {
   /// Secure defaults with no project-specific additions.
   static final defaults = SanitisationConfiguration();
 
-  /// Whether mandatory built-in sensitive-name rules are enabled.
+  /// Whether common sensitive-name rules are enabled.
   bool get builtInRulesEnabled;
 
   /// Project-added canonical lower-case sensitive header names.
@@ -107,10 +115,10 @@ abstract final class SanitisationConfiguration {
   /// Project-added normalised lower-case sensitive query names.
   Set<String> get additionalQueryParameters;
 
-  /// Project-added lower-case sensitive JSON member names.
+  /// Project-added lower-case JSON member names matched at every object depth.
   Set<String> get additionalJsonNames;
 
-  /// Project-added exact RFC 6901 sensitive JSON Pointers.
+  /// Project-added exact case-sensitive RFC 6901 JSON Pointers.
   Set<String> get additionalJsonPointers;
 
   /// Custom request sanitisers in explicit execution order.

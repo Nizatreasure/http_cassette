@@ -1,13 +1,16 @@
 import 'header_names.dart';
 import 'uri_component.dart';
 
-/// Immutable request locations excluded from ordinary value matching.
+/// Request locations whose values are ignored during matching.
+///
+/// Exclusion preserves structure. A named field, query parameter or JSON path
+/// must still be present with the same multiplicity; only its value is ignored.
 final class MatchingExclusions {
   /// Creates validated matching exclusions.
   ///
   /// Header names use the HTTP token grammar and compare case-insensitively.
-  /// Query names and JSON Pointers compare case-sensitively. JSON Pointers must
-  /// use exact RFC 6901 syntax.
+  /// Query names are URI-normalised. JSON Pointers compare case-sensitively and
+  /// must use exact RFC 6901 syntax.
   factory MatchingExclusions({
     Iterable<String> headers = const <String>[],
     Iterable<String> queryParameters = const <String>[],
@@ -46,7 +49,7 @@ final class MatchingExclusions {
     required this.body,
   });
 
-  /// An empty exclusion set.
+  /// A set which excludes no request values.
   static const none = MatchingExclusions._(
     headers: <String>{},
     queryParameters: <String>{},
@@ -64,7 +67,7 @@ final class MatchingExclusions {
   /// Exact RFC 6901 JSON Pointers excluded from value matching.
   final Set<String> jsonPointers;
 
-  /// Whether the complete URI user-information value is excluded.
+  /// Whether URI user information must remain present but its value is ignored.
   final bool uriUserInformation;
 
   /// Whether the complete request body value is excluded.

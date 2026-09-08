@@ -2,19 +2,41 @@ import '../safety/safe_text.dart';
 
 /// A value-free category of request difference.
 enum MatchDifferenceKind {
+  /// An expected structural item is absent from the incoming request.
   missing,
+
+  /// The incoming request contains an unexpected structural item.
   extra,
+
+  /// Both requests contain the item but its value differs.
   differentValue,
+
+  /// Both requests contain the item with different data types.
   differentType,
+
+  /// Equivalent items occur in a different significant order.
   differentOrder,
+
+  /// An item occurs a different number of times.
   differentMultiplicity,
+
+  /// A value cannot be compared because its representation is invalid.
   invalidRepresentation,
+
+  /// A required comparison cannot be performed safely.
   unavailableComparison,
+
+  /// A custom matcher component reported a domain-specific difference.
   customComponentDifference,
 }
 
 /// One safe, value-free request difference.
 final class MatchDifference {
+  /// Creates a difference with an optional safe structural [location].
+  ///
+  /// A location which is unsafe or longer than the diagnostic limit is
+  /// suppressed rather than retained. Request values must never be supplied as
+  /// locations.
   factory MatchDifference({
     required MatchDifferenceKind kind,
     String? location,
@@ -43,7 +65,10 @@ final class MatchDifference {
   final bool locationSuppressed;
 }
 
-/// A deterministic bounded prefix of component differences.
+/// A bounded list of retained differences with the complete observed count.
+///
+/// Matching and ranking use [totalCount], while diagnostics display only the
+/// deterministic prefix in [differences].
 final class BoundedMatchDifferences {
   BoundedMatchDifferences._({
     required Iterable<MatchDifference> differences,
@@ -56,14 +81,14 @@ final class BoundedMatchDifferences {
   /// The complete number of differences used for ranking.
   final int totalCount;
 
-  /// The number omitted from [differences].
+  /// The number counted but omitted from [differences].
   int get omittedCount => totalCount - differences.length;
 
   /// Whether the component has no differences.
   bool get isEmpty => totalCount == 0;
 }
 
-/// Collects a bounded prefix while counting every observed difference.
+/// Counts every difference while retaining only a configured prefix.
 final class MatchDifferenceCollector {
   /// Creates a collector retaining at most [maximumRetained] differences.
   MatchDifferenceCollector({this.maximumRetained = defaultMaximumRetained}) {
@@ -72,7 +97,7 @@ final class MatchDifferenceCollector {
     }
   }
 
-  /// The measured default retained difference count.
+  /// The default maximum of 20 retained differences.
   static const defaultMaximumRetained = 20;
 
   /// The maximum number of difference records retained.

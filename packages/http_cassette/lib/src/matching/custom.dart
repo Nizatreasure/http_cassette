@@ -2,12 +2,19 @@ import '../model/http_message.dart';
 import 'difference.dart';
 import 'exclusions.dart';
 
-/// A transport-neutral additive request matcher component.
+/// Adds one domain-specific comparison to the configured request matcher.
+///
+/// The component runs after the built-in comparisons. It must compare
+/// deterministically, respect every exclusion in [MatchContext], and return
+/// only safe value-free differences.
 abstract interface class RequestMatcherComponent {
   /// A stable safe name identifying this component in diagnostics.
   String get name;
 
-  /// Compares [expected] with [actual] using only the supplied safe [context].
+  /// Compares recorded [expected] data with the incoming [actual] request.
+  ///
+  /// [context] identifies values which sanitisation or configuration excludes
+  /// from matching. The method must not log or retain request values.
   MatchComponentResult compare(
     CassetteRequest expected,
     CassetteRequest actual,
@@ -15,9 +22,9 @@ abstract interface class RequestMatcherComponent {
   );
 }
 
-/// Immutable exclusions available to a custom matcher component.
+/// The effective matching exclusions supplied to a custom matcher component.
 abstract final class MatchContext {
-  /// Creates a validated context for testing a custom matcher component.
+  /// Creates a validated context for direct component use or testing.
   factory MatchContext({
     Iterable<String> excludedHeaders = const <String>[],
     Iterable<String> excludedQueryParameters = const <String>[],
@@ -53,7 +60,7 @@ abstract final class MatchContext {
   bool get bodyExcluded;
 }
 
-/// An immutable safe result returned by a custom matcher component.
+/// The safe result returned by one custom matcher comparison.
 abstract final class MatchComponentResult {
   /// Creates a result from [matches] and value-free [differences].
   ///
@@ -82,7 +89,7 @@ abstract final class MatchComponentResult {
     );
   }
 
-  /// Whether this additional requirement matched.
+  /// Whether the component considered the requests equivalent.
   bool get matches;
 
   /// Safe bounded differences and their complete count.
