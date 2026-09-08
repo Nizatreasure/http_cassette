@@ -9,7 +9,7 @@ import 'request_encoding.dart';
 /// Projects [cassette] into the immutable, ordered V1 persistence schema.
 ///
 /// The returned tree still contains lossless parsed JSON numbers. Converting
-/// the tree into deterministic UTF-8 JSON is a separate encoder responsibility.
+/// it with `encodeCassetteV1` produces the complete deterministic UTF-8 file.
 Map<String, Object?> projectCassetteSchemaV1(Cassette cassette) =>
     Map<String, Object?>.unmodifiable(<String, Object?>{
       'schemaVersion': cassette.schemaVersion,

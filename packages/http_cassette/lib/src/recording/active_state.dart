@@ -80,7 +80,7 @@ final class ActiveRecordingState {
   /// Whether another request may enter this recording state.
   bool get acceptsRequests => _acceptsRequests;
 
-  /// Whether this state has fixed its immutable cassette snapshot.
+  /// Whether this state has fixed its final immutable cassette value.
   bool get isFinalised => _finalisedCassette != null;
 
   /// Prevents any later request admission without affecting pending attempts.
@@ -98,8 +98,8 @@ final class ActiveRecordingState {
 
   /// Admits [request] and assigns its arrival index synchronously.
   ///
-  /// The returned operation owns the later asynchronous real attempt. It does
-  /// not add the request or its outcome to session state.
+  /// The returned operation can make the single real HTTP attempt. Admission
+  /// alone does not retain the request or an outcome in the cassette.
   RecordingRequestAttempt beginRequest(CassetteRequest request) =>
       RecordingRequestAttempt(
         arrivalIndex: assignArrivalIndex(),

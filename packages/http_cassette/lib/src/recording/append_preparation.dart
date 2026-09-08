@@ -67,14 +67,14 @@ final class AppendCassettePreparationFailure {
   /// The safely representable persisted version when versions differed.
   final int? observedSchemaVersion;
 
-  /// The writable version required by this implementation.
+  /// The writable schema version required for append recording.
   int get currentWritableSchemaVersion => currentWritableCassetteSchemaVersion;
 
   /// The common safe diagnostic envelope.
   final CassetteDiagnostic envelope;
 }
 
-/// Reads and fully validates an existing cassette for later append recording.
+/// Reads and fully validates an existing cassette for append recording.
 final class AppendCassettePreparer {
   /// Creates a preparer backed by [store].
   const AppendCassettePreparer(this.store);

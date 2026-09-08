@@ -6,7 +6,7 @@ import 'interaction.dart';
 /// value.
 const int currentWritableCassetteSchemaVersion = 1;
 
-/// An immutable cassette ready for deterministic encoding.
+/// An immutable collection of sanitised interactions for one cassette.
 final class Cassette {
   /// Creates a cassette from interactions in request-arrival order.
   ///
@@ -29,7 +29,7 @@ final class Cassette {
 
   const Cassette._(this.interactions);
 
-  /// The schema version used when this cassette is encoded.
+  /// The current writable schema version used when this cassette is encoded.
   int get schemaVersion => currentWritableCassetteSchemaVersion;
 
   /// Interactions in request-arrival order.

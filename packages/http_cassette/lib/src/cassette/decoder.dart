@@ -19,7 +19,7 @@ import 'request_encoding.dart';
 /// Readable-version policy is deliberately separate from the writable version.
 const int currentReadableCassetteSchemaVersion = 1;
 
-/// The safe category of an internal cassette decode failure.
+/// A safe category describing why cassette decoding failed.
 enum CassetteDecodeFailureKind {
   /// Input exceeds the configured total cassette byte limit.
   inputTooLarge,
@@ -43,7 +43,7 @@ enum CassetteDecodeFailureKind {
   unsupportedNewerVersion,
 }
 
-/// A value-free internal cassette decode failure.
+/// A value-free failure produced while decoding cassette bytes.
 final class CassetteDecodeException implements Exception {
   /// Creates a safe failure description.
   const CassetteDecodeException({
@@ -112,7 +112,8 @@ final class DecodedCassetteRequestV1 {
 /// [maximumBytes] must be positive. Input exceeding it is rejected before
 /// UTF-8 decoding or JSON parsing.
 ///
-/// Interaction contents are intentionally deferred to later decoder stages.
+/// This function validates only the root fields and schema version. Use
+/// [decodeCassetteV1] to validate and reconstruct every interaction.
 CassetteEnvelopeV1 decodeCassetteEnvelopeV1(
   List<int> bytes, {
   int maximumBytes = defaultMaximumCassetteBytesV1,

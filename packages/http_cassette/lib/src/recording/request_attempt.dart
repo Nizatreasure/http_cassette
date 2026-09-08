@@ -4,7 +4,7 @@ import '../model/http_message.dart';
 import '../model/outcome.dart';
 import 'attempt.dart';
 
-/// The transient successful result of one internal recording request attempt.
+/// The transient successful result of one recording request attempt.
 ///
 /// This value is not sanitised and must not enter persistable session state.
 final class RecordingRequestResult {
@@ -25,7 +25,7 @@ final class RecordingRequestResult {
   final CassetteOutcome outcome;
 }
 
-/// One indexed internal recording request awaiting its real transport attempt.
+/// One indexed recording request awaiting its real HTTP attempt.
 final class RecordingRequestAttempt {
   /// Creates an operation for the already assigned [arrivalIndex] and [request].
   RecordingRequestAttempt({

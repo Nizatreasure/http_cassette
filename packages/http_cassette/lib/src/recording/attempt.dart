@@ -4,9 +4,7 @@ import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
 import '../model/outcome.dart';
 
-/// Guards the real transport attempt for one internal recording request.
-///
-/// The public permit route remains later integration work.
+/// Ensures one recording request makes at most one real HTTP attempt.
 final class RecordingAttemptRunner {
   var _started = false;
 

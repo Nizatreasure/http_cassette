@@ -6,7 +6,7 @@ import '../store/store.dart';
 import 'active_state.dart';
 import 'configuration.dart';
 
-/// Finalises, encodes and authoritatively writes one recording cassette.
+/// Finalises, encodes and writes one complete recording cassette.
 final class RecordingCassetteCommitter {
   /// Creates a committer backed by [store].
   const RecordingCassetteCommitter(this.store);
