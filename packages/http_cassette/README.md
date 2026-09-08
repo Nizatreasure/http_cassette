@@ -217,11 +217,38 @@ final configuration = CassetteConfiguration(
 );
 ```
 
-Sensitive JSON names match every object member with that name, at any depth. Use an exact JSON Pointer when only one path is sensitive. Header rules apply to requests and responses. Query rules apply only to request URIs. JSON name and pointer rules apply to JSON request and response bodies.
+Sensitive JSON names match every object member with that name, at any depth. For example, adding `code` as a sensitive JSON name redacts every member named `code`, regardless of which object contains it. Use an exact, case-sensitive RFC 6901 JSON Pointer such as `/credentials/code` when only one location is sensitive. Header rules apply to requests and responses. Query rules apply only to request URIs. JSON name and pointer rules apply to JSON request and response bodies.
+
+The built-in sensitive names are:
+
+| Location | Names |
+| --- | --- |
+| Headers | `api-key`, `authorization`, `cookie`, `proxy-authorization`, `set-cookie`, `x-api-key`, `x-auth-token`, `x-csrf-token`, `x-xsrf-token` |
+| Query parameters and JSON members | `access_token`, `api_key`, `apikey`, `auth`, `authorization`, `client_secret`, `id_token`, `password`, `passwd`, `refresh_token`, `secret`, `token` |
+
+Header, query parameter, and JSON member names are matched exactly and case-insensitively. Substrings do not match, so a built-in rule for `token` does not select `token_type`. Built-in sanitisation also replaces request URI user information when it is present.
+
+When a sensitive JSON value is a map or list, sanitisation keeps its keys, positions, order, and nesting, then replaces every scalar value inside it. Empty maps and lists remain empty. This preserves the JSON shape needed for useful recordings and deterministic matching.
+
+JSON scalar replacements preserve their JSON types:
+
+| Original value | Replacement |
+| --- | --- |
+| Ordinary string | `"[REDACTED]"` |
+| Recognised email address | `"redacted@example.invalid"` |
+| Canonical UUID string | `"00000000-0000-4000-8000-000000000000"` |
+| Integer | `0` |
+| Non-integer number | `0.0` |
+| Boolean | `false` |
+| `null` | `null` |
+
+Email and UUID recognition is applied only after a value has been selected as sensitive. The package does not redact a field merely because its value looks like an email address or UUID.
 
 Sanitised request values are also excluded from the corresponding matcher component. This prevents replay from requiring the original secret. Body presence remains significant when a complete body value is excluded.
 
-Custom request and response sanitisers can handle domain-specific data. They must return valid canonical values and report every changed match-relevant request location. The built-in pipeline remains active around custom sanitisers.
+Custom request and response sanitisers can handle domain-specific data. They run first in registration order, then the built-in rules sanitise their output. Custom sanitisers cannot bypass the built-in rules unless all built-ins are explicitly disabled with `SanitisationConfiguration.unsafeWithoutBuiltIns`.
+
+A custom sanitiser must return valid canonical values. A request sanitiser must also report every changed location that affects matching so replay does not require the original value. Any sensitive value left in the returned request or response may be persisted, so custom sanitisers are responsible for completely removing the domain-specific data they handle.
 
 `SanitisationConfiguration.unsafeWithoutBuiltIns` disables the built-in rules. Its name is intentionally explicit because it can persist credentials and personal data. Prefer adding rules to the secure defaults.
 
@@ -241,6 +268,21 @@ final configuration = CassetteConfiguration(
 ```
 
 Larger bodies fail instead of being truncated. Stores also enforce one total encoded-cassette limit, which defaults to 64 MiB. The same store limit is used by the core before decoding.
+
+Set `maximumBytes` on either built-in store to change the complete encoded-cassette limit:
+
+```dart
+final memoryStore = MemoryCassetteStore(
+  maximumBytes: 16 * 1024 * 1024,
+);
+
+final fileStore = FileCassetteStore(
+  Directory('test/cassettes'),
+  maximumBytes: 16 * 1024 * 1024,
+);
+```
+
+`maximumBytes` must be positive. It limits one complete encoded cassette during storage and decoding; it does not replace the separate request and response limits in `BodyLimits`.
 
 ## Activation policy
 
