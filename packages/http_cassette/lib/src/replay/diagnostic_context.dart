@@ -3,8 +3,8 @@ import '../model/http_message.dart';
 
 /// Immutable value-free facts identifying an incoming replay request safely.
 ///
-/// URI, header and body values are deliberately absent. They require a later
-/// diagnostic-safety policy before even their names or locations can be shown.
+/// URI, header and body values are deliberately absent because their values,
+/// names and locations may contain confidential information.
 final class ReplayRequestSummary {
   /// Captures bounded facts from [request] at its [arrivalIndex].
   factory ReplayRequestSummary.fromRequest({

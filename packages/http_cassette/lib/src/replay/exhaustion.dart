@@ -4,8 +4,8 @@ import 'selection.dart';
 
 /// Immutable value-free facts about one exhausted replay matching group.
 ///
-/// This is not a complete public diagnostic. Cassette identity and a safe
-/// request summary must be added by the later diagnostic assembly boundary.
+/// These facts combine with cassette identity and a safe request summary to
+/// form a complete exhaustion diagnostic.
 final class ReplayExhaustionDetails {
   /// Captures exhaustion facts from an actual exhausted [result] and [state].
   factory ReplayExhaustionDetails.fromSelection({

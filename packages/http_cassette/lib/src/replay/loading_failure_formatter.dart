@@ -4,7 +4,7 @@ import 'loading_failure.dart';
 
 /// Deterministically formats safe replay cassette loading failures.
 final class ReplayCassetteLoadFailureFormatter {
-  /// Creates the internal default replay-loading formatter.
+  /// Creates the default replay-loading formatter.
   const ReplayCassetteLoadFailureFormatter();
 
   /// Formats [failure] without logging or inspecting cassette bytes.
@@ -45,7 +45,7 @@ final class ReplayCassetteLoadFailureFormatter {
   }
 }
 
-/// Internal human-readable formatting for replay cassette loading failures.
+/// Human-readable formatting for replay cassette loading failures.
 extension ReplayCassetteLoadFailureFormatting on ReplayCassetteLoadFailure {
   /// Formats this failure with [formatter].
   String format([

@@ -4,9 +4,9 @@ import 'exhaustion.dart';
 
 /// Complete safe structured information for one replay exhaustion failure.
 ///
-/// This internal model composes already validated context and exhaustion facts.
-/// It fixes the category, summary and network status so exhaustion cannot be
-/// misrepresented as a request mismatch.
+/// It combines validated context and exhaustion facts, and fixes the category,
+/// summary and network status so exhaustion cannot be represented as a request
+/// mismatch.
 final class ReplayExhaustionDiagnostic {
   /// Assembles an exhaustion diagnostic from safe [context] and [details].
   ReplayExhaustionDiagnostic({

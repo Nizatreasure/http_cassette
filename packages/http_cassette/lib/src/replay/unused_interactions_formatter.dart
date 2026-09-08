@@ -3,7 +3,7 @@ import 'unused_interactions_diagnostic.dart';
 
 /// Deterministically formats safe unused-interaction diagnostics as plain text.
 final class ReplayUnusedInteractionsDiagnosticFormatter {
-  /// Creates the internal default unused-interaction formatter.
+  /// Creates the default unused-interaction formatter.
   const ReplayUnusedInteractionsDiagnosticFormatter();
 
   /// Formats [diagnostic] without logging or inspecting recorded interactions.
@@ -24,7 +24,7 @@ final class ReplayUnusedInteractionsDiagnosticFormatter {
   }
 }
 
-/// Internal formatting for a failed unused-interaction verification diagnostic.
+/// Human-readable formatting for failed unused-interaction verification.
 extension ReplayUnusedInteractionsDiagnosticFormatting
     on ReplayUnusedInteractionsDiagnostic {
   /// Formats this diagnostic with [formatter].

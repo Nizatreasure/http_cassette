@@ -16,7 +16,7 @@ import 'no_match_diagnostic.dart';
 import 'policy_resolution.dart';
 import 'selection.dart';
 
-/// The result of one atomic internal replay matching and selection operation.
+/// The result of atomically matching and selecting one replay request.
 final class ReplayRequestSelection {
   /// Creates a result from one assigned request and its matching-group state.
   const ReplayRequestSelection({
@@ -70,7 +70,7 @@ final class ActiveReplayState {
   /// The replay policy resolved once when the session starts.
   final ReplayPolicy replayPolicy;
 
-  /// Whether successful close must later verify complete cassette usage.
+  /// Whether successful close must verify complete cassette usage.
   final bool requireAllInteractions;
 
   var _nextArrivalIndex = 0;

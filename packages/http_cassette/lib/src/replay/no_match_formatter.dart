@@ -4,7 +4,7 @@ import 'no_match_projection.dart';
 
 /// Deterministically formats safe replay no-match diagnostics as plain text.
 final class ReplayNoMatchDiagnosticFormatter {
-  /// Creates the internal default no-match formatter.
+  /// Creates the default no-match formatter.
   const ReplayNoMatchDiagnosticFormatter();
 
   /// Formats [diagnostic] without logging or inspecting canonical HTTP values.
@@ -52,7 +52,7 @@ final class ReplayNoMatchDiagnosticFormatter {
   }
 }
 
-/// Internal human-readable formatting for a replay no-match diagnostic.
+/// Human-readable formatting for a replay no-match diagnostic.
 extension ReplayNoMatchDiagnosticFormatting on ReplayNoMatchDiagnostic {
   /// Formats this diagnostic with [formatter].
   String format([

@@ -2,7 +2,7 @@ import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
 import 'cassette_mode.dart';
 
-/// The internal lifecycle state of one cassette session.
+/// The lifecycle state of one cassette session.
 enum SessionLifecycleState {
   /// The session can begin closing or discarding.
   open,
@@ -29,7 +29,7 @@ enum SessionLifecycleStart {
   alreadyClosed,
 }
 
-/// Synchronous state control for one future cassette session.
+/// Synchronous state control for one cassette session.
 ///
 /// Starting an operation is synchronous so competing asynchronous callers
 /// cannot both acquire completion work in one isolate.
@@ -42,7 +42,7 @@ final class SessionLifecycle {
 
   var _state = SessionLifecycleState.open;
 
-  /// The current internal lifecycle state.
+  /// The current lifecycle state.
   SessionLifecycleState get state => _state;
 
   /// Whether close or discard completed successfully.

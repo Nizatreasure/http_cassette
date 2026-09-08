@@ -40,7 +40,7 @@ final class CassetteSession {
   /// Completes this recording or replay session.
   ///
   /// Recording close writes the complete sanitised cassette. Append close keeps
-  /// the existing interactions and conditionally replaces the original file.
+  /// the existing interactions and conditionally replaces the stored cassette.
   /// Replay close performs unused-interaction verification when configured.
   /// Repeated close after successful completion is harmless. Concurrent
   /// completion, or completion after a failed close or discard, throws a

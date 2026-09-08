@@ -7,7 +7,7 @@ import 'decode_diagnostic.dart';
 import 'loading_failure.dart';
 import 'store_read_diagnostic.dart';
 
-/// The internal outcome of loading one replay cassette.
+/// The outcome of loading and decoding one replay cassette.
 sealed class ReplayCassetteLoadResult {
   const ReplayCassetteLoadResult._();
 

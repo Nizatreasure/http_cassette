@@ -3,7 +3,7 @@ import 'exhaustion_diagnostic.dart';
 
 /// Deterministically formats safe replay exhaustion diagnostics as plain text.
 final class ReplayExhaustionDiagnosticFormatter {
-  /// Creates the internal default exhaustion formatter.
+  /// Creates the default exhaustion formatter.
   const ReplayExhaustionDiagnosticFormatter();
 
   /// Formats [diagnostic] without logging or inspecting canonical HTTP values.
@@ -32,7 +32,7 @@ final class ReplayExhaustionDiagnosticFormatter {
   }
 }
 
-/// Internal human-readable formatting for a replay exhaustion diagnostic.
+/// Human-readable formatting for a replay exhaustion diagnostic.
 extension ReplayExhaustionDiagnosticFormatting on ReplayExhaustionDiagnostic {
   /// Formats this diagnostic with [formatter].
   String format([

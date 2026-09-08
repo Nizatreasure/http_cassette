@@ -8,9 +8,9 @@ import 'selection.dart';
 
 /// Resolves one canonical request entirely from an active replay session.
 ///
-/// This internal boundary has no real-transport callback. A selected
+/// No real-transport callback is available during this operation. A selected
 /// interaction returns its recorded outcome; no-match and exhaustion results
-/// throw safe cassette exceptions with their specialised diagnostic text.
+/// throw safe cassette exceptions with specialised diagnostic text.
 CassetteOutcome executeReplayRequest({
   required ActiveReplayState state,
   required CassetteRequest request,
