@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-- Added `CassetteHttpClientAdapter` and `installCassette` for connecting a `Dio` instance to an HTTP Cassette engine.
+- Added `CassetteHttpClientAdapter` and `installHttpCassette` for connecting a `Dio` instance to an HTTP Cassette engine.
 - Added recording and network-free replay of bounded request and response bodies through the core interception contract.
 - Added canonical translation of `dio` requests, completed responses, redirects, and portable transport failures.
 - Added cancellation handling that prevents caller cancellation from becoming a recorded transport outcome.

@@ -1,5 +1,5 @@
 name: http_cassette
-description: Transport-neutral foundations for secure HTTP record and replay in Dart tests.
+description: Secure, deterministic HTTP recording and replay for Dart tests.
 version: 0.1.0
 repository: https://github.com/Nizatreasure/http_cassette
 issue_tracker: https://github.com/Nizatreasure/http_cassette/issues

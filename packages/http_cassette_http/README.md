@@ -115,6 +115,8 @@ Ordinary requests, streamed requests, and multipart requests are supported from 
 
 Every completed final HTTP response is recordable, including ordinary 2xx responses, directly observed 3xx redirects, and 4xx or 5xx error responses. Convenience methods such as `get` return these status responses normally. Higher-level methods such as `read` may reject a status after `send` returns; that client policy does not turn the recorded response into a transport failure.
 
+The canonical cassette model accepts status codes from 100 through 599. A 1xx response can therefore be recorded if the wrapped client exposes it as the completed response. Informational responses handled internally by the transport are not visible to HTTP Cassette; it records only the final response returned to the cassette client.
+
 A directly observed redirect records and replays its status, reason phrase, headers, and body. The live response retains its exposed final URL, redirect flag, and connection-persistence value. Those transport-only values are not cassette data and are not invented during replay. If the wrapped client follows a redirect, HTTP Cassette records only the final response it observes.
 
 ## Cancellation

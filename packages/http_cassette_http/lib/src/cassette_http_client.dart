@@ -143,8 +143,7 @@ CassetteException _responseBodyLimitException() => CassetteException(
 CassetteException _invalidRequestException() => CassetteException(
       CassetteDiagnostic(
         category: DiagnosticCategory.invalidCanonicalRequest,
-        summary:
-            'The package:http request could not form a canonical HTTP request.',
+        summary: 'The client request could not form a canonical HTTP request.',
         networkAccess: NetworkAccess.notAttempted,
       ),
     );
@@ -152,7 +151,7 @@ CassetteException _invalidRequestException() => CassetteException(
 CassetteException _invalidRequestStreamException() => CassetteException(
       CassetteDiagnostic(
         category: DiagnosticCategory.adapterContractViolation,
-        summary: 'The package:http request stream could not be captured.',
+        summary: 'The client request stream could not be captured.',
         networkAccess: NetworkAccess.notAttempted,
       ),
     );

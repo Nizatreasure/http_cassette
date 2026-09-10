@@ -112,6 +112,8 @@ HTTP Cassette distinguishes a remote attempt outcome from a local or caller-cont
 - Caller cancellation is not recordable because it belongs to one particular request.
 - Cassette-system failures, including body-limit, sanitisation, matching, and storage failures, are not remote outcomes and are not recorded.
 
+The canonical cassette model accepts status codes from 100 through 599. A 1xx response can therefore be recorded if the wrapped adapter exposes it as the completed response. Informational responses handled internally by the transport are not visible to HTTP Cassette; it records only the final response returned at the adapter boundary.
+
 The adapter uses fixed safe descriptions for recordable transport failures. It never copies raw `dio` messages, causes, response values, or stack traces into a cassette. A transport failure encountered while recording an intended success scenario becomes that request's recorded outcome, so discard the recording if that is not the scenario you intended to keep.
 
 `dio` applies `validateStatus` after the transport adapter returns. HTTP Cassette therefore records the completed response before `dio` applies that policy, even when the policy later exposes its status as a `badResponse`. Replay follows the same status policy.
