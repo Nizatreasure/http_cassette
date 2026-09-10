@@ -12,7 +12,7 @@ typedef CapturedHttpResponse = ({
 /// Captures one live [response] within [maximumBytes].
 ///
 /// The returned response contains an independent stream of the complete bytes
-/// and refers to the caller's original [request], rather than an internal
+/// and refers to the caller's original [request], rather than the buffered
 /// replacement request used by the wrapped client.
 Future<CapturedHttpResponse> captureHttpResponse(
   http.StreamedResponse response, {
@@ -76,9 +76,9 @@ Future<CapturedHttpResponse> captureHttpResponse(
   );
 }
 
-/// Reconstructs a canonical replay [response] for a `package:http` caller.
+/// Reconstructs a canonical replay [response] for an `http` caller.
 ///
-/// Repeated canonical header values are joined because `package:http` exposes
+/// Repeated canonical header values are joined because `http` exposes
 /// one string per response header. Redirect state, connection persistence and
 /// a final response URL are not cassette data and are not invented.
 http.StreamedResponse reconstructHttpResponse(

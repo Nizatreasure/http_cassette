@@ -3,7 +3,7 @@ import 'package:http_cassette/http_cassette.dart';
 
 import 'http_client_exception.dart';
 
-/// Translates a recordable `package:http` [failure] to a portable outcome.
+/// Translates a recordable `http` [failure] to a portable outcome.
 ///
 /// `ClientException` exposes no stable typed cause or failure category, so the
 /// adapter uses the conservative portable fallback without inspecting its

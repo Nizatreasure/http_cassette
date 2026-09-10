@@ -3,7 +3,7 @@ import 'package:http_cassette/http_cassette.dart';
 
 /// Creates a canonical request from HTTP [request] metadata and buffered bytes.
 ///
-/// `package:http` exposes request headers as one string per field. This
+/// `http` exposes request headers as one string per field. This
 /// translation preserves each exposed string as one canonical value and does
 /// not attempt to infer earlier repeated-field boundaries.
 CassetteRequest canonicaliseHttpRequest(

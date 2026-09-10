@@ -22,11 +22,11 @@ extension HttpCassetteClientException on http.ClientException {
       };
 }
 
-/// Wraps one safe cassette-system [failure] for `package:http` callers.
+/// Wraps one safe cassette-system [failure] for `http` callers.
 http.ClientException wrapCassetteExceptionForHttp(CassetteException failure) =>
     _CassetteSystemClientException(failure);
 
-/// Wraps one portable replay [failure] for `package:http` callers.
+/// Wraps one portable replay [failure] for `http` callers.
 http.ClientException wrapHttpTransportFailureForReplay(
   CassetteTransportFailure failure,
 ) =>

@@ -107,14 +107,14 @@ These limits apply to individual HTTP bodies. The store's separate `maximumBytes
 
 HTTP Cassette distinguishes a remote attempt outcome from a local or caller-controlled failure:
 
-- Every completed HTTP response is recordable, including redirects and 4xx or 5xx responses.
+- Every completed final HTTP response is recordable, including ordinary 2xx responses, directly observed 3xx redirects, and 4xx or 5xx error responses.
 - A transport failure is recordable when no complete response was received, including timeouts, connection failures, and secure connection failures.
 - Caller cancellation is not recordable because it belongs to one particular request.
 - Cassette-system failures, including body-limit, sanitisation, matching, and storage failures, are not remote outcomes and are not recorded.
 
 The adapter uses fixed safe descriptions for recordable transport failures. It never copies raw `dio` messages, causes, response values, or stack traces into a cassette. A transport failure encountered while recording an intended success scenario becomes that request's recorded outcome, so discard the recording if that is not the scenario you intended to keep.
 
-`dio` applies `validateStatus` after the transport adapter returns. HTTP Cassette therefore records a completed 4xx or 5xx response before `dio` may expose it as a `badResponse`, and replay follows the same status policy.
+`dio` applies `validateStatus` after the transport adapter returns. HTTP Cassette therefore records the completed response before `dio` applies that policy, even when the policy later exposes its status as a `badResponse`. Replay follows the same status policy.
 
 A directly observed redirect preserves its status, reason phrase, headers, and body. HTTP Cassette does not persist `dio`'s `isRedirect` flag, redirect history, or transport `extra`, so those values are available on the live response but are not reconstructed during replay. When the wrapped transport follows redirects itself, HTTP Cassette records only the final response observed at the adapter boundary.
 

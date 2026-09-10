@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-/// Buffers one `package:http` byte [stream] within [maximumBytes].
+/// Buffers one `http` byte [stream] within [maximumBytes].
 ///
-/// Limit and cancellation failures use value-free internal signals. A source
-/// stream failure is preserved for the adapter boundary to classify later.
+/// Limit and cancellation failures use value-free signals. A source stream
+/// failure is preserved for the adapter to classify.
 Future<Uint8List> bufferHttpByteStream(
   Stream<List<int>> stream, {
   required int maximumBytes,
@@ -108,18 +108,18 @@ bool _containsInvalidByte(List<int> chunk) {
 
 /// Signals that an HTTP byte stream exceeded its active cassette limit.
 final class HttpByteStreamLimitExceeded implements Exception {
-  /// Creates the value-free internal signal.
+  /// Creates a value-free limit signal.
   const HttpByteStreamLimitExceeded();
 }
 
 /// Signals cancellation while an active HTTP byte stream was being buffered.
 final class HttpByteStreamBufferCancelled implements Exception {
-  /// Creates the value-free internal signal.
+  /// Creates a value-free cancellation signal.
   const HttpByteStreamBufferCancelled();
 }
 
 /// Signals that a custom HTTP stream emitted a value outside one byte.
 final class HttpByteStreamInvalidByte implements Exception {
-  /// Creates the value-free internal signal.
+  /// Creates a value-free invalid-byte signal.
   const HttpByteStreamInvalidByte();
 }

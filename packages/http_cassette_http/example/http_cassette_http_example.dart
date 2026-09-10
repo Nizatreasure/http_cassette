@@ -9,13 +9,15 @@ Future<void> main() async {
   final transport = _ExampleClient();
   final client = CassetteHttpClient(engine, inner: transport);
 
-  final recording = await engine.startRecording('example/status');
-  final live = await client.get(Uri.parse('https://example.test/status'));
-  await recording.close();
-
-  final replay = await engine.startReplay('example/status');
-  final recorded = await client.get(Uri.parse('https://example.test/status'));
-  await replay.close();
+  final uri = Uri.parse('https://example.test/status');
+  final live = await engine.record(
+    'example/status',
+    () => client.get(uri),
+  );
+  final recorded = await engine.replay(
+    'example/status',
+    () => client.get(uri),
+  );
 
   if (live.body != 'Available' || recorded.body != 'Available') {
     throw StateError('The HTTP response was not preserved.');

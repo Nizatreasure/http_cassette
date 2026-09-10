@@ -1,7 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:http_cassette/http_cassette.dart';
 
-/// Adapts a `package:http` abort trigger to the core cancellation contract.
+/// Adapts an `http` abort trigger to the core cancellation contract.
 final class HttpCassetteCancellation implements CassetteCancellation {
   HttpCassetteCancellation._(this.abortTrigger) {
     _whenCancelled = abortTrigger.then<void>(
@@ -39,11 +39,11 @@ HttpCassetteCancellation? createHttpCassetteCancellation(
   return null;
 }
 
-/// Signals that an abort trigger broke the `package:http` contract.
+/// Signals that an abort trigger broke the `http` contract.
 ///
 /// Abort triggers must complete normally. This value-free signal prevents an
 /// error carried by a custom trigger from crossing the adapter boundary.
 final class HttpAbortTriggerFailure implements Exception {
-  /// Creates the safe internal signal.
+  /// Creates a safe value-free signal.
   const HttpAbortTriggerFailure();
 }

@@ -8,7 +8,7 @@ import 'http_request_translation.dart';
 import 'http_response_translation.dart';
 import 'http_transport_failure_translation.dart';
 
-/// A `package:http` client connected to one shared [CassetteEngine].
+/// An `http` client connected to one shared [CassetteEngine].
 ///
 /// While [engine] has no active session, requests pass directly to the inner
 /// client without inspection or finalisation. Recording uses the inner client
