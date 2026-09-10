@@ -12,17 +12,22 @@ void main() {
       final options = const RecordingOptions(
         existingCassette: ExistingCassette.append,
       );
+      final recording = RecordingConfiguration(
+        closeGracePeriod: const Duration(seconds: 45),
+      );
 
       final state = ActiveRecordingState(
         cassetteName: name,
         configuration: CassetteConfiguration(
           sanitisation: sanitisation,
+          recording: recording,
         ),
         options: options,
       );
 
       expect(state.cassetteName, same(name));
       expect(state.sanitisation, same(sanitisation));
+      expect(state.recording, same(recording));
       expect(state.options, same(options));
     });
 

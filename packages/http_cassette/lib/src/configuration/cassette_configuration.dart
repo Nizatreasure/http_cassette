@@ -1,3 +1,4 @@
+import '../recording/configuration.dart';
 import '../replay/configuration.dart';
 import '../sanitisation/configuration.dart';
 import 'body_limits.dart';
@@ -14,12 +15,14 @@ final class CassetteConfiguration {
     MatchingConfiguration? matching,
     SanitisationConfiguration? sanitisation,
     BodyLimits? bodyLimits,
+    RecordingConfiguration? recording,
     ReplayPolicy defaultReplayPolicy = ReplayPolicy.strict,
   }) =>
       CassetteConfiguration._(
         matching: matching ?? MatchingConfiguration(),
         sanitisation: sanitisation ?? SanitisationConfiguration(),
         bodyLimits: bodyLimits ?? BodyLimits(),
+        recording: recording ?? RecordingConfiguration(),
         defaultReplayPolicy: defaultReplayPolicy,
       );
 
@@ -27,6 +30,7 @@ final class CassetteConfiguration {
     required this.matching,
     required this.sanitisation,
     required this.bodyLimits,
+    required this.recording,
     required this.defaultReplayPolicy,
   });
 
@@ -39,6 +43,9 @@ final class CassetteConfiguration {
   /// Limits for canonical request and response body buffering.
   final BodyLimits bodyLimits;
 
+  /// Recording lifecycle behaviour shared by every recording session.
+  final RecordingConfiguration recording;
+
   /// Replay policy used when a replay session supplies no override.
   final ReplayPolicy defaultReplayPolicy;
 
@@ -49,6 +56,7 @@ final class CassetteConfiguration {
           matching == other.matching &&
           sanitisation == other.sanitisation &&
           bodyLimits == other.bodyLimits &&
+          recording == other.recording &&
           defaultReplayPolicy == other.defaultReplayPolicy;
 
   @override
@@ -56,6 +64,7 @@ final class CassetteConfiguration {
         matching,
         sanitisation,
         bodyLimits,
+        recording,
         defaultReplayPolicy,
       );
 }

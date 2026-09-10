@@ -1,3 +1,40 @@
+/// Immutable recording behaviour shared by every session on one engine.
+final class RecordingConfiguration {
+  /// Creates recording configuration.
+  ///
+  /// [closeGracePeriod] is the single positive duration allowed for requests
+  /// admitted before recording close to settle. It defaults to 30 seconds.
+  factory RecordingConfiguration({
+    Duration closeGracePeriod = defaultCloseGracePeriod,
+  }) {
+    if (closeGracePeriod <= Duration.zero) {
+      throw ArgumentError.value(
+        closeGracePeriod,
+        'closeGracePeriod',
+        'Recording close grace period must be positive.',
+      );
+    }
+    return RecordingConfiguration._(closeGracePeriod);
+  }
+
+  const RecordingConfiguration._(this.closeGracePeriod);
+
+  /// The default time allowed for admitted recording requests to settle.
+  static const defaultCloseGracePeriod = Duration(seconds: 30);
+
+  /// The complete wait allowed after recording close seals request admission.
+  final Duration closeGracePeriod;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecordingConfiguration &&
+          closeGracePeriod == other.closeGracePeriod;
+
+  @override
+  int get hashCode => closeGracePeriod.hashCode;
+}
+
 /// How a recording session handles its target cassette.
 enum ExistingCassette {
   /// Fail when the target cassette already exists.

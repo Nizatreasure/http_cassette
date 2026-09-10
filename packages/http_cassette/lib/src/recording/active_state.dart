@@ -44,6 +44,7 @@ final class ActiveRecordingState {
     return ActiveRecordingState._(
       cassetteName: cassetteName,
       sanitisation: configuration.sanitisation,
+      recording: configuration.recording,
       options: options,
       appendSnapshot: appendPreparation?.snapshot,
       initialInteractions: initialInteractions,
@@ -53,6 +54,7 @@ final class ActiveRecordingState {
   ActiveRecordingState._({
     required this.cassetteName,
     required this.sanitisation,
+    required this.recording,
     required this.options,
     required this.appendSnapshot,
     required List<CassetteInteraction> initialInteractions,
@@ -67,6 +69,9 @@ final class ActiveRecordingState {
 
   /// The sanitisation configuration fixed when the session starts.
   final SanitisationConfiguration sanitisation;
+
+  /// The recording lifecycle configuration fixed when the session starts.
+  final RecordingConfiguration recording;
 
   /// The target-handling options fixed when the session starts.
   final RecordingOptions options;

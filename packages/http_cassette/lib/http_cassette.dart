@@ -26,7 +26,7 @@ export 'src/model/headers.dart';
 export 'src/model/http_message.dart';
 export 'src/model/outcome.dart';
 export 'src/recording/configuration.dart'
-    show ExistingCassette, RecordingOptions;
+    show ExistingCassette, RecordingConfiguration, RecordingOptions;
 export 'src/replay/configuration.dart' show ReplayOptions, ReplayPolicy;
 export 'src/sanitisation/configuration.dart' show SanitisationConfiguration;
 export 'src/sanitisation/custom.dart'

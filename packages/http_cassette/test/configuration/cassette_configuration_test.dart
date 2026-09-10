@@ -9,6 +9,7 @@ void main() {
       expect(configuration.matching, MatchingConfiguration());
       expect(configuration.sanitisation, SanitisationConfiguration());
       expect(configuration.bodyLimits, BodyLimits());
+      expect(configuration.recording, RecordingConfiguration());
       expect(configuration.defaultReplayPolicy, ReplayPolicy.strict);
     });
 
@@ -20,17 +21,22 @@ void main() {
         additionalJsonPointers: const <String>{'/account/id'},
       );
       final bodyLimits = BodyLimits(requestBytes: 12, responseBytes: 34);
+      final recording = RecordingConfiguration(
+        closeGracePeriod: const Duration(seconds: 45),
+      );
 
       final configuration = CassetteConfiguration(
         matching: matching,
         sanitisation: sanitisation,
         bodyLimits: bodyLimits,
+        recording: recording,
         defaultReplayPolicy: ReplayPolicy.sequence,
       );
 
       expect(configuration.matching, same(matching));
       expect(configuration.sanitisation, same(sanitisation));
       expect(configuration.bodyLimits, same(bodyLimits));
+      expect(configuration.recording, same(recording));
       expect(configuration.defaultReplayPolicy, ReplayPolicy.sequence);
     });
 
@@ -44,6 +50,16 @@ void main() {
         first,
         isNot(
           CassetteConfiguration(defaultReplayPolicy: ReplayPolicy.first),
+        ),
+      );
+      expect(
+        first,
+        isNot(
+          CassetteConfiguration(
+            recording: RecordingConfiguration(
+              closeGracePeriod: const Duration(seconds: 31),
+            ),
+          ),
         ),
       );
     });
