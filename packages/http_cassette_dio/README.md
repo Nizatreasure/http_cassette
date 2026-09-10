@@ -1,68 +1,126 @@
 # http_cassette_dio
 
-`http_cassette_dio` connects Dio to the transport-neutral `http_cassette`
-package.
+`http_cassette_dio` connects `dio` to the transport-neutral [`http_cassette`](https://pub.dev/packages/http_cassette) engine. It records real HTTP interactions through `dio` and later replays them without contacting the network.
 
-The package wraps Dio's transport adapter and passes requests through unchanged
-while its cassette engine is inactive. It does not buffer request bodies on
-this path.
+The package wraps `dio`'s final transport adapter. Request interceptors and transformers run before HTTP Cassette, so active sessions capture the final encoded request-body bytes. Response transformation, status validation, and response interceptors continue to run normally after a live or replayed raw response is returned.
 
-Active requests are read once from Dio's final encoded request stream, bounded
-by the engine's request-body limit and translated into the canonical core
-request. Recording permits one real transport attempt, captures its response or
-portable transport failure and returns the equivalent live Dio result. Replay
-returns the recorded outcome without calling the wrapped transport adapter.
+## Features
 
-A null request stream remains an empty canonical body. Non-null streams,
-including single-subscription and empty streams, are consumed exactly once and
-prepared as equivalent replacement streams for later recording. Declared or
-measured bodies over the configured limit fail without truncation or network
-access. Cancellation and stream errors retain no partial request.
+- One-call installation on an existing `dio` client.
+- Exact pass-through while no cassette session is active.
+- Bounded capture of final encoded request and response bodies.
+- Recording through the configured underlying transport adapter.
+- Replay without calling the underlying adapter.
+- Portable response and transport-failure mapping.
+- `DioException` access to structured cassette-system failures.
+- Shared cassette sessions across several `dio` clients when they use the same engine.
 
-While a cassette session is active, Dio send progress may advance as the
-wrapper buffers the request rather than as bytes reach the network. Original
-stream chunk boundaries, timing and back-pressure are not preserved. Inactive
-requests retain Dio's ordinary streaming and progress behaviour.
+## Installation
+
+Add both the integration package and the core package used to configure the engine:
+
+```sh
+dart pub add http_cassette http_cassette_dio
+```
+
+Import `dio`, the core package, and this adapter:
+
+```dart
+import 'package:dio/dio.dart';
+import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette_dio/http_cassette_dio.dart';
+```
+
+## Set up `dio`
+
+Create one engine and install that same instance on `dio`. Configure any custom `HttpClientAdapter` before installation because HTTP Cassette wraps the adapter currently assigned to `dio.httpClientAdapter`.
+
+```dart
+final engine = CassetteEngine(
+  store: MemoryCassetteStore(),
+);
+
+final dio = Dio();
+
+// Configure dio.httpClientAdapter here when required.
+dio.installHttpCassette(engine);
+```
+
+`CassetteEngine` is not a singleton. A different engine has separate session state and cannot control an adapter installed with the first engine. Several `dio` clients may install the same engine when their requests should participate in the same cassette session.
+
+Installing HTTP Cassette twice on one `dio` client throws a `StateError`. Assigning another `httpClientAdapter` after installation replaces and disables the cassette integration. Closing `dio` closes the wrapped adapter at most once; cassette sessions remain controlled explicitly through the shared engine.
+
+## Record and replay
+
+Run requests within recording and replay sessions through the engine installed on `dio`:
+
+```dart
+final live = await engine.record(
+  'account/details',
+  () => dio.get<void>('https://api.example.test/account'),
+);
+
+final recorded = await engine.replay(
+  'account/details',
+  () => dio.get<void>('https://api.example.test/account'),
+); // No network access.
+```
+
+The scoped methods close a successful session and discard it when the callback fails. Manual `startRecording` and `startReplay` sessions are also available for interactive or multi-step scenarios. Recording calls the wrapped adapter at most once for each admitted request. Replay never calls it, including when a request is unmatched or its matching interactions are exhausted. A missing or invalid cassette prevents the replay session from starting. Discard a recording instead of closing it when its captured outcome is not the scenario you intended to keep.
+
+When no cassette session is active, requests pass directly to the wrapped adapter without body buffering or reconstruction. This includes engines using `CassetteActivationPolicy.disabledWithPassThrough`, whose inert recording and replay commands leave the engine inactive.
+
+```dart
+final engine = CassetteEngine(
+  store: store,
+  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
+);
+```
+
+`disabledWithException` rejects recording and replay commands before store or transport work. `disabledWithPassThrough` permits ordinary network access even when code calls a replay command because no active replay session is created. An active replay session never accesses the network.
+
+## Request and response bodies
+
+Active requests are consumed once from `dio`'s final encoded request stream, checked against the engine's request-body limit, and translated into a canonical request. A null request stream represents an empty body. Every non-null stream, including an empty or single-subscription stream, is replaced with an equivalent stream for an authorised recording attempt.
+
+Active responses are also completely buffered before they are recorded or returned to `dio`. The engine's response-body limit applies to this capture. Declared or measured bodies over their configured limit fail without truncation. Cancellation and stream errors retain no partial body.
+
+Original stream chunks, timing, and back-pressure are not preserved. During an active session, `dio` send progress may advance while HTTP Cassette buffers the encoded request rather than while bytes reach the network. Response delivery waits for complete bounded capture. Inactive requests retain `dio`'s ordinary streaming and progress behaviour.
+
+Configure request and response limits on the shared engine:
+
+```dart
+final engine = CassetteEngine(
+  store: MemoryCassetteStore(),
+  configuration: CassetteConfiguration(
+    bodyLimits: BodyLimits(
+      requestBytes: 4 * 1024 * 1024,
+      responseBytes: 10 * 1024 * 1024,
+    ),
+  ),
+);
+```
+
+These limits apply to individual HTTP bodies. The store's separate `maximumBytes` value limits one complete encoded cassette.
 
 ## Recordable outcomes
 
-HTTP Cassette distinguishes an outcome of the remote attempt from a local or
-caller-controlled failure:
+HTTP Cassette distinguishes a remote attempt outcome from a local or caller-controlled failure:
 
-- Every completed HTTP response is recordable, including redirects and 4xx or
-  5xx responses.
-- A genuine transport failure is recordable when no complete response was
-  received. Examples include a timeout, connection failure or secure connection
-  failure. Recording these outcomes makes offline, retry and error-handling
-  scenarios reproducible during replay.
-- Caller cancellation is not recordable because it is a decision made for one
-  particular request.
-- Cassette failures, such as a body-limit, sanitisation, matching or storage
-  failure, are not remote outcomes and are not recorded.
+- Every completed HTTP response is recordable, including redirects and 4xx or 5xx responses.
+- A transport failure is recordable when no complete response was received, including timeouts, connection failures, and secure connection failures.
+- Caller cancellation is not recordable because it belongs to one particular request.
+- Cassette-system failures, including body-limit, sanitisation, matching, and storage failures, are not remote outcomes and are not recorded.
 
-The Dio adapter uses fixed safe descriptions for recordable transport failures.
-It never copies raw Dio messages, causes, response values or stack traces into a
-cassette. A transport failure encountered while recording an intended success
-scenario becomes that request's outcome. The developer should discard that
-recording rather than commit it.
-The current implementation defines and applies this mapping during recording
-and replay.
+The adapter uses fixed safe descriptions for recordable transport failures. It never copies raw `dio` messages, causes, response values, or stack traces into a cassette. A transport failure encountered while recording an intended success scenario becomes that request's recorded outcome, so discard the recording if that is not the scenario you intended to keep.
 
-Dio applies `validateStatus` after the transport adapter returns. HTTP Cassette
-therefore records a completed 4xx or 5xx response before Dio may expose it as a
-`badResponse`, and replay follows the same Dio status policy. A directly
-observed redirect preserves its status, reason, headers and body. V1 does not
-persist Dio's `isRedirect` flag, redirect history or transport `extra`, so those
-values are available on the live response but not reconstructed during replay.
-When Dio's transport follows redirects itself, HTTP Cassette records the final
-response observed at the adapter boundary.
+`dio` applies `validateStatus` after the transport adapter returns. HTTP Cassette therefore records a completed 4xx or 5xx response before `dio` may expose it as a `badResponse`, and replay follows the same status policy.
 
-## Cassette system failures
+A directly observed redirect preserves its status, reason phrase, headers, and body. HTTP Cassette does not persist `dio`'s `isRedirect` flag, redirect history, or transport `extra`, so those values are available on the live response but are not reconstructed during replay. When the wrapped transport follows redirects itself, HTTP Cassette records only the final response observed at the adapter boundary.
 
-HTTP Cassette system failures travel through Dio as `DioException` values so
-they follow Dio's ordinary error pipeline. The exact safe `CassetteException`
-is retained in `DioException.error` and is available through the extension
-getter:
+## Cassette-system failures
+
+Cassette-system failures travel through `dio` as `DioException` values so they follow its ordinary error pipeline. The exact safe `CassetteException` is retained in `DioException.error` and is available through `cassetteException`:
 
 ```dart
 try {
@@ -75,130 +133,31 @@ try {
 }
 ```
 
-The getter returns `null` for ordinary Dio failures and for replayed portable
-transport failures.
+The getter returns `null` for ordinary `dio` failures and replayed portable transport failures.
 
-## Recording and replay
+## Cancellation
 
-Start and complete sessions through the same engine installed on Dio:
+Cancellation before replay selection consumes no recorded interaction. During recording, `dio`'s cancellation future is passed to the wrapped adapter. If cancellation wins the race with the complete captured outcome, the later outcome is ignored and that request is not retained in the recording.
 
-```dart
-final recording = await engine.startRecording('account/details');
-await dio.get<void>('https://api.example.test/account');
-await recording.close();
+## Portability
 
-final replay = await engine.startReplay('account/details');
-await dio.get<void>('https://api.example.test/account'); // No network access.
-await replay.close();
-```
+The official `dio` and `http` adapters use the same canonical cassette format. Equivalent basic requests, successful responses, and common portable transport failures can be recorded through either adapter and replayed through the other without contacting the receiving transport.
 
-Recording calls the wrapped Dio adapter at most once for each admitted request.
-Replay never calls it, including when the cassette is missing, unmatched or
-exhausted. Discard a recording instead of closing it when its captured outcome
-is not the scenario you intended to keep.
+A cassette preserves canonical HTTP values, not every client-specific value. It does not store progress, stream chunks, timing, redirect history, connection state, request `extra`, or other transport-specific options. Portability is also limited by the receiving client; for example, `http` cannot represent repeated request-header field lines separately. Transport-failure categories remain portable, but each adapter reconstructs the closest failure its client supports.
 
-### Disabling cassette commands
+## Composition and limitations
 
-The installed Dio adapter does not need to be removed when cassette behaviour
-must be disabled. Configure the shared engine once:
+- A request interceptor which resolves or rejects without dispatching to the transport never reaches HTTP Cassette and is not recorded.
+- Each retry that independently reaches `HttpClientAdapter.fetch` is a separate cassette observation. A retry layer above that boundary may expose only its final attempt.
+- SSE, endless streams, and bodies exceeding the configured limits are unsupported.
+- Replay does not reproduce original stream chunks, timing, progress, or back-pressure.
+- Redirect history and other `dio`-specific transport state are not persisted.
 
-```dart
-final engine = CassetteEngine(
-  store: store,
-  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
-);
-```
-
-`disabledWithException` rejects recording and replay commands before store or
-transport work. `disabledWithPassThrough` returns inert sessions and leaves the
-engine inactive, so Dio delegates requests to its wrapped adapter normally and
-no cassette is read or changed.
-
-> Under `disabledWithPassThrough`, even a replay command permits real network
-> access because no active replay session is created. The ordinary guarantee
-> that an active replay never reaches the network remains unchanged.
-
-## Cassette portability
-
-Dio and `package:http` use the same canonical cassette format. Contract tests
-verify equivalent basic requests, successful responses and common portable
-transport failures. A successful Dio recording can therefore replay through
-the official `package:http` adapter, and the reverse direction also works,
-without contacting the receiving transport.
-
-The cassette preserves canonical HTTP values, not every Dio value. It does not
-store progress, stream chunks or timing, redirect history, connection state,
-request `extra` or other transport-specific options. Portability is also
-limited by the receiving client: `package:http`, for example, cannot represent
-repeated request-header field lines separately. Transport failure categories
-remain available as portable cassette data, but each adapter reconstructs the
-closest failure its client supports.
-
-Caller cancellation is never stored as a reusable interaction. Cancellation
-before replay selection consumes nothing. During recording, Dio's original
-cancellation future still reaches the wrapped adapter; if cancellation wins the
-race with the complete captured outcome, the later outcome is ignored and the
-recording cannot retain that request.
-
-## Composition and streaming limitations
-
-The adapter sits below Dio's request interceptors and transformers:
-
-- A request interceptor which resolves or rejects without transport dispatch
-  never reaches HTTP Cassette and is not recorded.
-- Retry behaviour depends on where the retry is implemented. Each retry which
-  independently reaches `HttpClientAdapter.fetch` is a separate cassette
-  observation; a retry layer above that boundary may expose only its final
-  attempt.
-- Active request and response bodies are completely buffered within the
-  configured limits. Original chunk boundaries, timing and back-pressure are
-  not reproduced during replay.
-- Send progress may complete while HTTP Cassette reads the encoded request,
-  before the authorised recording request reaches the network. Response
-  delivery waits until the complete bounded response has been captured.
-- SSE, endless streams and bodies exceeding the configured limits are not
-  supported in V1.
-
-A custom wrapped adapter must return every completed HTTP status as a
-`ResponseBody`. Throwing Dio `badResponse` from this transport boundary, a raw
-non-Dio error or a raw response-stream error is treated as a safe adapter
-contract violation and is not recorded. Raw error values and messages are not
-retained in the diagnostic.
-
-## Installation
-
-The package is not ready for publication. During development in this workspace,
-it can be resolved with `dart pub get` from the repository root.
-
-Create one engine and install that same instance on Dio. Configure any custom
-Dio transport adapter before installation:
-
-```dart
-import 'package:dio/dio.dart';
-import 'package:http_cassette/http_cassette.dart';
-import 'package:http_cassette_dio/http_cassette_dio.dart';
-
-final engine = CassetteEngine(store: MemoryCassetteStore());
-final dio = Dio();
-
-// Configure dio.httpClientAdapter here when required.
-dio.installHttpCassette(engine);
-```
-
-`CassetteEngine` is not a singleton. Creating another engine creates separate
-session state, so it will not control a Dio adapter that holds the first engine.
-Several Dio instances may install the same engine when they should participate
-in one cassette session.
-
-Installing HTTP Cassette twice on one Dio instance throws a `StateError`.
-Assigning another `httpClientAdapter` after installation replaces and disables
-the cassette integration. Closing Dio closes the wrapped transport adapter at
-most once; cassette sessions remain controlled explicitly through the engine.
+A custom wrapped adapter must return every completed HTTP status as a `ResponseBody`. Throwing a `badResponse` from this transport boundary, throwing a raw non-`dio` error, or emitting a raw response-stream error is treated as an adapter contract violation and is not recorded. Raw error values and messages are not retained in the diagnostic.
 
 ## Example
 
-The example records and replays one response through a local fake transport. It
-does not make a network request.
+The example records and replays one response through a local fake transport. It does not make a network request.
 
 ```sh
 dart run example/http_cassette_dio_example.dart
@@ -206,4 +165,4 @@ dart run example/http_cassette_dio_example.dart
 
 ## Licence
 
-This package is licensed under the BSD 3-Clause License.
+This package is available under the BSD 3-Clause License. See [`LICENSE`](LICENSE).

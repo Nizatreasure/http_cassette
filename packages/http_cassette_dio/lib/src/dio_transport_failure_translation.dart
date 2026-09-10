@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
-/// Translates a recordable Dio transport [failure] into a portable outcome.
+/// Translates a recordable `dio` transport [failure] into a portable outcome.
 ///
 /// Caller cancellation and status-based `badResponse` failures are not
 /// transport failures and must be handled before calling this function.
@@ -41,7 +41,7 @@ CassetteTransportFailure translateDioTransportFailure(DioException failure) {
   };
 }
 
-/// Reconstructs a portable replay [failure] as the closest Dio exception.
+/// Reconstructs a portable replay [failure] as the closest `dio` exception.
 DioException reconstructDioTransportFailure(
   CassetteTransportFailure failure,
   RequestOptions requestOptions,

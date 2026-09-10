@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
-/// Adapts Dio's monotonic cancellation state to the core contract.
+/// Adapts `dio`'s monotonic cancellation state to the core contract.
 final class DioCassetteCancellation implements CassetteCancellation {
   DioCassetteCancellation._({
     required bool isCancelled,
@@ -24,7 +24,7 @@ final class DioCassetteCancellation implements CassetteCancellation {
   Future<void> get whenCancelled => _whenCancelled;
 }
 
-/// Creates a core cancellation view when Dio supplied cancellation state.
+/// Creates a core cancellation view when `dio` supplied cancellation state.
 DioCassetteCancellation? createDioCassetteCancellation(
   RequestOptions options,
   Future<void>? cancelFuture,

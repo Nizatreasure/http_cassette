@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'dio_byte_stream_buffer.dart';
 
-/// The completed bytes and equivalent replacement stream for one Dio body.
+/// The completed bytes and equivalent replacement stream for one `dio` body.
 typedef BufferedDioRequestBody = ({
   Uint8List bytes,
   Stream<Uint8List>? replacementStream,

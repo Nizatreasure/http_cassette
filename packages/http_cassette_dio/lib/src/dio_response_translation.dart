@@ -5,7 +5,7 @@ import 'package:http_cassette/http_cassette.dart';
 
 import 'dio_byte_stream_buffer.dart';
 
-/// The canonical and equivalent Dio forms of one completely captured response.
+/// The canonical and equivalent `dio` forms of one captured response.
 typedef CapturedDioResponse = ({
   CassetteResponse canonicalResponse,
   ResponseBody replacementResponse,
@@ -47,7 +47,7 @@ Future<CapturedDioResponse> captureDioResponse(
   );
 }
 
-/// Reconstructs a raw Dio response from a canonical replay [response].
+/// Reconstructs a raw `dio` response from a canonical replay [response].
 ResponseBody reconstructDioResponse(CassetteResponse response) {
   final headers = <String, List<String>>{
     for (final entry in response.headers.toMap().entries)

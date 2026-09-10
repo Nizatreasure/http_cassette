@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-/// Buffers one Dio byte [stream] without retaining more than [maximumBytes].
+/// Buffers one `dio` byte [stream] without retaining more than [maximumBytes].
 ///
 /// [DioByteStreamLimitExceeded] and [DioByteStreamBufferCancelled] are safe
-/// internal control failures for the transport adapter to map.
+/// value-free signals for the transport adapter to map.
 Future<Uint8List> bufferDioByteStream(
   Stream<Uint8List> stream, {
   required int maximumBytes,
@@ -83,14 +83,14 @@ Stream<Uint8List> createDioByteStream(Uint8List bytes) =>
       bytes.isEmpty ? const <Uint8List>[] : <Uint8List>[bytes],
     );
 
-/// Signals that a Dio byte stream exceeded its active cassette limit.
+/// Signals that a `dio` byte stream exceeded its active cassette limit.
 final class DioByteStreamLimitExceeded implements Exception {
-  /// Creates the value-free internal signal.
+  /// Creates a value-free limit signal.
   const DioByteStreamLimitExceeded();
 }
 
-/// Signals cancellation while an active Dio byte stream was being buffered.
+/// Signals cancellation while an active `dio` byte stream was being buffered.
 final class DioByteStreamBufferCancelled implements Exception {
-  /// Creates the value-free internal signal.
+  /// Creates a value-free cancellation signal.
   const DioByteStreamBufferCancelled();
 }

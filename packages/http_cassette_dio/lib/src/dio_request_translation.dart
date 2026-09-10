@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:http_cassette/http_cassette.dart';
 
-/// Creates a canonical request from Dio metadata and already-buffered [body].
+/// Creates a canonical request from `dio` metadata and buffered [body].
 CassetteRequest canonicaliseDioRequest(
   RequestOptions options,
   List<int> body,

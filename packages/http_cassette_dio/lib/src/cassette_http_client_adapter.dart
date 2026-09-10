@@ -11,13 +11,13 @@ import 'dio_request_translation.dart';
 import 'dio_response_translation.dart';
 import 'dio_transport_failure_translation.dart';
 
-/// Connects Dio's final transport boundary to a shared [CassetteEngine].
+/// Connects `dio`'s final transport boundary to a shared [CassetteEngine].
 ///
 /// Requests pass through unchanged while [engine] is inactive. Recording uses
 /// [inner] only when the core authorises one real attempt. Replay never uses
 /// [inner].
 final class CassetteHttpClientAdapter implements HttpClientAdapter {
-  /// Creates a cassette adapter that owns [inner] for Dio's lifetime.
+  /// Creates a cassette adapter that owns [inner] for `dio`'s lifetime.
   CassetteHttpClientAdapter({
     required this.engine,
     required this.inner,
@@ -26,7 +26,7 @@ final class CassetteHttpClientAdapter implements HttpClientAdapter {
   /// The engine whose current session controls interception.
   final CassetteEngine engine;
 
-  /// The Dio adapter used for authorised real HTTP attempts.
+  /// The `dio` adapter used for authorised real HTTP attempts.
   final HttpClientAdapter inner;
 
   var _isClosed = false;

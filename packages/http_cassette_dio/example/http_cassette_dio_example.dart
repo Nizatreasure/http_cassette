@@ -10,13 +10,14 @@ Future<void> main() async {
   final dio = Dio()..httpClientAdapter = transport;
   dio.installHttpCassette(engine);
 
-  final recording = await engine.startRecording('example/greeting');
-  final live = await dio.get<String>('https://example.test/greeting');
-  await recording.close();
-
-  final replay = await engine.startReplay('example/greeting');
-  final recorded = await dio.get<String>('https://example.test/greeting');
-  await replay.close();
+  final live = await engine.record(
+    'example/greeting',
+    () => dio.get<String>('https://example.test/greeting'),
+  );
+  final recorded = await engine.replay(
+    'example/greeting',
+    () => dio.get<String>('https://example.test/greeting'),
+  );
 
   if (live.data != 'Hello' || recorded.data != 'Hello') {
     throw StateError('The example response was not preserved.');

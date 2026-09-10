@@ -5,14 +5,14 @@ import 'package:http_cassette/http_cassette.dart';
 extension HttpCassetteDioException on DioException {
   /// The safe core cassette failure carried by this exception, when present.
   ///
-  /// Ordinary Dio failures and replayed transport failures return `null`.
+  /// Ordinary `dio` failures and replayed transport failures return `null`.
   CassetteException? get cassetteException => switch (error) {
         final CassetteException failure => failure,
         _ => null,
       };
 }
 
-/// Wraps one safe cassette-system [failure] for Dio's error pipeline.
+/// Wraps one safe cassette-system [failure] for `dio`'s error pipeline.
 DioException wrapCassetteExceptionForDio(
   CassetteException failure, {
   required RequestOptions requestOptions,
