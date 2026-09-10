@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../adapter/cancellation.dart';
 import '../adapter/real_http_attempt.dart';
 import '../cassette/cassette.dart';
@@ -76,12 +78,29 @@ final class ActiveRecordingState {
   final Map<int, CassetteInteraction> _interactions;
   var _acceptsRequests = true;
   Cassette? _finalisedCassette;
+  var _pendingRequestCount = 0;
+  var _failedRequestCount = 0;
+  Completer<void>? _requestsSettled;
 
   /// Whether another request may enter this recording state.
   bool get acceptsRequests => _acceptsRequests;
 
   /// Whether this state has fixed its final immutable cassette value.
   bool get isFinalised => _finalisedCassette != null;
+
+  /// The number of admitted recording requests which have not settled.
+  int get pendingRequestCount => _pendingRequestCount;
+
+  /// Whether an admitted request failed before producing a retained interaction.
+  bool get hasFailedRequests => _failedRequestCount > 0;
+
+  /// Completes when every currently admitted recording request has settled.
+  ///
+  /// Requests admitted after this getter is read are not part of the returned
+  /// wait. Call [sealRequestAdmission] first when a stable complete-session wait
+  /// is required.
+  Future<void> get whenRequestsSettled =>
+      _requestsSettled?.future ?? Future<void>.value();
 
   /// Prevents any later request admission without affecting pending attempts.
   void sealRequestAdmission() {
@@ -116,12 +135,20 @@ final class ActiveRecordingState {
     RealHttpAttempt attempt, {
     CassetteCancellation? cancellation,
   }) async {
-    final result = await beginRequest(request).run(
-      attempt,
-      cancellation: cancellation,
-    );
-    retainResult(result);
-    return result.outcome;
+    final requestAttempt = beginRequest(request);
+    _beginRequestSettlement();
+    var succeeded = false;
+    try {
+      final result = await requestAttempt.run(
+        attempt,
+        cancellation: cancellation,
+      );
+      retainResult(result);
+      succeeded = true;
+      return result.outcome;
+    } finally {
+      _settleRequest(succeeded: succeeded);
+    }
   }
 
   /// Sanitises [result] into an interaction without retaining it.
@@ -174,5 +201,26 @@ final class ActiveRecordingState {
     final cassette = Cassette(interactions: interactions);
     sealRequestAdmission();
     return _finalisedCassette = cassette;
+  }
+
+  void _beginRequestSettlement() {
+    if (_pendingRequestCount == 0) {
+      _requestsSettled = Completer<void>();
+    }
+    _pendingRequestCount += 1;
+  }
+
+  void _settleRequest({required bool succeeded}) {
+    if (_pendingRequestCount <= 0) {
+      throw StateError('Recording request settlement is not pending.');
+    }
+    if (!succeeded) {
+      _failedRequestCount += 1;
+    }
+    _pendingRequestCount -= 1;
+    if (_pendingRequestCount == 0) {
+      _requestsSettled!.complete();
+      _requestsSettled = null;
+    }
   }
 }
