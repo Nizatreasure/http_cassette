@@ -157,34 +157,7 @@ final class CassetteEngine {
     if (disabledSession != null) {
       return disabledSession;
     }
-    final cassetteName = CassetteName(name);
-    final reservation = _state.sessions.reserve(CassetteMode.replay);
-    late final ReplayCassetteLoadResult result;
-    try {
-      result = await ReplayCassetteLoader(_state.store).load(cassetteName);
-    } catch (_) {
-      reservation.cancel();
-      rethrow;
-    }
-
-    switch (result) {
-      case ReplayCassetteLoadFailed(:final failure):
-        reservation.cancel();
-        throw replayCassetteLoadException(failure);
-      case ReplayCassetteLoaded(:final cassette):
-        _state.activeReplay = ActiveReplayState(
-          cassetteName: cassetteName,
-          cassette: cassette,
-          configuration: _state.configuration,
-          options: options,
-        );
-        return reservation.activate(
-          name: cassetteName,
-          mode: CassetteMode.replay,
-          closeAction: _state.completeActiveReplay,
-          discardAction: _state.completeReplayLifecycleOnly,
-        );
-    }
+    return _state.startReplay(CassetteName(name), options);
   }
 
   CassetteSession? _sessionWhenDisabled(String name, CassetteMode mode) =>
@@ -231,6 +204,40 @@ final class EngineState {
 
   /// The recording state retained only while its session is active.
   ActiveRecordingState? activeRecording;
+
+  /// Loads, starts and retains one active replay session.
+  Future<CassetteSession> startReplay(
+    CassetteName name,
+    ReplayOptions options,
+  ) async {
+    final reservation = sessions.reserve(CassetteMode.replay);
+    late final ReplayCassetteLoadResult result;
+    try {
+      result = await ReplayCassetteLoader(store).load(name);
+    } catch (_) {
+      reservation.cancel();
+      rethrow;
+    }
+
+    switch (result) {
+      case ReplayCassetteLoadFailed(:final failure):
+        reservation.cancel();
+        throw replayCassetteLoadException(failure);
+      case ReplayCassetteLoaded(:final cassette):
+        activeReplay = ActiveReplayState(
+          cassetteName: name,
+          cassette: cassette,
+          configuration: configuration,
+          options: options,
+        );
+        return reservation.activate(
+          name: name,
+          mode: CassetteMode.replay,
+          closeAction: completeActiveReplay,
+          discardAction: completeReplayLifecycleOnly,
+        );
+    }
+  }
 
   /// Preflights, starts and retains one active recording session.
   Future<CassetteSession> startRecording(
