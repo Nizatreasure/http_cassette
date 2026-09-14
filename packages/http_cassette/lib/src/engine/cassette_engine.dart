@@ -76,6 +76,12 @@ final class CassetteEngine {
   CassetteInterception beginInterception() {
     final session = activeSession;
     if (session != null) {
+      final recording = _state.activeRecording;
+      if (session.mode == CassetteMode.record &&
+          recording != null &&
+          !recording.acceptsRequests) {
+        return createInactiveCassetteInterception();
+      }
       return createActiveCassetteInterception(
         session: session,
         bodyLimits: _state.configuration.bodyLimits,

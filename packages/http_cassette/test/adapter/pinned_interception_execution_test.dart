@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:http_cassette/http_cassette.dart';
 import 'package:test/test.dart';
 
@@ -78,6 +80,44 @@ void main() {
       expect(attempted, isFalse);
 
       await second.discard();
+    });
+
+    test('rejects a permit pinned before recording was sealed', () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final session = await engine.startRecording('sealed-pinned-route');
+      final admitted = engine.beginInterception();
+      final notYetAdmitted = engine.beginInterception();
+      final outcome = Completer<CassetteOutcome>();
+      final request = admitted.proceed(
+        _request('/admitted'),
+        () => outcome.future,
+      );
+      final close = session.close();
+      var attempted = false;
+
+      await expectLater(
+        notYetAdmitted.proceed(
+          _request('/too-late'),
+          () async {
+            attempted = true;
+            return CassetteResponseOutcome(CassetteResponse(statusCode: 200));
+          },
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.conflictingSessionOperation,
+          ),
+        ),
+      );
+      expect(attempted, isFalse);
+
+      outcome.complete(
+        CassetteResponseOutcome(CassetteResponse(statusCode: 200)),
+      );
+      await request;
+      await close;
     });
 
     test('rejects inactive and repeated public execution safely', () async {

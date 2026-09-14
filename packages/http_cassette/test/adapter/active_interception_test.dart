@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http_cassette/http_cassette.dart';
@@ -45,6 +46,32 @@ void main() {
         ),
       );
       await session.discard();
+    });
+
+    test('passes through new interceptions while recording close waits',
+        () async {
+      final engine = CassetteEngine(store: MemoryCassetteStore());
+      final session = await engine.startRecording('closing-pass-through');
+      final admitted = engine.beginInterception();
+      final outcome = Completer<CassetteOutcome>();
+      final request = admitted.proceed(
+        CassetteRequest(
+          method: 'GET',
+          uri: Uri.parse('https://example.test/admitted'),
+        ),
+        () => outcome.future,
+      );
+
+      final close = session.close();
+      final duringClose = engine.beginInterception();
+
+      expect(duringClose.isActive, isFalse);
+
+      outcome.complete(
+        CassetteResponseOutcome(CassetteResponse(statusCode: 200)),
+      );
+      await request;
+      await close;
     });
 
     test('rejects pre-entry recording cancellation and spends the claim',

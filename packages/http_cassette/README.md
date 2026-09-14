@@ -95,6 +95,8 @@ final engine = CassetteEngine(
 
 The default is 30 seconds. The timeout applies once to the complete close wait; it does not restart for each request.
 
+When recording begins to close, new requests pass through to the real server without being recorded. Requests which already entered the recording are allowed to finish during the grace period. If an adapter had already associated a request with the recording but had not submitted it before closing began, the request fails without contacting the server.
+
 The scoped form handles close and discard automatically:
 
 ```dart
