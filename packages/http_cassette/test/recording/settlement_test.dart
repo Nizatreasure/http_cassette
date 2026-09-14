@@ -66,7 +66,25 @@ void main() {
       await state.whenRequestsSettled;
       expect(state.pendingRequestCount, 0);
       expect(state.hasFailedRequests, isTrue);
+      expect(state.failedRequestNetworkAccess, NetworkAccess.attempted);
       expect(state.interactions, isEmpty);
+    });
+
+    test('retains a pre-attempt cancellation network status', () async {
+      final state = _state();
+      final cancellation = _CancelledRequest();
+
+      await expectLater(
+        state.recordRequest(
+          _request('/cancelled'),
+          () async => _response(200),
+          cancellation: cancellation,
+        ),
+        throwsA(isA<CassetteException>()),
+      );
+
+      expect(state.hasFailedRequests, isTrue);
+      expect(state.failedRequestNetworkAccess, NetworkAccess.notAttempted);
     });
 
     test('an idle recording is already settled', () async {
@@ -141,3 +159,11 @@ CassetteRequest _request(String path) => CassetteRequest(
 CassetteOutcome _response(int statusCode) => CassetteResponseOutcome(
       CassetteResponse(statusCode: statusCode),
     );
+
+final class _CancelledRequest implements CassetteCancellation {
+  @override
+  bool get isCancelled => true;
+
+  @override
+  Future<void> get whenCancelled => Future<void>.value();
+}

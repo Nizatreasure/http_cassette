@@ -107,6 +107,12 @@ enum DiagnosticCategory {
   /// A recording session was discarded after its callback failed.
   sessionDiscarded,
 
+  /// Recording close found an admitted request which failed.
+  recordingRequestFailed,
+
+  /// Recording close expired while an admitted request remained pending.
+  recordingCloseTimedOut,
+
   /// Session cleanup also failed after a scoped callback failure.
   sessionCleanupFailure,
 

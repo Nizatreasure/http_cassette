@@ -13,3 +13,4 @@
 - Added structured, value-safe diagnostics for loading, matching, exhaustion, storage, cancellation, and lifecycle failures.
 - Added the public interception and cancellation contracts used by official and third-party transport adapters.
 - Added configurable engine activation policies for enabled, fail-closed, and silent pass-through operation.
+- Added a configurable recording-close grace period with all-or-nothing persistence and safe failure diagnostics.

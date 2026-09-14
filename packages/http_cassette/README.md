@@ -64,7 +64,7 @@ The file store is available only on platforms which support `dart:io`. It maps a
 
 ## Record a cassette
 
-Start recording before the application sends the requests that belong to the scenario. Close the session only when every intended request has completed.
+Start recording before the application sends the requests that belong to the scenario. Closing immediately stops new requests from joining the recording, then waits up to 30 seconds for requests which already joined to finish.
 
 ```dart
 final recording = await engine.startRecording('account/details');
@@ -78,7 +78,22 @@ try {
 }
 ```
 
-Closing a recording sanitises and writes the complete cassette. Discarding releases the session without writing it. Recording is explicit; installing an adapter alone does not create cassettes.
+Closing writes the complete sanitised cassette only when every admitted request produces a persistable interaction. If cassette processing or cancellation prevents that, or the grace period expires, close throws a `CassetteException`, discards the whole recording without writing, and releases the engine for another session. A mapped remote transport failure is itself a recordable outcome and does not cause this discard. A response arriving after a timeout can still return to the application, but it is not retained. Discarding releases the session without writing it. Recording is explicit; installing an adapter alone does not create cassettes.
+
+Set one positive close grace period for every recording started by an engine:
+
+```dart
+final engine = CassetteEngine(
+  store: store,
+  configuration: CassetteConfiguration(
+    recording: RecordingConfiguration(
+      closeGracePeriod: Duration(seconds: 45),
+    ),
+  ),
+);
+```
+
+The default is 30 seconds. The timeout applies once to the complete close wait; it does not restart for each request.
 
 The scoped form handles close and discard automatically:
 
@@ -312,7 +327,7 @@ try {
 }
 ```
 
-Mismatch diagnostics describe the request shape, matcher, replay policy, closest candidate, and value-free differences. They do not include sanitised values. `ScopedCassetteException` is used only when a scoped callback fails and session cleanup also fails; it keeps the original callback error and a separate safe cleanup diagnostic.
+Mismatch diagnostics describe the request shape, matcher, replay policy, closest candidate, and value-free differences. They do not include sanitised values. Recording close uses `recordingRequestFailed` when an admitted request failed and `recordingCloseTimedOut` when the grace period expired. Both mean no cassette was written and the engine was released. `ScopedCassetteException` is used only when a scoped callback fails and session cleanup also fails; it keeps the original callback error and a separate safe cleanup diagnostic.
 
 Store implementations throw `CassetteStoreException` with stable operation and failure enums. These exceptions use logical cassette names and do not expose file paths, bytes, revisions, or platform exceptions.
 

@@ -6,6 +6,8 @@ import '../cassette/cassette.dart';
 import '../cassette/interaction.dart';
 import '../cassette/name.dart';
 import '../configuration/cassette_configuration.dart';
+import '../diagnostics/diagnostic.dart';
+import '../diagnostics/exception.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
 import '../sanitisation/configuration.dart';
@@ -94,7 +96,9 @@ final class ActiveRecordingState {
   Cassette? _finalisedCassette;
   var _pendingRequestCount = 0;
   var _failedRequestCount = 0;
+  var _failedRequestNetworkAccess = NetworkAccess.notAttempted;
   Completer<void>? _requestsSettled;
+  var _isAbandoned = false;
 
   /// Whether another request may enter this recording state.
   bool get acceptsRequests => _acceptsRequests;
@@ -108,6 +112,9 @@ final class ActiveRecordingState {
   /// Whether an admitted request failed before producing a retained interaction.
   bool get hasFailedRequests => _failedRequestCount > 0;
 
+  /// The strongest network-access state observed among failed requests.
+  NetworkAccess get failedRequestNetworkAccess => _failedRequestNetworkAccess;
+
   /// Completes when every currently admitted recording request has settled.
   ///
   /// Requests admitted after this getter is read are not part of the returned
@@ -119,6 +126,16 @@ final class ActiveRecordingState {
   /// Prevents any later request admission without affecting pending attempts.
   void sealRequestAdmission() {
     _acceptsRequests = false;
+  }
+
+  /// Abandons every retained interaction and rejects later retention.
+  ///
+  /// A pending real request may still return its live outcome, but that result
+  /// cannot enter this recording after abandonment.
+  void abandon() {
+    sealRequestAdmission();
+    _isAbandoned = true;
+    _interactions.clear();
   }
 
   /// Seals request admission and waits for admitted requests to settle.
@@ -167,16 +184,22 @@ final class ActiveRecordingState {
     final requestAttempt = beginRequest(request);
     _beginRequestSettlement();
     var succeeded = false;
+    Object? failure;
     try {
       final result = await requestAttempt.run(
         attempt,
         cancellation: cancellation,
       );
-      retainResult(result);
+      if (!_isAbandoned) {
+        retainResult(result);
+      }
       succeeded = true;
       return result.outcome;
+    } catch (error) {
+      failure = error;
+      rethrow;
     } finally {
-      _settleRequest(succeeded: succeeded);
+      _settleRequest(succeeded: succeeded, failure: failure);
     }
   }
 
@@ -189,6 +212,9 @@ final class ActiveRecordingState {
   /// Retention occurs synchronously after complete sanitisation. A result index
   /// must have been assigned by this session and may be retained only once.
   CassetteInteraction retainResult(RecordingRequestResult result) {
+    if (_isAbandoned) {
+      throw StateError('An abandoned recording cannot retain a result.');
+    }
     final index = result.arrivalIndex;
     if (index < 0 || index >= _nextArrivalIndex) {
       throw StateError(
@@ -239,12 +265,18 @@ final class ActiveRecordingState {
     _pendingRequestCount += 1;
   }
 
-  void _settleRequest({required bool succeeded}) {
+  void _settleRequest({required bool succeeded, required Object? failure}) {
     if (_pendingRequestCount <= 0) {
       throw StateError('Recording request settlement is not pending.');
     }
     if (!succeeded) {
       _failedRequestCount += 1;
+      final networkAccess = failure is CassetteException
+          ? failure.diagnostic.networkAccess
+          : NetworkAccess.attempted;
+      if (networkAccess == NetworkAccess.attempted) {
+        _failedRequestNetworkAccess = NetworkAccess.attempted;
+      }
     }
     _pendingRequestCount -= 1;
     if (_pendingRequestCount == 0) {

@@ -114,6 +114,22 @@ void main() {
       expect(() => state.retainResult(result), throwsA(same(error)));
       expect(state.interactions, isEmpty);
     });
+
+    test('abandons retained interactions and rejects direct retention',
+        () async {
+      final state = _state();
+      final first = state.beginRequest(_request('/first'));
+      final firstResult = await first.run(() async => _outcome(200));
+      state.retainResult(firstResult);
+      final late = state.beginRequest(_request('/late'));
+      final lateResult = await late.run(() async => _outcome(201));
+
+      state.abandon();
+
+      expect(state.acceptsRequests, isFalse);
+      expect(state.interactions, isEmpty);
+      expect(() => state.retainResult(lateResult), throwsStateError);
+    });
   });
 }
 

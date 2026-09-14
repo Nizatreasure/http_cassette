@@ -479,9 +479,45 @@ final class EngineState {
     if (recording == null) {
       throw StateError('Recording commit requires active recording state.');
     }
-    recording.sealRequestAdmission();
+    final settlement = await recording.sealAndWaitForRequests();
+    if (settlement == RecordingSettlementResult.timedOut) {
+      _endRecordingWithoutWrite(
+        recording,
+        category: DiagnosticCategory.recordingCloseTimedOut,
+        summary: 'Recording close timed out before every request settled.',
+      );
+    }
+    if (recording.hasFailedRequests) {
+      _endRecordingWithoutWrite(
+        recording,
+        category: DiagnosticCategory.recordingRequestFailed,
+        summary: 'Recording was discarded because an admitted request failed.',
+        networkAccess: recording.failedRequestNetworkAccess,
+      );
+    }
     await RecordingCassetteCommitter(store).commit(recording);
     activeRecording = null;
+  }
+
+  Never _endRecordingWithoutWrite(
+    ActiveRecordingState recording, {
+    required DiagnosticCategory category,
+    required String summary,
+    NetworkAccess networkAccess = NetworkAccess.attempted,
+  }) {
+    if (!identical(activeRecording, recording)) {
+      throw StateError('Only the active recording can end without a write.');
+    }
+    recording.abandon();
+    activeRecording = null;
+    final exception = CassetteException(
+      CassetteDiagnostic(
+        category: category,
+        summary: summary,
+        networkAccess: networkAccess,
+      ),
+    );
+    throw KnownSessionCloseFailure(exception, StackTrace.current);
   }
 
   /// Clears lifecycle-only recording state before ownership is released.

@@ -154,7 +154,7 @@ void main() {
       expect(attempted, isFalse);
     });
 
-    test('seals admission when close finds a pending request', () async {
+    test('waits for a pending request before committing', () async {
       final store = MemoryCassetteStore();
       final state = _state(store);
       final name = CassetteName('recording');
@@ -169,7 +169,7 @@ void main() {
       );
       var lateAttempted = false;
 
-      await expectLater(session.close(), throwsStateError);
+      final close = session.close();
 
       expect(state.activeRecording!.acceptsRequests, isFalse);
       expect(state.activeRecording!.isFinalised, isFalse);
@@ -184,6 +184,82 @@ void main() {
 
       pending.complete(_outcome(200));
       await capture;
+      await close;
+
+      expect(await store.exists(name), isTrue);
+      expect(session.isClosed, isTrue);
+      expect(state.sessions.isActive, isFalse);
+    });
+
+    test('discards and releases ownership after an admitted request fails',
+        () async {
+      final store = MemoryCassetteStore();
+      final state = _state(store);
+      final name = CassetteName('recording');
+      final session = await state.startRecording(
+        name,
+        const RecordingOptions(),
+      );
+
+      await expectLater(
+        state.executeActiveRecordingRequest(
+          _request('/failure'),
+          () => throw StateError('private transport failure'),
+        ),
+        throwsA(isA<CassetteException>()),
+      );
+      await expectLater(
+        session.close(),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.recordingRequestFailed,
+          ),
+        ),
+      );
+
+      expect(await store.exists(name), isFalse);
+      expect(session.isClosed, isTrue);
+      expect(state.activeRecording, isNull);
+      expect(state.sessions.isActive, isFalse);
+    });
+
+    test('discards on timeout without retaining a late result', () async {
+      final store = MemoryCassetteStore();
+      final state = _state(
+        store,
+        closeGracePeriod: const Duration(milliseconds: 10),
+      );
+      final name = CassetteName('recording');
+      final session = await state.startRecording(
+        name,
+        const RecordingOptions(),
+      );
+      final pending = Completer<CassetteOutcome>();
+      final capture = state.executeActiveRecordingRequest(
+        _request('/slow'),
+        () => pending.future,
+      );
+
+      await expectLater(
+        session.close(),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.recordingCloseTimedOut,
+          ),
+        ),
+      );
+
+      expect(session.isClosed, isTrue);
+      expect(state.activeRecording, isNull);
+      expect(state.sessions.isActive, isFalse);
+      expect(await store.exists(name), isFalse);
+
+      pending.complete(_outcome(200));
+      expect(await capture, isA<CassetteResponseOutcome>());
       expect(await store.exists(name), isFalse);
     });
 
@@ -291,9 +367,17 @@ void main() {
   });
 }
 
-EngineState _state(CassetteStore store) => EngineState(
+EngineState _state(
+  CassetteStore store, {
+  Duration closeGracePeriod = RecordingConfiguration.defaultCloseGracePeriod,
+}) =>
+    EngineState(
       store: store,
-      configuration: CassetteConfiguration(),
+      configuration: CassetteConfiguration(
+        recording: RecordingConfiguration(
+          closeGracePeriod: closeGracePeriod,
+        ),
+      ),
     );
 
 CassetteRequest _request(String path) => CassetteRequest(
