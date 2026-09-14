@@ -15,4 +15,4 @@
 - Added configurable engine activation policies for enabled, fail-closed, and silent pass-through operation.
 - Added a configurable recording-close grace period with all-or-nothing persistence and safe failure diagnostics.
 - Added pass-through for new transport interceptions while a recording is closing.
-- Made close failures terminal, including explicit diagnostics for unconfirmed store-write results.
+- Made close and discard failures terminal, including explicit diagnostics for unconfirmed store-write results.

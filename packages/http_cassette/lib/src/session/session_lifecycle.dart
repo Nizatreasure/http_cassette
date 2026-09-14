@@ -15,9 +15,6 @@ enum SessionLifecycleState {
 
   /// The session completed or ended with a known final state.
   closed,
-
-  /// Discard failed, so the session's final state cannot be assumed.
-  uncertain,
 }
 
 /// The result of trying to begin close or discard work.
@@ -64,8 +61,8 @@ final class SessionLifecycle {
   /// Marks in-progress discard work as successful.
   void discardSucceeded() => _succeed(SessionLifecycleState.discarding);
 
-  /// Marks in-progress discard work as failed and the state as uncertain.
-  void discardFailed() => _fail(SessionLifecycleState.discarding);
+  /// Marks failed discard work as terminal.
+  void discardFailed() => _succeed(SessionLifecycleState.discarding);
 
   SessionLifecycleStart _start(SessionLifecycleState operation) {
     switch (_state) {
@@ -79,21 +76,12 @@ final class SessionLifecycle {
         throw _conflict(
           'A cassette session completion operation is already in progress.',
         );
-      case SessionLifecycleState.uncertain:
-        throw _conflict(
-          'The cassette session state is uncertain after a completion failure.',
-        );
     }
   }
 
   void _succeed(SessionLifecycleState expected) {
     _requireInProgress(expected);
     _state = SessionLifecycleState.closed;
-  }
-
-  void _fail(SessionLifecycleState expected) {
-    _requireInProgress(expected);
-    _state = SessionLifecycleState.uncertain;
   }
 
   void _requireInProgress(SessionLifecycleState expected) {

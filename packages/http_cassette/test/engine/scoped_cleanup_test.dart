@@ -57,7 +57,7 @@ void main() {
       expect(result.cleanupFailure, isNotNull);
       expect(result.cleanupFailure!.error, same(cleanupError));
       expect(result.cleanupFailure!.stackTrace, same(cleanupStackTrace));
-      expect(session.isClosed, isFalse);
+      expect(session.isClosed, isTrue);
     });
   });
 }

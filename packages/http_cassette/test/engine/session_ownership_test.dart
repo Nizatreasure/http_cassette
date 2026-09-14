@@ -128,7 +128,7 @@ void main() {
       expect(ownership.isActive, isFalse);
     });
 
-    test('retains ownership after a completion failure', () async {
+    test('releases ownership after a discard failure', () async {
       final ownership = EngineSessionOwnership();
       final failure = StateError('safe test failure');
       final session = _acquire(
@@ -138,8 +138,10 @@ void main() {
 
       await expectLater(session.discard(), throwsA(same(failure)));
 
-      expect(ownership.activeSession, same(session));
-      expect(() => _acquire(ownership), throwsA(isA<CassetteException>()));
+      expect(session.isClosed, isTrue);
+      expect(ownership.isActive, isFalse);
+      expect(ownership.activeSession, isNull);
+      expect(() => _acquire(ownership), returnsNormally);
     });
 
     test('releases ownership after any close failure', () async {

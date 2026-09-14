@@ -32,9 +32,7 @@ final class CassetteSession {
   final void Function() _completionFinished;
   final SessionLifecycle _lifecycle;
 
-  /// Whether the session has reached a known final state.
-  ///
-  /// This remains false only when discard fails and cannot reach a final state.
+  /// Whether the session has reached a final state.
   bool get isClosed => _lifecycle.isClosed;
 
   /// Completes this recording or replay session.
@@ -44,8 +42,7 @@ final class CassetteSession {
   /// Replay close performs unused-interaction verification when configured.
   /// Close failure ends the session and leaves its error as the description of
   /// that operation. Repeated completion after close returns or throws is
-  /// harmless. Concurrent completion, or completion after a failed discard,
-  /// throws a [CassetteException].
+  /// harmless. Concurrent completion throws a [CassetteException].
   Future<void> close() async {
     if (_lifecycle.startClose() == SessionLifecycleStart.alreadyClosed) {
       return;
@@ -65,8 +62,9 @@ final class CassetteSession {
   ///
   /// Recording discard performs no cassette write. Replay discard skips
   /// unused-interaction verification. Repeated discard after successful
-  /// completion is harmless. Concurrent completion, or completion after a
-  /// failed close or discard, throws a [CassetteException].
+  /// completion is harmless. A discard failure ends the session and leaves its
+  /// error as the description of that operation. Concurrent completion throws
+  /// a [CassetteException].
   Future<void> discard() async {
     if (_lifecycle.startDiscard() == SessionLifecycleStart.alreadyClosed) {
       return;
@@ -75,6 +73,7 @@ final class CassetteSession {
       await _discardAction();
     } catch (_) {
       _lifecycle.discardFailed();
+      _completionFinished();
       rethrow;
     }
     _lifecycle.discardSucceeded();

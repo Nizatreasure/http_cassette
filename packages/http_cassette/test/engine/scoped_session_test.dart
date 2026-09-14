@@ -116,6 +116,7 @@ void main() {
       );
       expect(exception.toString(), isNot(contains('private callback')));
       expect(exception.toString(), isNot(contains('private cleanup')));
+      expect(session.isClosed, isTrue);
     });
 
     test('preserves a safe cassette cleanup diagnostic', () async {
@@ -136,6 +137,7 @@ void main() {
       );
 
       expect(exception.cleanupDiagnostic, same(cleanupDiagnostic));
+      expect(session.isClosed, isTrue);
     });
   });
 }

@@ -80,17 +80,15 @@ void main() {
       expect(lifecycle.startDiscard(), SessionLifecycleStart.alreadyClosed);
     });
 
-    test('retains an uncertain state after discard failure', () {
+    test('ends with a known session state after discard failure', () {
       final lifecycle = SessionLifecycle(CassetteMode.record)
         ..startDiscard()
         ..discardFailed();
 
-      expect(lifecycle.state, SessionLifecycleState.uncertain);
-      expect(lifecycle.isClosed, isFalse);
-      _expectLifecycleConflict(
-        lifecycle.startClose,
-        networkAccess: NetworkAccess.notAttempted,
-      );
+      expect(lifecycle.state, SessionLifecycleState.closed);
+      expect(lifecycle.isClosed, isTrue);
+      expect(lifecycle.startClose(), SessionLifecycleStart.alreadyClosed);
+      expect(lifecycle.startDiscard(), SessionLifecycleStart.alreadyClosed);
     });
 
     test('rejects mismatched internal completion without changing state', () {

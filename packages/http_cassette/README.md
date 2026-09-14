@@ -78,7 +78,7 @@ try {
 }
 ```
 
-Closing writes the complete sanitised cassette only when every admitted request produces a persistable interaction. If cassette processing or cancellation prevents that, or the grace period expires, close throws a `CassetteException`, discards the whole recording without writing, and releases the engine for another session. A mapped remote transport failure is itself a recordable outcome and does not cause this discard. A response arriving after a timeout can still return to the application, but it is not retained. Discarding releases the session without writing it. Recording is explicit; installing an adapter alone does not create cassettes.
+Closing writes the complete sanitised cassette only when every admitted request produces a persistable interaction. If cassette processing or cancellation prevents that, or the grace period expires, close throws a `CassetteException`, discards the whole recording without writing, and releases the engine for another session. A mapped remote transport failure is itself a recordable outcome and does not cause this discard. A response arriving after a timeout can still return to the application, but it is not retained. Discarding releases the session without writing it. If close or discard fails, it reports the error and still releases the engine for another session. Recording is explicit; installing an adapter alone does not create cassettes.
 
 Set one positive close grace period for every recording started by an engine:
 
