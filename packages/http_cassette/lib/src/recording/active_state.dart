@@ -15,6 +15,15 @@ import 'configuration.dart';
 import 'interaction_projection.dart';
 import 'request_attempt.dart';
 
+/// The result of waiting for admitted recording requests to settle.
+enum RecordingSettlementResult {
+  /// Every admitted request settled before the grace period ended.
+  settled,
+
+  /// At least one admitted request remained pending when the period ended.
+  timedOut,
+}
+
 /// Session-local configuration and state for one active recording session.
 final class ActiveRecordingState {
   /// Creates active state from validated session inputs.
@@ -110,6 +119,21 @@ final class ActiveRecordingState {
   /// Prevents any later request admission without affecting pending attempts.
   void sealRequestAdmission() {
     _acceptsRequests = false;
+  }
+
+  /// Seals request admission and waits for admitted requests to settle.
+  ///
+  /// The complete wait uses one [RecordingConfiguration.closeGracePeriod]. A
+  /// settled result does not mean every request succeeded; inspect
+  /// [hasFailedRequests] after settlement to distinguish that case.
+  Future<RecordingSettlementResult> sealAndWaitForRequests() {
+    sealRequestAdmission();
+    return whenRequestsSettled
+        .then((_) => RecordingSettlementResult.settled)
+        .timeout(
+          recording.closeGracePeriod,
+          onTimeout: () => RecordingSettlementResult.timedOut,
+        );
   }
 
   /// Assigns the next request-arrival index synchronously.

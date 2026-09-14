@@ -77,12 +77,59 @@ void main() {
       expect(state.pendingRequestCount, 0);
       expect(state.hasFailedRequests, isFalse);
     });
+
+    test('seals admission and waits once for all pending requests', () async {
+      final state = _state();
+      final outcome = Completer<CassetteOutcome>();
+      final request = state.recordRequest(
+        _request('/pending'),
+        () => outcome.future,
+      );
+
+      final settlement = state.sealAndWaitForRequests();
+
+      expect(state.acceptsRequests, isFalse);
+      expect(
+        () => state.beginRequest(_request('/late')),
+        throwsStateError,
+      );
+      outcome.complete(_response(200));
+      await request;
+      expect(await settlement, RecordingSettlementResult.settled);
+    });
+
+    test('reports when the complete grace period expires', () async {
+      final outcome = Completer<CassetteOutcome>();
+      final state = _state(
+        closeGracePeriod: const Duration(milliseconds: 10),
+      );
+      final request = state.recordRequest(
+        _request('/slow'),
+        () => outcome.future,
+      );
+
+      final settlement = await state.sealAndWaitForRequests();
+
+      expect(settlement, RecordingSettlementResult.timedOut);
+      expect(state.acceptsRequests, isFalse);
+      expect(state.pendingRequestCount, 1);
+
+      outcome.complete(_response(200));
+      await request;
+    });
   });
 }
 
-ActiveRecordingState _state() => ActiveRecordingState(
+ActiveRecordingState _state({
+  Duration closeGracePeriod = RecordingConfiguration.defaultCloseGracePeriod,
+}) =>
+    ActiveRecordingState(
       cassetteName: CassetteName('recording'),
-      configuration: CassetteConfiguration(),
+      configuration: CassetteConfiguration(
+        recording: RecordingConfiguration(
+          closeGracePeriod: closeGracePeriod,
+        ),
+      ),
       options: const RecordingOptions(),
     );
 
