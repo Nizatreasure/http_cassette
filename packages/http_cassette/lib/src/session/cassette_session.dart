@@ -14,11 +14,11 @@ final class CassetteSession {
     required this.mode,
     required Future<void> Function() closeAction,
     required Future<void> Function() discardAction,
-    required void Function() completionSucceeded,
+    required void Function() completionFinished,
   })  : name = name.value,
         _closeAction = closeAction,
         _discardAction = discardAction,
-        _completionSucceeded = completionSucceeded,
+        _completionFinished = completionFinished,
         _lifecycle = SessionLifecycle(mode);
 
   /// The validated slash-separated logical cassette name.
@@ -29,12 +29,12 @@ final class CassetteSession {
 
   final Future<void> Function() _closeAction;
   final Future<void> Function() _discardAction;
-  final void Function() _completionSucceeded;
+  final void Function() _completionFinished;
   final SessionLifecycle _lifecycle;
 
-  /// Whether close or discard completed successfully.
+  /// Whether the session has reached a known final state.
   ///
-  /// This remains false when completion fails and leaves an uncertain state.
+  /// This remains false when completion fails with an uncertain result.
   bool get isClosed => _lifecycle.isClosed;
 
   /// Completes this recording or replay session.
@@ -51,12 +51,16 @@ final class CassetteSession {
     }
     try {
       await _closeAction();
+    } on KnownSessionCloseFailure catch (failure) {
+      _lifecycle.closeFailedWithoutUncertainty();
+      _completionFinished();
+      Error.throwWithStackTrace(failure.exception, failure.stackTrace);
     } catch (_) {
       _lifecycle.closeFailed();
       rethrow;
     }
     _lifecycle.closeSucceeded();
-    _completionSucceeded();
+    _completionFinished();
   }
 
   /// Ends this session without running its successful completion work.
@@ -76,27 +80,43 @@ final class CassetteSession {
       rethrow;
     }
     _lifecycle.discardSucceeded();
-    _completionSucceeded();
+    _completionFinished();
   }
+}
+
+/// Signals an internal close failure whose final state is known and safe.
+///
+/// The contained [exception] is exposed to the caller. [stackTrace] identifies
+/// where that safe failure arose rather than this lifecycle boundary.
+final class KnownSessionCloseFailure implements Exception {
+  /// Creates a known close failure from a safe cassette exception.
+  KnownSessionCloseFailure(this.exception, this.stackTrace);
+
+  /// The safe failure reported to the session caller.
+  final CassetteException exception;
+
+  /// The original stack trace for [exception].
+  final StackTrace stackTrace;
 }
 
 /// Creates a session with validated identity and supplied completion actions.
 ///
 /// [closeAction] performs successful completion work, while [discardAction]
-/// abandons it. [completionSucceeded] runs after either action succeeds.
+/// abandons it. [completionFinished] runs when either action leaves the session
+/// in a known final state.
 CassetteSession createCassetteSession({
   required CassetteName name,
   required CassetteMode mode,
   required Future<void> Function() closeAction,
   required Future<void> Function() discardAction,
-  void Function()? completionSucceeded,
+  void Function()? completionFinished,
 }) =>
     CassetteSession._(
       name: name,
       mode: mode,
       closeAction: closeAction,
       discardAction: discardAction,
-      completionSucceeded: completionSucceeded ?? _noOp,
+      completionFinished: completionFinished ?? _noOp,
     );
 
 void _noOp() {}

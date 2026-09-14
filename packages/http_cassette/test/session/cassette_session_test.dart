@@ -65,7 +65,7 @@ void main() {
         () async {
       var successfulCompletions = 0;
       final session = _session(
-        completionSucceeded: () {
+        completionFinished: () {
           successfulCompletions++;
         },
       );
@@ -117,6 +117,34 @@ void main() {
       );
     });
 
+    test('ends and notifies ownership after a known close failure', () async {
+      final exception = CassetteException(
+        CassetteDiagnostic(
+          category: DiagnosticCategory.bodyLimitExceeded,
+          summary: 'The admitted request could not be recorded.',
+          networkAccess: NetworkAccess.notAttempted,
+        ),
+      );
+      final stackTrace = StackTrace.current;
+      var finishedCompletions = 0;
+      final session = _session(
+        closeAction: () async {
+          throw KnownSessionCloseFailure(exception, stackTrace);
+        },
+        completionFinished: () {
+          finishedCompletions++;
+        },
+      );
+
+      await expectLater(session.close(), throwsA(same(exception)));
+
+      expect(session.isClosed, isTrue);
+      expect(finishedCompletions, 1);
+      await session.close();
+      await session.discard();
+      expect(finishedCompletions, 1);
+    });
+
     test('preserves a discard failure and rejects later completion', () async {
       final failure = StateError('safe test failure');
       final session = _session(discardAction: () async => throw failure);
@@ -136,12 +164,12 @@ CassetteSession _session({
   CassetteMode mode = CassetteMode.replay,
   Future<void> Function()? closeAction,
   Future<void> Function()? discardAction,
-  void Function()? completionSucceeded,
+  void Function()? completionFinished,
 }) =>
     createCassetteSession(
       name: CassetteName(name),
       mode: mode,
       closeAction: closeAction ?? () async {},
       discardAction: discardAction ?? () async {},
-      completionSucceeded: completionSucceeded,
+      completionFinished: completionFinished,
     );

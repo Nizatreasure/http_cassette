@@ -86,6 +86,17 @@ void main() {
       );
     });
 
+    test('ends close with a known final state after safe failure', () {
+      final lifecycle = SessionLifecycle(CassetteMode.record)
+        ..startClose()
+        ..closeFailedWithoutUncertainty();
+
+      expect(lifecycle.state, SessionLifecycleState.closed);
+      expect(lifecycle.isClosed, isTrue);
+      expect(lifecycle.startClose(), SessionLifecycleStart.alreadyClosed);
+      expect(lifecycle.startDiscard(), SessionLifecycleStart.alreadyClosed);
+    });
+
     test('retains an uncertain state after discard failure', () {
       final lifecycle = SessionLifecycle(CassetteMode.record)
         ..startDiscard()

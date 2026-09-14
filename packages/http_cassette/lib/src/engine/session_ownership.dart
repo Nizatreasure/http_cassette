@@ -17,9 +17,8 @@ final class EngineSessionOwnership {
 
   /// Creates and reserves one session synchronously.
   ///
-  /// The reservation remains until close or discard completes successfully.
-  /// A completion failure deliberately retains ownership because final state is
-  /// uncertain.
+  /// The reservation remains until the session reaches a known final state. A
+  /// completion failure retains ownership when its final state is uncertain.
   CassetteSession acquire({
     required CassetteName name,
     required CassetteMode mode,
@@ -71,7 +70,7 @@ final class EngineSessionOwnership {
       mode: mode,
       closeAction: closeAction,
       discardAction: discardAction,
-      completionSucceeded: () => _release(session),
+      completionFinished: () => _release(session),
     );
     _activeSession = session;
     return session;

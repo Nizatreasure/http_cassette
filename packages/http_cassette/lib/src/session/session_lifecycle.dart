@@ -13,7 +13,7 @@ enum SessionLifecycleState {
   /// Discard work is in progress.
   discarding,
 
-  /// Close or discard completed successfully.
+  /// The session completed or ended with a known final state.
   closed,
 
   /// Completion failed, so the session's final state cannot be assumed.
@@ -45,7 +45,7 @@ final class SessionLifecycle {
   /// The current lifecycle state.
   SessionLifecycleState get state => _state;
 
-  /// Whether close or discard completed successfully.
+  /// Whether the session has reached a known final state.
   bool get isClosed => _state == SessionLifecycleState.closed;
 
   /// Begins close work or reports that completion already succeeded.
@@ -53,6 +53,10 @@ final class SessionLifecycle {
 
   /// Marks in-progress close work as successful.
   void closeSucceeded() => _succeed(SessionLifecycleState.closing);
+
+  /// Marks failed close work as safely terminated without an uncertain result.
+  void closeFailedWithoutUncertainty() =>
+      _succeed(SessionLifecycleState.closing);
 
   /// Marks in-progress close work as failed and the state as uncertain.
   void closeFailed() => _fail(SessionLifecycleState.closing);
