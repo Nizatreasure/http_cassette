@@ -30,7 +30,7 @@ import 'session_ownership.dart';
 /// Coordinates cassette sessions independently of any HTTP transport.
 ///
 /// One engine owns one store, one immutable configuration and at most one
-/// pending, active or uncertain session. HTTP client adapters use
+/// pending or active session. HTTP client adapters use
 /// [beginInterception] to connect transport traffic to that session.
 final class CassetteEngine {
   /// Creates an inactive engine backed by [store].
@@ -59,7 +59,7 @@ final class CassetteEngine {
   /// The immutable policy controlling whether this engine may start sessions.
   final CassetteActivationPolicy activationPolicy;
 
-  /// Whether this engine owns a pending, active or uncertain session.
+  /// Whether this engine owns a pending or active session.
   bool get isActive => _state.sessions.isActive;
 
   /// The current session, or null when this engine is inactive.
@@ -459,13 +459,18 @@ final class EngineState {
     if (replay == null) {
       throw StateError('Replay completion requires active replay state.');
     }
-    final result = verifyReplayUsage(
-      cassette: replay.cassette,
-      usageSnapshots: replay.selectionStates.map(
-        (state) => state.usageSnapshot,
-      ),
-      requireAllInteractions: replay.requireAllInteractions,
-    );
+    late final ReplayVerificationResult result;
+    try {
+      result = verifyReplayUsage(
+        cassette: replay.cassette,
+        usageSnapshots: replay.selectionStates.map(
+          (state) => state.usageSnapshot,
+        ),
+        requireAllInteractions: replay.requireAllInteractions,
+      );
+    } finally {
+      activeReplay = null;
+    }
     if (result is ReplayUnusedInteractions) {
       throw replayUnusedInteractionsException(
         ReplayUnusedInteractionsDiagnostic.fromVerification(
@@ -475,7 +480,6 @@ final class EngineState {
         ),
       );
     }
-    activeReplay = null;
     return Future<void>.value();
   }
 
@@ -501,8 +505,11 @@ final class EngineState {
         networkAccess: recording.failedRequestNetworkAccess,
       );
     }
-    await RecordingCassetteCommitter(store).commit(recording);
-    activeRecording = null;
+    try {
+      await RecordingCassetteCommitter(store).commit(recording);
+    } finally {
+      activeRecording = null;
+    }
   }
 
   Never _endRecordingWithoutWrite(
@@ -516,14 +523,13 @@ final class EngineState {
     }
     recording.abandon();
     activeRecording = null;
-    final exception = CassetteException(
+    throw CassetteException(
       CassetteDiagnostic(
         category: category,
         summary: summary,
         networkAccess: networkAccess,
       ),
     );
-    throw KnownSessionCloseFailure(exception, StackTrace.current);
   }
 
   /// Clears lifecycle-only recording state before ownership is released.

@@ -121,7 +121,8 @@ void main() {
       expect(state.sessions.isActive, isFalse);
     });
 
-    test('retains sealed state after a commit failure', () async {
+    test('reports an unconfirmed write result and releases the engine',
+        () async {
       final name = CassetteName('recording');
       final state = _state(_FailingCreateStore(name));
       final session = await state.startRecording(
@@ -136,22 +137,34 @@ void main() {
           isA<CassetteException>().having(
             (exception) => exception.diagnostic.category,
             'category',
-            DiagnosticCategory.storeWriteFailure,
+            DiagnosticCategory.storeWriteResultUnconfirmed,
           ),
         ),
       );
 
-      expect(session.isClosed, isFalse);
-      expect(state.sessions.isActive, isTrue);
-      expect(state.activeRecording!.isFinalised, isTrue);
+      expect(session.isClosed, isTrue);
+      expect(state.sessions.isActive, isFalse);
+      expect(state.activeRecording, isNull);
       await expectLater(
         state.executeActiveRecordingRequest(_request('/late'), () async {
           attempted = true;
           return _outcome(200);
         }),
-        throwsA(isA<CassetteException>()),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.noActiveSession,
+          ),
+        ),
       );
       expect(attempted, isFalse);
+
+      final later = await state.startRecording(
+        CassetteName('later'),
+        const RecordingOptions(),
+      );
+      await later.discard();
     });
 
     test('waits for a pending request before committing', () async {
@@ -340,8 +353,9 @@ void main() {
 
       final retained = decodeCassetteV1((await store.read(name)).bytes);
       expect(retained.interactions.single.request.uri.path, '/concurrent');
-      expect(state.sessions.isActive, isTrue);
-      expect(state.activeRecording!.isFinalised, isTrue);
+      expect(session.isClosed, isTrue);
+      expect(state.sessions.isActive, isFalse);
+      expect(state.activeRecording, isNull);
     });
 
     test('discard leaves the prepared append target unchanged', () async {

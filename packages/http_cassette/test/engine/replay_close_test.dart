@@ -53,9 +53,9 @@ void main() {
       );
       expect(exception.diagnostic.networkAccess, NetworkAccess.disabled);
       expect(exception.toString(), contains('Unused indices: 0'));
-      expect(engine.isActive, isTrue);
-      expect(engine.activeSession, same(session));
-      expect(session.isClosed, isFalse);
+      expect(engine.isActive, isFalse);
+      expect(engine.activeSession, isNull);
+      expect(session.isClosed, isTrue);
     });
 
     test('passes required verification after every interaction is used',

@@ -53,7 +53,7 @@ void main() {
       }
 
       expect(discardCalls, 0);
-      expect(session.isClosed, isFalse);
+      expect(session.isClosed, isTrue);
     });
 
     test('discards then rethrows the exact callback failure', () async {

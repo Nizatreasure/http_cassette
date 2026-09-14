@@ -101,6 +101,9 @@ enum DiagnosticCategory {
   /// A cassette store could not complete a write.
   storeWriteFailure,
 
+  /// A store write failed without confirming its final storage result.
+  storeWriteResultUnconfirmed,
+
   /// Atomic cassette replacement failed.
   atomicReplacementFailure,
 

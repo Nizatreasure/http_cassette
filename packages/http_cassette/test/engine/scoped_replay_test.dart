@@ -91,8 +91,8 @@ void main() {
       );
 
       expect(invoked, isTrue);
-      expect(engine.isActive, isTrue);
-      expect(engine.activeSession!.isClosed, isFalse);
+      expect(engine.isActive, isFalse);
+      expect(engine.activeSession, isNull);
     });
 
     test('passes explicit options when required usage is satisfied', () async {

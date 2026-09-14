@@ -34,7 +34,7 @@ final class CassetteSession {
 
   /// Whether the session has reached a known final state.
   ///
-  /// This remains false when completion fails with an uncertain result.
+  /// This remains false only when discard fails and cannot reach a final state.
   bool get isClosed => _lifecycle.isClosed;
 
   /// Completes this recording or replay session.
@@ -42,21 +42,19 @@ final class CassetteSession {
   /// Recording close writes the complete sanitised cassette. Append close keeps
   /// the existing interactions and conditionally replaces the stored cassette.
   /// Replay close performs unused-interaction verification when configured.
-  /// Repeated close after successful completion is harmless. Concurrent
-  /// completion, or completion after a failed close or discard, throws a
-  /// [CassetteException].
+  /// Close failure ends the session and leaves its error as the description of
+  /// that operation. Repeated completion after close returns or throws is
+  /// harmless. Concurrent completion, or completion after a failed discard,
+  /// throws a [CassetteException].
   Future<void> close() async {
     if (_lifecycle.startClose() == SessionLifecycleStart.alreadyClosed) {
       return;
     }
     try {
       await _closeAction();
-    } on KnownSessionCloseFailure catch (failure) {
-      _lifecycle.closeFailedWithoutUncertainty();
-      _completionFinished();
-      Error.throwWithStackTrace(failure.exception, failure.stackTrace);
     } catch (_) {
       _lifecycle.closeFailed();
+      _completionFinished();
       rethrow;
     }
     _lifecycle.closeSucceeded();
@@ -82,21 +80,6 @@ final class CassetteSession {
     _lifecycle.discardSucceeded();
     _completionFinished();
   }
-}
-
-/// Signals an internal close failure whose final state is known and safe.
-///
-/// The contained [exception] is exposed to the caller. [stackTrace] identifies
-/// where that safe failure arose rather than this lifecycle boundary.
-final class KnownSessionCloseFailure implements Exception {
-  /// Creates a known close failure from a safe cassette exception.
-  KnownSessionCloseFailure(this.exception, this.stackTrace);
-
-  /// The safe failure reported to the session caller.
-  final CassetteException exception;
-
-  /// The original stack trace for [exception].
-  final StackTrace stackTrace;
 }
 
 /// Creates a session with validated identity and supplied completion actions.

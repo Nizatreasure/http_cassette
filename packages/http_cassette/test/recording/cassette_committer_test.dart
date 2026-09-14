@@ -185,7 +185,7 @@ void main() {
       );
     });
 
-    test('maps an atomic replacement failure safely', () async {
+    test('reports an unconfirmed replacement result safely', () async {
       final name = CassetteName('recording');
       final store = _CommitStore(
         failure: CassetteStoreException.operationFailed(
@@ -203,7 +203,7 @@ void main() {
               .having(
                 (exception) => exception.diagnostic.category,
                 'category',
-                DiagnosticCategory.atomicReplacementFailure,
+                DiagnosticCategory.storeWriteResultUnconfirmed,
               )
               .having(
                 (exception) => exception.diagnostic.networkAccess,
@@ -232,7 +232,7 @@ void main() {
               .having(
                 (exception) => exception.diagnostic.category,
                 'category',
-                DiagnosticCategory.storeWriteFailure,
+                DiagnosticCategory.storeWriteResultUnconfirmed,
               )
               .having(
                 (exception) => exception.diagnostic.networkAccess,

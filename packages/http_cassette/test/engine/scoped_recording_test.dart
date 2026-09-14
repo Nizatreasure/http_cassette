@@ -97,7 +97,8 @@ void main() {
       expect(engine.isActive, isFalse);
     });
 
-    test('propagates commit failure and retains uncertain ownership', () async {
+    test('propagates an unconfirmed commit result and releases ownership',
+        () async {
       final engine = CassetteEngine(store: _FailingCreateStore());
 
       await expectLater(
@@ -106,14 +107,13 @@ void main() {
           isA<CassetteException>().having(
             (exception) => exception.diagnostic.category,
             'category',
-            DiagnosticCategory.storeWriteFailure,
+            DiagnosticCategory.storeWriteResultUnconfirmed,
           ),
         ),
       );
 
-      expect(engine.isActive, isTrue);
-      expect(engine.activeSession, isNotNull);
-      expect(engine.activeSession!.isClosed, isFalse);
+      expect(engine.isActive, isFalse);
+      expect(engine.activeSession, isNull);
     });
   });
 }

@@ -329,7 +329,7 @@ try {
 }
 ```
 
-Mismatch diagnostics describe the request shape, matcher, replay policy, closest candidate, and value-free differences. They do not include sanitised values. Recording close uses `recordingRequestFailed` when an admitted request failed and `recordingCloseTimedOut` when the grace period expired. Both mean no cassette was written and the engine was released. `ScopedCassetteException` is used only when a scoped callback fails and session cleanup also fails; it keeps the original callback error and a separate safe cleanup diagnostic.
+Mismatch diagnostics describe the request shape, matcher, replay policy, closest candidate, and value-free differences. They do not include sanitised values. Recording close uses `recordingRequestFailed` when an admitted request failed and `recordingCloseTimedOut` when the grace period expired. Both mean no cassette was written. `storeWriteResultUnconfirmed` means the store reported a general write failure and could not confirm whether that operation changed the cassette. Every close failure ends its session and releases the engine; a later session validates the store's current state independently. `ScopedCassetteException` is used only when a scoped callback fails and session cleanup also fails; it keeps the original callback error and a separate safe cleanup diagnostic.
 
 Store implementations throw `CassetteStoreException` with stable operation and failure enums. These exceptions use logical cassette names and do not expose file paths, bytes, revisions, or platform exceptions.
 

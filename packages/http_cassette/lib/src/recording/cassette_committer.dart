@@ -66,6 +66,8 @@ CassetteException _commitException(
   required NetworkAccess networkAccess,
 }) {
   final category = switch ((failure.operation, failure.kind)) {
+    (_, CassetteStoreFailureKind.operationFailed) =>
+      DiagnosticCategory.storeWriteResultUnconfirmed,
     (CassetteStoreOperation.create, CassetteStoreFailureKind.alreadyExists) =>
       DiagnosticCategory.targetCassetteExists,
     (CassetteStoreOperation.replace, CassetteStoreFailureKind.notFound) =>
@@ -98,6 +100,9 @@ CassetteException _commitException(
               'no append was written.',
         DiagnosticCategory.storeWriteFailure =>
           'The recording cassette could not be written.',
+        DiagnosticCategory.storeWriteResultUnconfirmed =>
+          'The store reported a write failure and its final result could not '
+              'be confirmed.',
         _ => throw StateError('Invalid recording commit category.'),
       },
       networkAccess: networkAccess,

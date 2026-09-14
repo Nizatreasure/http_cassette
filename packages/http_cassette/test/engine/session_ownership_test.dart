@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/engine/session_ownership.dart';
-import 'package:http_cassette/src/session/cassette_session.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -143,24 +142,16 @@ void main() {
       expect(() => _acquire(ownership), throwsA(isA<CassetteException>()));
     });
 
-    test('releases ownership after a known close failure', () async {
+    test('releases ownership after any close failure', () async {
       final ownership = EngineSessionOwnership();
-      final exception = CassetteException(
-        CassetteDiagnostic(
-          category: DiagnosticCategory.bodyLimitExceeded,
-          summary: 'The admitted request could not be recorded.',
-          networkAccess: NetworkAccess.notAttempted,
-        ),
-      );
+      final failure = StateError('safe test failure');
       final session = _acquire(
         ownership,
         mode: CassetteMode.record,
-        closeAction: () async {
-          throw KnownSessionCloseFailure(exception, StackTrace.current);
-        },
+        closeAction: () async => throw failure,
       );
 
-      await expectLater(session.close(), throwsA(same(exception)));
+      await expectLater(session.close(), throwsA(same(failure)));
 
       expect(session.isClosed, isTrue);
       expect(ownership.isActive, isFalse);

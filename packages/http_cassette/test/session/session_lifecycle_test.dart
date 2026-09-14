@@ -69,27 +69,10 @@ void main() {
       expect(lifecycle.state, SessionLifecycleState.discarding);
     });
 
-    test('retains an uncertain state after close failure', () {
+    test('ends with a known session state after close failure', () {
       final lifecycle = SessionLifecycle(CassetteMode.replay)
         ..startClose()
         ..closeFailed();
-
-      expect(lifecycle.state, SessionLifecycleState.uncertain);
-      expect(lifecycle.isClosed, isFalse);
-      _expectLifecycleConflict(
-        lifecycle.startClose,
-        networkAccess: NetworkAccess.disabled,
-      );
-      _expectLifecycleConflict(
-        lifecycle.startDiscard,
-        networkAccess: NetworkAccess.disabled,
-      );
-    });
-
-    test('ends close with a known final state after safe failure', () {
-      final lifecycle = SessionLifecycle(CassetteMode.record)
-        ..startClose()
-        ..closeFailedWithoutUncertainty();
 
       expect(lifecycle.state, SessionLifecycleState.closed);
       expect(lifecycle.isClosed, isTrue);
