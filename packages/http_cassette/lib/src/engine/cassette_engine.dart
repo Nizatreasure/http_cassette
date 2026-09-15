@@ -528,7 +528,10 @@ final class EngineState {
           networkAccess: recording.failedRequestNetworkAccess,
         );
       }
-      await RecordingCassetteCommitter(store).commit(recording);
+      await RecordingCassetteCommitter(
+        store,
+        operationTimeout: configuration.storeOperations.timeout,
+      ).commit(recording);
     } finally {
       if (!settlementCompleted) {
         recording.abandon();

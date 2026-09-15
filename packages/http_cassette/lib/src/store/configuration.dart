@@ -1,4 +1,4 @@
-/// Controls how long session-start store operations may remain pending.
+/// Controls how long cassette-store operations may remain pending.
 final class StoreOperationConfiguration {
   /// Creates store-operation configuration.
   factory StoreOperationConfiguration({
@@ -16,10 +16,10 @@ final class StoreOperationConfiguration {
 
   const StoreOperationConfiguration._(this.timeout);
 
-  /// The default maximum wait for one session-start store operation.
+  /// The default maximum wait for one store operation.
   static const Duration defaultTimeout = Duration(seconds: 30);
 
-  /// The maximum time allowed for one session-start store operation.
+  /// The maximum time allowed for one store operation.
   final Duration timeout;
 
   @override

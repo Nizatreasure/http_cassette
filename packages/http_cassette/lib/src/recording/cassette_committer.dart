@@ -1,7 +1,9 @@
 import '../cassette/encoder.dart';
 import '../diagnostics/diagnostic.dart';
 import '../diagnostics/exception.dart';
+import '../store/configuration.dart';
 import '../store/exception.dart';
+import '../store/operation_timeout.dart';
 import '../store/store.dart';
 import 'active_state.dart';
 import 'configuration.dart';
@@ -9,10 +11,16 @@ import 'configuration.dart';
 /// Finalises, encodes and writes one complete recording cassette.
 final class RecordingCassetteCommitter {
   /// Creates a committer backed by [store].
-  const RecordingCassetteCommitter(this.store);
+  const RecordingCassetteCommitter(
+    this.store, {
+    this.operationTimeout = StoreOperationConfiguration.defaultTimeout,
+  });
 
   /// The store receiving the complete encoded cassette.
   final CassetteStore store;
+
+  /// The maximum wait for the cassette write.
+  final Duration operationTimeout;
 
   /// Commits the complete recording retained by [state].
   ///
@@ -30,9 +38,19 @@ final class RecordingCassetteCommitter {
     try {
       switch (operation) {
         case CassetteStoreOperation.create:
-          await store.create(state.cassetteName, bytes);
+          await runStoreOperation(
+            action: () => store.create(state.cassetteName, bytes),
+            timeout: operationTimeout,
+            name: state.cassetteName,
+            operation: operation,
+          );
         case CassetteStoreOperation.replace:
-          await store.replace(state.cassetteName, bytes);
+          await runStoreOperation(
+            action: () => store.replace(state.cassetteName, bytes),
+            timeout: operationTimeout,
+            name: state.cassetteName,
+            operation: operation,
+          );
         case CassetteStoreOperation.replaceIfUnchanged:
           final snapshot = state.appendSnapshot;
           if (snapshot == null) {
@@ -40,7 +58,12 @@ final class RecordingCassetteCommitter {
               'Append recording requires a prepared cassette snapshot.',
             );
           }
-          await store.replaceIfUnchanged(snapshot, bytes);
+          await runStoreOperation(
+            action: () => store.replaceIfUnchanged(snapshot, bytes),
+            timeout: operationTimeout,
+            name: state.cassetteName,
+            operation: operation,
+          );
         case CassetteStoreOperation.exists || CassetteStoreOperation.read:
           throw StateError('Invalid recording commit store operation.');
       }

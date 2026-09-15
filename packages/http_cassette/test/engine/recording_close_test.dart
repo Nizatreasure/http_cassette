@@ -167,6 +167,36 @@ void main() {
       await later.discard();
     });
 
+    test('times out a pending write and releases the engine', () async {
+      final store = _DelayedCreateStore();
+      final state = _state(
+        store,
+        storeOperationTimeout: const Duration(milliseconds: 1),
+      );
+      final session = await state.startRecording(
+        CassetteName('recording'),
+        const RecordingOptions(),
+      );
+
+      await expectLater(
+        session.close(),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.storeWriteResultUnconfirmed,
+          ),
+        ),
+      );
+
+      expect(store.started.isCompleted, isTrue);
+      expect(session.isClosed, isTrue);
+      expect(state.sessions.isActive, isFalse);
+      expect(state.activeRecording, isNull);
+
+      store.release.complete();
+    });
+
     test('waits for a pending request before committing', () async {
       final store = MemoryCassetteStore();
       final state = _state(store);
@@ -419,12 +449,16 @@ void main() {
 EngineState _state(
   CassetteStore store, {
   Duration closeGracePeriod = RecordingConfiguration.defaultCloseGracePeriod,
+  Duration storeOperationTimeout = StoreOperationConfiguration.defaultTimeout,
 }) =>
     EngineState(
       store: store,
       configuration: CassetteConfiguration(
         recording: RecordingConfiguration(
           closeGracePeriod: closeGracePeriod,
+        ),
+        storeOperations: StoreOperationConfiguration(
+          timeout: storeOperationTimeout,
         ),
       ),
     );

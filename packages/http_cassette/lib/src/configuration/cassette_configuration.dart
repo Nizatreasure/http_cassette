@@ -50,7 +50,7 @@ final class CassetteConfiguration {
   /// Recording lifecycle behaviour shared by every recording session.
   final RecordingConfiguration recording;
 
-  /// Time limits applied to store operations used to start sessions.
+  /// Time limits applied to cassette-store operations.
   final StoreOperationConfiguration storeOperations;
 
   /// Replay policy used when a replay session supplies no override.

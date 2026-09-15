@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http_cassette/http_cassette.dart';
@@ -242,6 +243,53 @@ void main() {
         ),
       );
     });
+
+    for (final scenario in <({
+      ExistingCassette handling,
+      CassetteStoreOperation operation,
+    })>[
+      (
+        handling: ExistingCassette.fail,
+        operation: CassetteStoreOperation.create,
+      ),
+      (
+        handling: ExistingCassette.replace,
+        operation: CassetteStoreOperation.replace,
+      ),
+      (
+        handling: ExistingCassette.append,
+        operation: CassetteStoreOperation.replaceIfUnchanged,
+      ),
+    ]) {
+      test('times out a pending ${scenario.operation.name} safely', () async {
+        final name = CassetteName('recording');
+        final store = _CommitStore(pending: Completer<void>().future);
+
+        await expectLater(
+          RecordingCassetteCommitter(
+            store,
+            operationTimeout: const Duration(milliseconds: 1),
+          ).commit(
+            _state(
+              name: name,
+              existingCassette: scenario.handling,
+              appendPreparation: scenario.handling == ExistingCassette.append
+                  ? _appendPreparation(name)
+                  : null,
+            ),
+          ),
+          throwsA(
+            isA<CassetteException>().having(
+              (exception) => exception.diagnostic.category,
+              'category',
+              DiagnosticCategory.storeWriteResultUnconfirmed,
+            ),
+          ),
+        );
+
+        expect(store.operation, scenario.operation);
+      });
+    }
   });
 }
 
@@ -277,9 +325,10 @@ CassetteOutcome _outcome(int statusCode) => CassetteResponseOutcome(
     );
 
 final class _CommitStore implements CassetteStore {
-  _CommitStore({this.failure});
+  _CommitStore({this.failure, this.pending});
 
   final CassetteStoreException? failure;
+  final Future<void>? pending;
   CassetteStoreOperation? operation;
   CassetteName? name;
   List<int>? bytes;
@@ -306,6 +355,9 @@ final class _CommitStore implements CassetteStore {
     this.bytes = List<int>.unmodifiable(bytes);
     if (failure case final failure?) {
       throw failure;
+    }
+    if (pending case final pending?) {
+      await pending;
     }
   }
 

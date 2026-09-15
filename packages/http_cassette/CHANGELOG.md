@@ -16,4 +16,4 @@
 - Added a configurable recording-close grace period with all-or-nothing persistence and safe failure diagnostics.
 - Added pass-through for new transport interceptions while a recording is closing.
 - Made close and discard failures terminal, including explicit diagnostics for unconfirmed store-write results.
-- Added a configurable timeout for cassette-store checks and reads used to start sessions.
+- Added a configurable timeout for cassette-store existence checks, reads, and writes.

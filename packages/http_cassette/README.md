@@ -303,7 +303,7 @@ final fileStore = FileCassetteStore(
 
 ## Store operation timeout
 
-Starting a session may need to check or read its cassette. Each of these store operations has a 30-second timeout by default. A timeout fails session startup with a safe `CassetteException`, releases the engine, and does not contact the network.
+Each cassette-store existence check, read, or write has a 30-second timeout by default. A startup timeout fails with a safe `CassetteException`, releases the engine, and does not contact the network. A write timeout closes the recording, releases the engine, and reports `storeWriteResultUnconfirmed` because the core cannot know whether that write eventually changed storage.
 
 Set one positive timeout for every session started by an engine:
 
@@ -315,7 +315,7 @@ final configuration = CassetteConfiguration(
 );
 ```
 
-The timeout applies separately to each existence check or cassette read. Dart futures cannot be cancelled, so a third-party store may continue its own work after the engine stops waiting. Session-start operations are read-only, and their late completion cannot activate the failed session.
+The timeout applies separately to each store operation. Dart futures cannot be cancelled, so a store may continue its own work after the engine stops waiting. A late startup result cannot activate the failed session. A late write may still modify storage, so callers must treat its result as unknown and allow a later session to validate the current cassette independently.
 
 ## Activation policy
 
