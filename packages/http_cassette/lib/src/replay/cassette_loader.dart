@@ -1,7 +1,9 @@
 import '../cassette/cassette.dart';
 import '../cassette/decoder.dart';
 import '../cassette/name.dart';
+import '../store/configuration.dart';
 import '../store/exception.dart';
+import '../store/operation_timeout.dart';
 import '../store/store.dart';
 import 'decode_diagnostic.dart';
 import 'loading_failure.dart';
@@ -40,10 +42,16 @@ final class ReplayCassetteLoadFailed extends ReplayCassetteLoadResult {
 /// Loads and strictly decodes replay cassettes from one store.
 final class ReplayCassetteLoader {
   /// Creates a loader backed by [store].
-  const ReplayCassetteLoader(this.store);
+  const ReplayCassetteLoader(
+    this.store, {
+    this.operationTimeout = StoreOperationConfiguration.defaultTimeout,
+  });
 
   /// The store used for the single snapshot read and its decoding limit.
   final CassetteStore store;
+
+  /// The maximum wait for the snapshot read.
+  final Duration operationTimeout;
 
   /// Reads and decodes the complete cassette identified by [cassetteName].
   ///
@@ -51,7 +59,12 @@ final class ReplayCassetteLoader {
   /// Broken store contracts and unexpected exceptions propagate.
   Future<ReplayCassetteLoadResult> load(CassetteName cassetteName) async {
     try {
-      final snapshot = await store.read(cassetteName);
+      final snapshot = await runStoreOperation(
+        action: () => store.read(cassetteName),
+        timeout: operationTimeout,
+        name: cassetteName,
+        operation: CassetteStoreOperation.read,
+      );
       if (snapshot.name != cassetteName) {
         throw StateError(
           'A cassette store returned a snapshot for a different name.',

@@ -125,12 +125,41 @@ void main() {
       );
       expect(state.sessions.isActive, isFalse);
     });
+
+    test('times out a pending store check and releases ownership', () async {
+      final state = _state(
+        _DelayedExistsStore(Completer<bool>().future),
+        timeout: const Duration(milliseconds: 1),
+      );
+
+      await expectLater(
+        state.startRecording(
+          CassetteName('recording'),
+          const RecordingOptions(),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.storeReadFailure,
+          ),
+        ),
+      );
+      expect(state.sessions.isActive, isFalse);
+      expect(state.activeRecording, isNull);
+    });
   });
 }
 
-EngineState _state(CassetteStore store) => EngineState(
+EngineState _state(
+  CassetteStore store, {
+  Duration timeout = StoreOperationConfiguration.defaultTimeout,
+}) =>
+    EngineState(
       store: store,
-      configuration: CassetteConfiguration(),
+      configuration: CassetteConfiguration(
+        storeOperations: StoreOperationConfiguration(timeout: timeout),
+      ),
     );
 
 base class _ExistsStore implements CassetteStore {

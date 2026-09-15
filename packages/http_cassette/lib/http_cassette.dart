@@ -33,6 +33,7 @@ export 'src/sanitisation/custom.dart'
     show RequestSanitiser, ResponseSanitiser, SanitisedRequest;
 export 'src/session/cassette_mode.dart';
 export 'src/session/cassette_session.dart' show CassetteSession;
+export 'src/store/configuration.dart' show StoreOperationConfiguration;
 export 'src/store/exception.dart'
     show
         CassetteStoreException,

@@ -90,6 +90,27 @@ void main() {
       expect(state.sessions.isActive, isFalse);
       expect(state.activeRecording, isNull);
     });
+
+    test('times out a pending append read and releases ownership', () async {
+      final name = CassetteName('recording');
+      final state = _state(
+        _DelayedAppendStore(Completer<CassetteSnapshot>().future),
+        timeout: const Duration(milliseconds: 1),
+      );
+
+      await expectLater(
+        state.startRecording(name, _appendOptions),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.storeReadFailure,
+          ),
+        ),
+      );
+      expect(state.sessions.isActive, isFalse);
+      expect(state.activeRecording, isNull);
+    });
   });
 }
 
@@ -97,9 +118,15 @@ const _appendOptions = RecordingOptions(
   existingCassette: ExistingCassette.append,
 );
 
-EngineState _state(CassetteStore store) => EngineState(
+EngineState _state(
+  CassetteStore store, {
+  Duration timeout = StoreOperationConfiguration.defaultTimeout,
+}) =>
+    EngineState(
       store: store,
-      configuration: CassetteConfiguration(),
+      configuration: CassetteConfiguration(
+        storeOperations: StoreOperationConfiguration(timeout: timeout),
+      ),
     );
 
 Cassette _cassetteWithTwoInteractions() => Cassette(

@@ -1,6 +1,7 @@
 import '../recording/configuration.dart';
 import '../replay/configuration.dart';
 import '../sanitisation/configuration.dart';
+import '../store/configuration.dart';
 import 'body_limits.dart';
 import 'matching_configuration.dart';
 
@@ -16,6 +17,7 @@ final class CassetteConfiguration {
     SanitisationConfiguration? sanitisation,
     BodyLimits? bodyLimits,
     RecordingConfiguration? recording,
+    StoreOperationConfiguration? storeOperations,
     ReplayPolicy defaultReplayPolicy = ReplayPolicy.strict,
   }) =>
       CassetteConfiguration._(
@@ -23,6 +25,7 @@ final class CassetteConfiguration {
         sanitisation: sanitisation ?? SanitisationConfiguration(),
         bodyLimits: bodyLimits ?? BodyLimits(),
         recording: recording ?? RecordingConfiguration(),
+        storeOperations: storeOperations ?? StoreOperationConfiguration(),
         defaultReplayPolicy: defaultReplayPolicy,
       );
 
@@ -31,6 +34,7 @@ final class CassetteConfiguration {
     required this.sanitisation,
     required this.bodyLimits,
     required this.recording,
+    required this.storeOperations,
     required this.defaultReplayPolicy,
   });
 
@@ -46,6 +50,9 @@ final class CassetteConfiguration {
   /// Recording lifecycle behaviour shared by every recording session.
   final RecordingConfiguration recording;
 
+  /// Time limits applied to store operations used to start sessions.
+  final StoreOperationConfiguration storeOperations;
+
   /// Replay policy used when a replay session supplies no override.
   final ReplayPolicy defaultReplayPolicy;
 
@@ -57,6 +64,7 @@ final class CassetteConfiguration {
           sanitisation == other.sanitisation &&
           bodyLimits == other.bodyLimits &&
           recording == other.recording &&
+          storeOperations == other.storeOperations &&
           defaultReplayPolicy == other.defaultReplayPolicy;
 
   @override
@@ -65,6 +73,7 @@ final class CassetteConfiguration {
         sanitisation,
         bodyLimits,
         recording,
+        storeOperations,
         defaultReplayPolicy,
       );
 }

@@ -301,6 +301,22 @@ final fileStore = FileCassetteStore(
 
 `maximumBytes` must be positive. It limits one complete encoded cassette during storage and decoding; it does not replace the separate request and response limits in `BodyLimits`.
 
+## Store operation timeout
+
+Starting a session may need to check or read its cassette. Each of these store operations has a 30-second timeout by default. A timeout fails session startup with a safe `CassetteException`, releases the engine, and does not contact the network.
+
+Set one positive timeout for every session started by an engine:
+
+```dart
+final configuration = CassetteConfiguration(
+  storeOperations: StoreOperationConfiguration(
+    timeout: Duration(seconds: 10),
+  ),
+);
+```
+
+The timeout applies separately to each existence check or cassette read. Dart futures cannot be cancelled, so a third-party store may continue its own work after the engine stops waiting. Session-start operations are read-only, and their late completion cannot activate the failed session.
+
 ## Activation policy
 
 `CassetteActivationPolicy.enabled` allows normal session commands and is the default.

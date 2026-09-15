@@ -23,6 +23,7 @@ import '../replay/verification.dart';
 import '../session/cassette_mode.dart';
 import '../session/cassette_session.dart';
 import '../store/exception.dart';
+import '../store/operation_timeout.dart';
 import '../store/store.dart';
 import 'scoped_session.dart';
 import 'session_ownership.dart';
@@ -219,7 +220,10 @@ final class EngineState {
     final reservation = sessions.reserve(CassetteMode.replay);
     ActiveReplayState? preparedReplay;
     try {
-      final result = await ReplayCassetteLoader(store).load(name);
+      final result = await ReplayCassetteLoader(
+        store,
+        operationTimeout: configuration.storeOperations.timeout,
+      ).load(name);
       switch (result) {
         case ReplayCassetteLoadFailed(:final failure):
           throw replayCassetteLoadException(failure);
@@ -257,7 +261,10 @@ final class EngineState {
     ActiveRecordingState? preparedRecording;
     try {
       if (options.existingCassette == ExistingCassette.append) {
-        final result = await AppendCassettePreparer(store).prepare(name);
+        final result = await AppendCassettePreparer(
+          store,
+          operationTimeout: configuration.storeOperations.timeout,
+        ).prepare(name);
         switch (result) {
           case AppendCassettePrepared():
             appendPreparation = result;
@@ -299,7 +306,12 @@ final class EngineState {
 
     late final bool targetExists;
     try {
-      targetExists = await store.exists(name);
+      targetExists = await runStoreOperation(
+        action: () => store.exists(name),
+        timeout: configuration.storeOperations.timeout,
+        name: name,
+        operation: CassetteStoreOperation.exists,
+      );
     } on CassetteStoreException catch (failure) {
       if (failure.name != name ||
           failure.operation != CassetteStoreOperation.exists ||

@@ -2,7 +2,9 @@ import '../cassette/cassette.dart';
 import '../cassette/decoder.dart';
 import '../cassette/name.dart';
 import '../diagnostics/diagnostic.dart';
+import '../store/configuration.dart';
 import '../store/exception.dart';
+import '../store/operation_timeout.dart';
 import '../store/snapshot.dart';
 import '../store/store.dart';
 
@@ -77,10 +79,16 @@ final class AppendCassettePreparationFailure {
 /// Reads and fully validates an existing cassette for append recording.
 final class AppendCassettePreparer {
   /// Creates a preparer backed by [store].
-  const AppendCassettePreparer(this.store);
+  const AppendCassettePreparer(
+    this.store, {
+    this.operationTimeout = StoreOperationConfiguration.defaultTimeout,
+  });
 
   /// The store supplying one immutable append-target snapshot.
   final CassetteStore store;
+
+  /// The maximum wait for the append-target read.
+  final Duration operationTimeout;
 
   /// Reads and prepares the cassette identified by [cassetteName].
   ///
@@ -90,7 +98,12 @@ final class AppendCassettePreparer {
   ) async {
     late final CassetteSnapshot snapshot;
     try {
-      snapshot = await store.read(cassetteName);
+      snapshot = await runStoreOperation(
+        action: () => store.read(cassetteName),
+        timeout: operationTimeout,
+        name: cassetteName,
+        operation: CassetteStoreOperation.read,
+      );
     } on CassetteStoreException catch (failure) {
       if (failure.name != cassetteName ||
           failure.operation != CassetteStoreOperation.read ||

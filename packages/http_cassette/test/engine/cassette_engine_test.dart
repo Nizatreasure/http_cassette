@@ -111,6 +111,30 @@ void main() {
       expect(engine.activeSession, same(session));
     });
 
+    test('times out a pending replay read and releases ownership', () async {
+      final engine = CassetteEngine(
+        store: _DelayedReadStore(Completer<CassetteSnapshot>().future),
+        configuration: CassetteConfiguration(
+          storeOperations: StoreOperationConfiguration(
+            timeout: const Duration(milliseconds: 1),
+          ),
+        ),
+      );
+
+      await expectLater(
+        engine.startReplay('pending'),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.cassetteUnreadable,
+          ),
+        ),
+      );
+      expect(engine.isActive, isFalse);
+      expect(engine.activeSession, isNull);
+    });
+
     test('rejects invalid logical names without becoming active', () async {
       final engine = _engine();
 
