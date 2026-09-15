@@ -194,6 +194,44 @@ void main() {
       );
       expect(differences.totalCount, 5);
     });
+
+    test('rejects selections with different field counts clearly', () {
+      final expected = _selected(
+        const <String, Iterable<String>>{},
+        names: <String>{'accept'},
+      );
+      final actual = _selected(
+        const <String, Iterable<String>>{},
+        names: const <String>{},
+      );
+
+      expect(
+        () => compareSelectedHeaders(expected, actual),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'Selected header comparison requires the same canonical fields.',
+          ),
+        ),
+      );
+    });
+
+    test('rejects selections with different field names clearly', () {
+      final expected = _selected(
+        const <String, Iterable<String>>{},
+        names: <String>{'accept'},
+      );
+      final actual = _selected(
+        const <String, Iterable<String>>{},
+        names: <String>{'content-type'},
+      );
+
+      expect(
+        () => compareSelectedHeaders(expected, actual),
+        throwsA(isA<StateError>()),
+      );
+    });
   });
 }
 

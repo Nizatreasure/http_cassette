@@ -56,10 +56,20 @@ BoundedMatchDifferences compareSelectedHeaders(
   NormalisedSelectedHeaders actual, {
   int maximumRetained = MatchDifferenceCollector.defaultMaximumRetained,
 }) {
+  if (expected.fields.length != actual.fields.length) {
+    throw StateError(
+      'Selected header comparison requires the same canonical fields.',
+    );
+  }
   final collector = MatchDifferenceCollector(maximumRetained: maximumRetained);
   for (var index = 0; index < expected.fields.length; index += 1) {
     final expectedField = expected.fields[index];
     final actualField = actual.fields[index];
+    if (expectedField.name != actualField.name) {
+      throw StateError(
+        'Selected header comparison requires the same canonical fields.',
+      );
+    }
     final expectedValues = expectedField.values;
     final actualValues = actualField.values;
     if (expectedValues == null && actualValues != null) {
