@@ -42,6 +42,7 @@ void main() {
         ),
       );
       expect(state.sessions.isActive, isFalse);
+      expect(state.sessions.activeSession, isNull);
       expect(state.activeRecording, isNull);
     });
 

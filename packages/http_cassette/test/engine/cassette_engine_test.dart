@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/cassette.dart';
 import 'package:http_cassette/src/cassette/encoder.dart';
+import 'package:http_cassette/src/engine/cassette_engine.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -72,6 +73,23 @@ void main() {
       expect(engine.isActive, isFalse);
       final recording = await engine.startRecording('available');
       expect(engine.activeSession, same(recording));
+    });
+
+    test('clears replay state after an unexpected startup error', () async {
+      final error = StateError('unexpected test failure');
+      final state = EngineState(
+        store: _ThrowingReadStore(error),
+        configuration: CassetteConfiguration(),
+      );
+
+      await expectLater(
+        state.startReplay(CassetteName('broken'), const ReplayOptions()),
+        throwsA(same(error)),
+      );
+
+      expect(state.sessions.isActive, isFalse);
+      expect(state.sessions.activeSession, isNull);
+      expect(state.activeReplay, isNull);
     });
 
     test('reserves ownership without exposing a session while loading',

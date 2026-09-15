@@ -217,31 +217,33 @@ final class EngineState {
     ReplayOptions options,
   ) async {
     final reservation = sessions.reserve(CassetteMode.replay);
-    late final ReplayCassetteLoadResult result;
+    ActiveReplayState? preparedReplay;
     try {
-      result = await ReplayCassetteLoader(store).load(name);
+      final result = await ReplayCassetteLoader(store).load(name);
+      switch (result) {
+        case ReplayCassetteLoadFailed(:final failure):
+          throw replayCassetteLoadException(failure);
+        case ReplayCassetteLoaded(:final cassette):
+          preparedReplay = ActiveReplayState(
+            cassetteName: name,
+            cassette: cassette,
+            configuration: configuration,
+            options: options,
+          );
+          activeReplay = preparedReplay;
+          return reservation.activate(
+            name: name,
+            mode: CassetteMode.replay,
+            closeAction: completeActiveReplay,
+            discardAction: completeReplayLifecycleOnly,
+          );
+      }
     } catch (_) {
+      if (identical(activeReplay, preparedReplay)) {
+        activeReplay = null;
+      }
       reservation.cancel();
       rethrow;
-    }
-
-    switch (result) {
-      case ReplayCassetteLoadFailed(:final failure):
-        reservation.cancel();
-        throw replayCassetteLoadException(failure);
-      case ReplayCassetteLoaded(:final cassette):
-        activeReplay = ActiveReplayState(
-          cassetteName: name,
-          cassette: cassette,
-          configuration: configuration,
-          options: options,
-        );
-        return reservation.activate(
-          name: name,
-          mode: CassetteMode.replay,
-          closeAction: completeActiveReplay,
-          discardAction: completeReplayLifecycleOnly,
-        );
     }
   }
 
@@ -252,6 +254,7 @@ final class EngineState {
   ) async {
     final reservation = sessions.reserve(CassetteMode.record);
     AppendCassettePrepared? appendPreparation;
+    ActiveRecordingState? preparedRecording;
     try {
       if (options.existingCassette == ExistingCassette.append) {
         final result = await AppendCassettePreparer(store).prepare(name);
@@ -264,22 +267,26 @@ final class EngineState {
       } else {
         await _preflightRecordingTarget(name, options.existingCassette);
       }
+      preparedRecording = ActiveRecordingState(
+        cassetteName: name,
+        configuration: configuration,
+        options: options,
+        appendPreparation: appendPreparation,
+      );
+      activeRecording = preparedRecording;
+      return reservation.activate(
+        name: name,
+        mode: CassetteMode.record,
+        closeAction: commitActiveRecording,
+        discardAction: completeRecordingLifecycleOnly,
+      );
     } catch (_) {
+      if (identical(activeRecording, preparedRecording)) {
+        activeRecording = null;
+      }
       reservation.cancel();
       rethrow;
     }
-    activeRecording = ActiveRecordingState(
-      cassetteName: name,
-      configuration: configuration,
-      options: options,
-      appendPreparation: appendPreparation,
-    );
-    return reservation.activate(
-      name: name,
-      mode: CassetteMode.record,
-      closeAction: commitActiveRecording,
-      discardAction: completeRecordingLifecycleOnly,
-    );
   }
 
   Future<void> _preflightRecordingTarget(
