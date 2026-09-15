@@ -64,13 +64,12 @@ final class EngineSessionOwnership {
     if (!identical(_reservation, token) || _activeSession != null) {
       throw StateError('Only the current reservation can activate a session.');
     }
-    late final CassetteSession session;
-    session = createCassetteSession(
+    final session = createCassetteSession(
       name: name,
       mode: mode,
       closeAction: closeAction,
       discardAction: discardAction,
-      completionFinished: () => _release(session),
+      completionFinished: () => _release(token),
     );
     _activeSession = session;
     return session;
@@ -83,10 +82,9 @@ final class EngineSessionOwnership {
     _reservation = null;
   }
 
-  void _release(CassetteSession session) {
-    if (!identical(_activeSession, session)) {
-      throw StateError(
-          'Only the active cassette session can release ownership.');
+  void _release(Object token) {
+    if (!identical(_reservation, token)) {
+      return;
     }
     _reservation = null;
     _activeSession = null;

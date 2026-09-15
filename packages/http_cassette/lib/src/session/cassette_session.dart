@@ -43,20 +43,12 @@ final class CassetteSession {
   /// Close failure ends the session and leaves its error as the description of
   /// that operation. Repeated completion after close returns or throws is
   /// harmless. Concurrent completion throws a [CassetteException].
-  Future<void> close() async {
-    if (_lifecycle.startClose() == SessionLifecycleStart.alreadyClosed) {
-      return;
-    }
-    try {
-      await _closeAction();
-    } catch (_) {
-      _lifecycle.closeFailed();
-      _completionFinished();
-      rethrow;
-    }
-    _lifecycle.closeSucceeded();
-    _completionFinished();
-  }
+  Future<void> close() => _complete(
+        start: _lifecycle.startClose,
+        action: _closeAction,
+        succeeded: _lifecycle.closeSucceeded,
+        failed: _lifecycle.closeFailed,
+      );
 
   /// Ends this session without running its successful completion work.
   ///
@@ -65,19 +57,37 @@ final class CassetteSession {
   /// completion is harmless. A discard failure ends the session and leaves its
   /// error as the description of that operation. Concurrent completion throws
   /// a [CassetteException].
-  Future<void> discard() async {
-    if (_lifecycle.startDiscard() == SessionLifecycleStart.alreadyClosed) {
+  Future<void> discard() => _complete(
+        start: _lifecycle.startDiscard,
+        action: _discardAction,
+        succeeded: _lifecycle.discardSucceeded,
+        failed: _lifecycle.discardFailed,
+      );
+
+  Future<void> _complete({
+    required SessionLifecycleStart Function() start,
+    required Future<void> Function() action,
+    required void Function() succeeded,
+    required void Function() failed,
+  }) async {
+    if (start() == SessionLifecycleStart.alreadyClosed) {
       return;
     }
+    var actionSucceeded = false;
     try {
-      await _discardAction();
-    } catch (_) {
-      _lifecycle.discardFailed();
-      _completionFinished();
-      rethrow;
+      await action();
+      actionSucceeded = true;
+    } finally {
+      try {
+        if (actionSucceeded) {
+          succeeded();
+        } else {
+          failed();
+        }
+      } finally {
+        _completionFinished();
+      }
     }
-    _lifecycle.discardSucceeded();
-    _completionFinished();
   }
 }
 

@@ -101,12 +101,20 @@ void main() {
 
     test('preserves a close failure and ends the session', () async {
       final failure = StateError('safe test failure');
-      final session = _session(closeAction: () async => throw failure);
+      var completedSessions = 0;
+      final session = _session(
+        closeAction: () async => throw failure,
+        completionFinished: () {
+          completedSessions++;
+        },
+      );
 
       await expectLater(session.close(), throwsA(same(failure)));
       expect(session.isClosed, isTrue);
+      expect(completedSessions, 1);
       await session.close();
       await session.discard();
+      expect(completedSessions, 1);
     });
 
     test('preserves a discard failure and ends the session', () async {
