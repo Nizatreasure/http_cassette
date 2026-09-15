@@ -276,6 +276,41 @@ void main() {
       expect(await store.exists(name), isFalse);
     });
 
+    test('abandons and releases after an unexpected settlement error',
+        () async {
+      final store = MemoryCassetteStore();
+      final state = _state(store);
+      final name = CassetteName('recording');
+      final session = await state.startRecording(
+        name,
+        const RecordingOptions(),
+      );
+      final recording = state.activeRecording!;
+      final pending = Completer<CassetteOutcome>();
+      final capture = state.executeActiveRecordingRequest(
+        _request('/pending'),
+        () => pending.future,
+      );
+      final failure = StateError('safe settlement failure');
+
+      final close = runZoned(
+        session.close,
+        zoneSpecification: ZoneSpecification(
+          createTimer: (_, __, ___, ____, _____) => throw failure,
+        ),
+      );
+
+      await expectLater(close, throwsA(same(failure)));
+      expect(session.isClosed, isTrue);
+      expect(state.activeRecording, isNull);
+      expect(state.sessions.isActive, isFalse);
+
+      pending.complete(_outcome(200));
+      expect(await capture, isA<CassetteResponseOutcome>());
+      expect(recording.interactions, isEmpty);
+      expect(await store.exists(name), isFalse);
+    });
+
     test('commits existing and new append interactions conditionally',
         () async {
       final store = MemoryCassetteStore();

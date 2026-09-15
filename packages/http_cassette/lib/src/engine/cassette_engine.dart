@@ -489,26 +489,34 @@ final class EngineState {
     if (recording == null) {
       throw StateError('Recording commit requires active recording state.');
     }
-    final settlement = await recording.sealAndWaitForRequests();
-    if (settlement == RecordingSettlementResult.timedOut) {
-      _endRecordingWithoutWrite(
-        recording,
-        category: DiagnosticCategory.recordingCloseTimedOut,
-        summary: 'Recording close timed out before every request settled.',
-      );
-    }
-    if (recording.hasFailedRequests) {
-      _endRecordingWithoutWrite(
-        recording,
-        category: DiagnosticCategory.recordingRequestFailed,
-        summary: 'Recording was discarded because an admitted request failed.',
-        networkAccess: recording.failedRequestNetworkAccess,
-      );
-    }
+    var settlementCompleted = false;
     try {
+      final settlement = await recording.sealAndWaitForRequests();
+      settlementCompleted = true;
+      if (settlement == RecordingSettlementResult.timedOut) {
+        _endRecordingWithoutWrite(
+          recording,
+          category: DiagnosticCategory.recordingCloseTimedOut,
+          summary: 'Recording close timed out before every request settled.',
+        );
+      }
+      if (recording.hasFailedRequests) {
+        _endRecordingWithoutWrite(
+          recording,
+          category: DiagnosticCategory.recordingRequestFailed,
+          summary:
+              'Recording was discarded because an admitted request failed.',
+          networkAccess: recording.failedRequestNetworkAccess,
+        );
+      }
       await RecordingCassetteCommitter(store).commit(recording);
     } finally {
-      activeRecording = null;
+      if (!settlementCompleted) {
+        recording.abandon();
+      }
+      if (identical(activeRecording, recording)) {
+        activeRecording = null;
+      }
     }
   }
 
