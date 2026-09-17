@@ -20,7 +20,7 @@ Applications normally depend on `http_cassette` and one adapter package.
 
 A `CassetteEngine` controls one explicit recording or replay session at a time. The installed adapter uses that same engine.
 
-During recording, the adapter sends the real request, converts the completed response or transport failure into a portable form, sanitises the interaction, and adds it to the active cassette. Closing the session writes the complete cassette.
+During recording, the adapter sends the real request and converts the completed response or transport failure into a portable form. The core sanitises the interaction and adds it to the active cassette. Closing the session writes the complete cassette.
 
 During replay, the engine matches each incoming request against the recorded interactions. A matching outcome is returned through the adapter without a network call. A missing cassette, unmatched request, or exhausted interaction fails safely and never falls back to the real transport.
 
@@ -48,13 +48,13 @@ Use logical cassette names such as `checkout/declined-card`. The file store owns
 
 ## Security
 
-Built-in sanitisation removes common credential-shaped headers, query parameters, and JSON values before a recording is stored. Applications which handle domain-specific personal or confidential data must add their own rules.
+Built-in sanitisation redacts values in common credential-shaped headers, query parameters, and JSON fields before a recording is stored. Applications which handle domain-specific personal or confidential data must add their own rules.
 
 Automatic sanitisation reduces risk but cannot prove that a cassette is safe to share. Review every generated cassette before committing or publishing it. Never store real credentials, access tokens, or private customer traffic in the repository.
 
 ## Portability and limitations
 
-Cassettes contain portable HTTP information: method, normalised URI, visible headers, body bytes, response status and reason phrase, or a portable transport failure. They do not reproduce client-specific state such as progress events, connection objects, redirect history, `dio` `extra`, stream timing, or original chunk boundaries.
+Cassettes contain portable HTTP information: method, normalised URI, sanitised canonical headers, body bytes, response status and reason phrase, or a portable transport failure. They do not reproduce client-specific state such as progress events, connection objects, redirect history, `dio` `extra`, stream timing, or original chunk boundaries.
 
 Active request and response streams are buffered within configured limits. Endless streams, server-sent events, exact stream timing, and semantic multipart matching are outside the V1 contract.
 
