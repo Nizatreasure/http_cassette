@@ -8,4 +8,5 @@
 - Added cancellation handling that prevents caller cancellation from becoming a recorded transport outcome.
 - Added structured cassette-failure inspection through `DioException` extensions.
 - Added inactive and explicitly disabled pass-through behaviour without changing the wrapped transport request.
+- Added pass-through for new requests while recording close waits for already admitted requests to settle.
 - Added cassette portability with the official `http` adapter for equivalent requests, responses, and transport failures.

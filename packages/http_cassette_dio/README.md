@@ -50,6 +50,8 @@ dio.installHttpCassette(engine);
 
 Installing HTTP Cassette twice on one `dio` client throws a `StateError`. Assigning another `httpClientAdapter` after installation replaces and disables the cassette integration. Closing `dio` closes the wrapped adapter at most once; cassette sessions remain controlled explicitly through the shared engine.
 
+Matching, sanitisation, replay policies, recording lifecycle, activation, body limits, cassette limits, and storage are configured on the core engine. See the [`http_cassette` documentation](https://pub.dev/packages/http_cassette) for those settings.
+
 ## Record and replay
 
 Run requests within recording and replay sessions through the engine installed on `dio`:
@@ -68,16 +70,9 @@ final recorded = await engine.replay(
 
 The scoped methods close a successful session and discard it when the callback fails. Manual `startRecording` and `startReplay` sessions are also available for interactive or multi-step scenarios. Recording calls the wrapped adapter at most once for each admitted request. Replay never calls it, including when a request is unmatched or its matching interactions are exhausted. A missing or invalid cassette prevents the replay session from starting. Discard a recording instead of closing it when its captured outcome is not the scenario you intended to keep.
 
-When no cassette session is active, requests pass directly to the wrapped adapter without body buffering or reconstruction. This includes engines using `CassetteActivationPolicy.disabledWithPassThrough`, whose inert recording and replay commands leave the engine inactive.
+When no cassette session is active, requests pass directly to the wrapped adapter without body buffering or reconstruction. This includes an engine configured for disabled pass-through.
 
-```dart
-final engine = CassetteEngine(
-  store: store,
-  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
-);
-```
-
-`disabledWithException` rejects recording and replay commands before store or transport work. `disabledWithPassThrough` permits ordinary network access even when code calls a replay command because no active replay session is created. An active replay session never accesses the network.
+Closing a recording immediately stops new requests from joining it. A request which reaches HTTP Cassette after that point passes through to the wrapped adapter without being recorded, while requests already admitted may finish within the engine's configured close grace period. If close fails, the session still ends and releases the shared engine for another session.
 
 ## Request and response bodies
 
@@ -87,21 +82,7 @@ Active responses are also completely buffered before they are recorded or return
 
 Original stream chunks, timing, and back-pressure are not preserved. During an active session, `dio` send progress may advance while HTTP Cassette buffers the encoded request rather than while bytes reach the network. Response delivery waits for complete bounded capture. Inactive requests retain `dio`'s ordinary streaming and progress behaviour.
 
-Configure request and response limits on the shared engine:
-
-```dart
-final engine = CassetteEngine(
-  store: MemoryCassetteStore(),
-  configuration: CassetteConfiguration(
-    bodyLimits: BodyLimits(
-      requestBytes: 4 * 1024 * 1024,
-      responseBytes: 10 * 1024 * 1024,
-    ),
-  ),
-);
-```
-
-These limits apply to individual HTTP bodies. The store's separate `maximumBytes` value limits one complete encoded cassette.
+These limits apply to individual HTTP bodies. Configure them on the shared core engine. The store's separate `maximumBytes` value limits one complete encoded cassette.
 
 ## Recordable outcomes
 

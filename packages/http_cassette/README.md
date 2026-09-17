@@ -62,6 +62,24 @@ final engine = CassetteEngine(
 
 The file store is available only on platforms which support `dart:io`. It maps a logical name such as `checkout/declined-card` to a JSON file below the configured root. Absolute paths, traversal segments, and symbolic-link escapes are rejected.
 
+## Configuration guide
+
+Most behaviour is configured once through `CassetteConfiguration` when the engine is created. The engine activation policy and the complete encoded-cassette limit have their own constructor parameters.
+
+| Setting | Where to configure it | Default |
+| --- | --- | --- |
+| Recording close grace period | `CassetteConfiguration.recording.closeGracePeriod` | 30 seconds |
+| Store existence-check, read, and write timeout | `CassetteConfiguration.storeOperations.timeout` | 30 seconds |
+| Request body limit | `CassetteConfiguration.bodyLimits.requestBytes` | 2 MiB |
+| Response body limit | `CassetteConfiguration.bodyLimits.responseBytes` | 5 MiB |
+| Matching and exclusions | `CassetteConfiguration.matching` | Method, URI, and non-empty body |
+| Sanitisation | `CassetteConfiguration.sanitisation` | Secure built-in rules |
+| Replay policy | `CassetteConfiguration.defaultReplayPolicy` | `ReplayPolicy.strict` |
+| Engine activation | `CassetteEngine.activationPolicy` constructor argument | `CassetteActivationPolicy.enabled` |
+| Complete encoded cassette limit | Store `maximumBytes` constructor argument | 64 MiB |
+
+The sections below explain each setting and include examples. Recording and replay session-specific choices remain in `RecordingOptions` and `ReplayOptions` rather than the engine-wide configuration.
+
 ## Record a cassette
 
 Start recording before the application sends the requests that belong to the scenario. Closing immediately stops new requests from joining the recording, then waits up to 30 seconds for requests which already joined to finish.
@@ -172,7 +190,9 @@ The default matcher compares:
 - the normalised URI, including query values;
 - every non-empty request body.
 
-Headers are ignored by default because credentials, dates, traces, and other volatile values commonly appear there. JSON bodies are compared structurally: object member order is ignored, array order is preserved, and scalar types and values must match. Other bodies use exact byte comparison.
+Request headers do not participate in matching by default because credentials, dates, traces, and other volatile values commonly appear there. To compare a header, add its name to `MatchingConfiguration.includedHeaders`. Only the included header names participate in header matching. JSON bodies are compared structurally: object member order is ignored, array order is preserved, and scalar types and values must match. Other bodies use exact byte comparison.
+
+Canonical requests require an absolute URI with a non-empty ASCII host. DNS names, `localhost`, IPv4, IPv6, and ASCII/Punycode internationalised domain names are supported. Controls, non-ASCII host spellings, unsafe delimiters, and percent escapes which remain after Dart's `Uri` normalisation are rejected without including the host value in the error.
 
 Add selected headers or exclusions through `MatchingConfiguration`:
 

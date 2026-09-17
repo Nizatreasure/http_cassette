@@ -50,6 +50,8 @@ When `inner` is omitted, `CassetteHttpClient` creates a normal `http.Client`. Th
 
 `CassetteEngine` is not a singleton. Code which starts sessions and every cassette client participating in those sessions must share the same engine instance.
 
+Matching, sanitisation, replay policies, recording lifecycle, activation, body limits, cassette limits, and storage are configured on the core engine. See the [`http_cassette` documentation](https://pub.dev/packages/http_cassette) for those settings.
+
 ## Record and replay
 
 Run requests within recording and replay sessions through the shared engine:
@@ -72,38 +74,13 @@ The scoped methods close a successful session and discard it when the callback f
 
 When no cassette session is active, `send` delegates the exact request to the wrapped client without inspecting or finalising it. The exact response or failure is returned unchanged. During recording, the client finalises and buffers the request once, then the core may authorise one wrapped-client call. During replay, the request is buffered for deterministic matching but the wrapped client is never called.
 
+Closing a recording immediately stops new requests from joining it. A request which reaches HTTP Cassette after that point passes through to the wrapped client without being recorded, while requests already admitted may finish within the engine's configured close grace period. If close fails, the session still ends and releases the shared engine for another session.
+
 Replay failures never fall back to the wrapped client. A missing or invalid cassette prevents replay startup, while an unmatched or exhausted request fails without network access.
-
-## Activation policy
-
-The cassette client does not need to be removed when cassette commands must be disabled. Configure the shared engine once:
-
-```dart
-final engine = CassetteEngine(
-  store: store,
-  activationPolicy: CassetteActivationPolicy.disabledWithPassThrough,
-);
-```
-
-`disabledWithException` rejects recording and replay commands before store or transport work. `disabledWithPassThrough` returns inert sessions and leaves the engine inactive, so requests reach the wrapped client normally and no cassette is read or changed.
-
-`disabledWithPassThrough` permits ordinary network access even when code calls a replay command because no active replay session is created. An active replay session never accesses the network.
 
 ## Request and response bodies
 
-Active requests and responses are completely buffered. The defaults are 2 MiB for requests and 5 MiB for responses. Configure them through the core `BodyLimits`:
-
-```dart
-final engine = CassetteEngine(
-  store: MemoryCassetteStore(),
-  configuration: CassetteConfiguration(
-    bodyLimits: BodyLimits(
-      requestBytes: 4 * 1024 * 1024,
-      responseBytes: 10 * 1024 * 1024,
-    ),
-  ),
-);
-```
+Active requests and responses are completely buffered. The defaults are 2 MiB for requests and 5 MiB for responses. Configure them through the shared core engine's `BodyLimits`.
 
 A request over its limit fails before the wrapped client is called. A response over its limit fails after one authorised attempt. Content is never truncated, and empty streams remain empty. These limits apply to individual HTTP bodies; the store's separate `maximumBytes` value limits one complete encoded cassette.
 

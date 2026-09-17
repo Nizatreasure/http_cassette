@@ -7,7 +7,7 @@ import 'session_lifecycle.dart';
 ///
 /// A [CassetteEngine] creates this handle after recording or replay startup
 /// succeeds. Use [close] to complete the operation or [discard] to abandon its
-/// pending completion work.
+/// successful completion work.
 final class CassetteSession {
   CassetteSession._({
     required CassetteName name,
