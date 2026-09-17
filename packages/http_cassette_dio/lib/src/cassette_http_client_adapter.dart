@@ -127,11 +127,19 @@ final class CassetteHttpClientAdapter implements HttpClientAdapter {
               stackTrace: stackTrace,
             );
       }
+      if (liveResponse case final response?) {
+        return response;
+      }
       throw wrapCassetteExceptionForDio(
         failure,
         requestOptions: options,
         stackTrace: stackTrace,
       );
+    } on Object {
+      if (liveResponse case final response?) {
+        return response;
+      }
+      rethrow;
     }
 
     return switch (outcome) {

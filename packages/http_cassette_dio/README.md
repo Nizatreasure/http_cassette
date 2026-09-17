@@ -80,6 +80,8 @@ Active requests are consumed once from `dio`'s final encoded request stream, che
 
 Active responses are also completely buffered before they are recorded or returned to `dio`. The engine's response-body limit applies to this capture. Declared or measured bodies over their configured limit fail without truncation. Cancellation and stream errors retain no partial body.
 
+If a complete live response has been captured but later cassette processing, such as sanitisation, fails, the adapter returns the unchanged response to `dio`. The admitted recording request remains failed, so closing the recording throws and discards the complete cassette. Failures before complete response capture and caller cancellation still fail the individual request immediately.
+
 Original stream chunks, timing, and back-pressure are not preserved. During an active session, `dio` send progress may advance while HTTP Cassette buffers the encoded request rather than while bytes reach the network. Response delivery waits for complete bounded capture. Inactive requests retain `dio`'s ordinary streaming and progress behaviour.
 
 These limits apply to individual HTTP bodies. Configure them on the shared core engine. The store's separate `maximumBytes` value limits one complete encoded cassette.
@@ -103,7 +105,7 @@ A directly observed redirect preserves its status, reason phrase, headers, and b
 
 ## Cassette-system failures
 
-Cassette-system failures travel through `dio` as `DioException` values so they follow its ordinary error pipeline. The exact safe `CassetteException` is retained in `DioException.error` and is available through `cassetteException`:
+Cassette-system failures normally travel through `dio` as `DioException` values so they follow its ordinary error pipeline. The exception is deferred to recording close only when a complete live response can be returned safely. An immediately reported failure retains the exact safe `CassetteException` in `DioException.error`, available through `cassetteException`:
 
 ```dart
 try {

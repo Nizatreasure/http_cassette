@@ -101,7 +101,15 @@ final class CassetteHttpClient extends http.BaseClient {
       if (failure.diagnostic.category == DiagnosticCategory.cancelled) {
         throw http.RequestAbortedException(request.url);
       }
+      if (liveResponse case final response?) {
+        return response;
+      }
       throw wrapCassetteExceptionForHttp(failure);
+    } on Object {
+      if (liveResponse case final response?) {
+        return response;
+      }
+      rethrow;
     }
 
     return switch (outcome) {

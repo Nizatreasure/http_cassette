@@ -109,6 +109,37 @@ void main() {
     expect(inner.sendCount, 1);
   });
 
+  test('returns a captured response when later sanitisation fails', () async {
+    const malformedJson = '{"token":"secret"';
+    inner.responseOverride = http.StreamedResponse(
+      Stream<List<int>>.value(malformedJson.codeUnits),
+      200,
+      headers: <String, String>{'content-type': 'application/json'},
+    );
+    final recording = await engine.startRecording('sanitisation-failure');
+
+    final response = await client.send(
+      http.Request('GET', Uri.parse('https://example.test/items')),
+    );
+
+    expect(await response.stream.bytesToString(), malformedJson);
+    await expectLater(
+      recording.close(),
+      throwsA(
+        isA<CassetteException>().having(
+          (failure) => failure.diagnostic.category,
+          'category',
+          DiagnosticCategory.recordingRequestFailed,
+        ),
+      ),
+    );
+    expect(
+      await store.exists(CassetteName('sanitisation-failure')),
+      isFalse,
+    );
+    expect(engine.isActive, isFalse);
+  });
+
   test('records a live client failure and reconstructs it on replay', () async {
     final requestUri = Uri.parse('https://example.test/failure');
     final liveFailure =

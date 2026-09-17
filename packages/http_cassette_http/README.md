@@ -84,6 +84,8 @@ Active requests and responses are completely buffered. The defaults are 2 MiB fo
 
 A request over its limit fails before the wrapped client is called. A response over its limit fails after one authorised attempt. Content is never truncated, and empty streams remain empty. These limits apply to individual HTTP bodies; the store's separate `maximumBytes` value limits one complete encoded cassette.
 
+If a complete live response has been captured but later cassette processing, such as sanitisation, fails, the cassette client returns the unchanged response to the caller. The admitted recording request remains failed, so closing the recording throws and discards the complete cassette. Failures before complete response capture and request cancellation still fail the individual request immediately.
+
 Buffering delays a live attempt until the complete active request is available and delays delivery until the complete response is available. Replay does not preserve original chunk boundaries, timing, or back-pressure. Endless streams, server-sent events, and bodies above the configured limits are unsupported. Inactive requests retain the wrapped client's normal streaming behaviour.
 
 Ordinary requests, streamed requests, and multipart requests are supported from their final encoded bytes. The active replacement request preserves the standard public `BaseRequest` properties but cannot preserve a custom request subclass's identity or private fields. A custom inner client which requires such a subtype is incompatible inside the active cassette boundary; inactive pass-through still receives the exact original request.

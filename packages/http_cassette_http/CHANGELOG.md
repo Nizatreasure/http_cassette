@@ -9,4 +9,5 @@
 - Added structured cassette and replayed transport-failure inspection through `ClientException` extensions.
 - Added inactive and explicitly disabled pass-through behaviour without changing the inner-client request.
 - Added pass-through for new requests while recording close waits for already admitted requests to settle.
+- Returned complete live responses when later cassette processing fails, while leaving recording close to report and discard the failed session.
 - Added cassette portability with the official `dio` adapter for equivalent requests, responses, and transport failures.

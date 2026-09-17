@@ -160,6 +160,44 @@ void main() {
     expect(inner.fetchCount, 1);
   });
 
+  test('returns a captured response when later sanitisation fails', () async {
+    const malformedJson = '{"token":"secret"';
+    inner.response = ResponseBody.fromString(
+      malformedJson,
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+      },
+    );
+    final recording = await engine.startRecording('sanitisation-failure');
+
+    final response = await dio.httpClientAdapter.fetch(
+      RequestOptions(path: 'https://example.test/items'),
+      null,
+      null,
+    );
+
+    expect(
+      await response.stream.expand((chunk) => chunk).toList(),
+      malformedJson.codeUnits,
+    );
+    await expectLater(
+      recording.close(),
+      throwsA(
+        isA<CassetteException>().having(
+          (failure) => failure.diagnostic.category,
+          'category',
+          DiagnosticCategory.recordingRequestFailed,
+        ),
+      ),
+    );
+    expect(
+      await store.exists(CassetteName('sanitisation-failure')),
+      isFalse,
+    );
+    expect(engine.isActive, isFalse);
+  });
+
   test('records a bodyless JSON-labelled GET request', () async {
     inner.response = ResponseBody.fromString(
       '{"@odata.context":"https://example.test/metadata","value":[]}',
