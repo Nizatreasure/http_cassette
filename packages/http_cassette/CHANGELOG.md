@@ -17,3 +17,4 @@
 - Added pass-through for new transport interceptions while a recording is closing.
 - Made close and discard failures terminal, including explicit diagnostics for unconfirmed store-write results.
 - Added a configurable timeout for cassette-store existence checks, reads, and writes.
+- Rejected non-canonical request hosts, including controls and non-ASCII spellings, at canonical request construction.

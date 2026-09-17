@@ -76,6 +76,73 @@ void main() {
       }
     });
 
+    test('accepts canonical DNS, IPv4, IPv6 and ASCII IDN hosts', () {
+      for (final source in <String>[
+        'https://localhost/',
+        'https://example.test/',
+        'https://127.0.0.1/',
+        'https://[2001:db8::1]/',
+        'https://xn--mnich-kva.example/',
+        'https://example~test/',
+      ]) {
+        expect(
+          CassetteRequest(method: 'GET', uri: Uri.parse(source)).uri.host,
+          isNotEmpty,
+          reason: source,
+        );
+      }
+    });
+
+    test('accepts host escapes already normalised by Dart Uri', () {
+      final encoded = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://example%2Etest/'),
+      );
+      final plain = CassetteRequest(
+        method: 'GET',
+        uri: Uri.parse('https://example.test/'),
+      );
+
+      expect(encoded.uri.host, plain.uri.host);
+      expect(encoded.uri, plain.uri);
+    });
+
+    test('rejects non-canonical host characters without echoing them', () {
+      for (final input in <({String unsafeHost, Uri uri})>[
+        (
+          unsafeHost: 'example\u007f.test',
+          uri: Uri(scheme: 'https', host: 'example\u007f.test'),
+        ),
+        (
+          unsafeHost: 'example\u0080.test',
+          uri: Uri(scheme: 'https', host: 'example\u0080.test'),
+        ),
+        (
+          unsafeHost: 'münich.example',
+          uri: Uri(scheme: 'https', host: 'münich.example'),
+        ),
+        (
+          unsafeHost: 'example|test',
+          uri: Uri(scheme: 'https', host: 'example|test'),
+        ),
+      ]) {
+        expect(
+          () => CassetteRequest(
+            method: 'GET',
+            uri: input.uri,
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.toString(),
+              'message',
+              isNot(contains(input.unsafeHost)),
+            ),
+          ),
+          reason: input.unsafeHost,
+        );
+      }
+    });
+
     test('copies body input and does not expose mutable bytes', () {
       final source = <int>[1, 2, 3];
       final request = CassetteRequest(

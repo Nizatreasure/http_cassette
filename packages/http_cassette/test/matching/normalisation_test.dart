@@ -109,6 +109,11 @@ void main() {
       );
     });
 
+    test('accepts canonical IPv4 and IPv6 hosts', () {
+      expect(_target('GET', 'https://127.0.0.1/').host, '127.0.0.1');
+      expect(_target('GET', 'https://[2001:DB8::1]/').host, '2001:db8::1');
+    });
+
     test('rejects non-ASCII hosts without echoing them', () {
       const unsafeHost = 'MÜNICH.example';
 

@@ -13,7 +13,7 @@ final class NormalisedRequestTarget {
   }) {
     final uri = request.uri;
     final scheme = uri.scheme.toLowerCase();
-    final host = _normaliseHost(uri.host);
+    final host = uri.host.toLowerCase();
 
     return NormalisedRequestTarget._(
       method: request.method,
@@ -70,17 +70,6 @@ final class NormalisedRequestTarget {
   @override
   int get hashCode =>
       Object.hash(method, scheme, host, port, path, userInformation);
-}
-
-String _normaliseHost(String host) {
-  for (final codeUnit in host.codeUnits) {
-    if (codeUnit > 0x7f || codeUnit == 0x25) {
-      throw ArgumentError(
-        'HTTP request host must use its canonical ASCII form.',
-      );
-    }
-  }
-  return host.toLowerCase();
 }
 
 int? _normalisePort(Uri uri, String scheme) {

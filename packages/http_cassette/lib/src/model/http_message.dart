@@ -8,8 +8,9 @@ abstract final class CassetteRequest {
   /// Creates a validated canonical request.
   ///
   /// [method] must use the HTTP token grammar and is stored in upper-case ASCII
-  /// form. [uri] must be absolute and contain a host. The body is copied
-  /// defensively and every element must be a byte from 0 through 255.
+  /// form. [uri] must be absolute and contain a canonical ASCII host without
+  /// percent escapes. The body is copied defensively and every element must be
+  /// a byte from 0 through 255.
   factory CassetteRequest({
     required String method,
     required Uri uri,
@@ -160,6 +161,7 @@ Uri _validateUri(Uri uri) {
     throw ArgumentError(
         'HTTP request URI must be absolute and contain a host.');
   }
+  validateCanonicalHttpHost(uri.host);
   return uri;
 }
 
