@@ -149,6 +149,7 @@ ActiveRecordingState _state({
         ),
       ),
       options: const RecordingOptions(),
+      targetPresence: RecordingTargetPresence.absent,
     );
 
 CassetteRequest _request(String path) => CassetteRequest(

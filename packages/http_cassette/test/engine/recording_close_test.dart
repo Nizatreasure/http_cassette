@@ -69,6 +69,29 @@ void main() {
       expect(cassette.interactions.single.request.uri.path, '/replacement');
     });
 
+    test('creates an explicit replacement when the target is absent', () async {
+      final store = MemoryCassetteStore();
+      final state = _state(store);
+      final name = CassetteName('recording');
+      final session = await state.startRecording(
+        name,
+        const RecordingOptions(existingCassette: ExistingCassette.replace),
+      );
+      await state.executeActiveRecordingRequest(
+        _request('/created-replacement'),
+        () async => _outcome(201),
+      );
+
+      await session.close();
+
+      final cassette = decodeCassetteV1((await store.read(name)).bytes);
+      expect(cassette.interactions, hasLength(1));
+      expect(
+        cassette.interactions.single.request.uri.path,
+        '/created-replacement',
+      );
+    });
+
     test('discard performs no create write', () async {
       final store = MemoryCassetteStore();
       final state = _state(store);

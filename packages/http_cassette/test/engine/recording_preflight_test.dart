@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/configuration/cassette_size_limit.dart';
 import 'package:http_cassette/src/engine/cassette_engine.dart';
+import 'package:http_cassette/src/recording/active_state.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -46,7 +47,8 @@ void main() {
       expect(state.activeRecording, isNull);
     });
 
-    test('starts replacement only when the target exists', () async {
+    test('retains a present replacement target for authoritative close',
+        () async {
       final state = _state(_ExistsStore(true));
 
       final session = await state.startRecording(
@@ -57,26 +59,25 @@ void main() {
       expect(session.mode, CassetteMode.record);
       expect(state.activeRecording!.options.existingCassette,
           ExistingCassette.replace);
+      expect(
+        state.activeRecording!.targetPresence,
+        RecordingTargetPresence.present,
+      );
     });
 
-    test('rejects a missing replacement target before activation', () async {
+    test('retains an absent replacement target for create on close', () async {
       final state = _state(_ExistsStore(false));
 
-      await expectLater(
-        state.startRecording(
-          CassetteName('recording'),
-          const RecordingOptions(existingCassette: ExistingCassette.replace),
-        ),
-        throwsA(
-          isA<CassetteException>().having(
-            (exception) => exception.diagnostic.category,
-            'category',
-            DiagnosticCategory.cassetteMissing,
-          ),
-        ),
+      final session = await state.startRecording(
+        CassetteName('recording'),
+        const RecordingOptions(existingCassette: ExistingCassette.replace),
       );
-      expect(state.sessions.isActive, isFalse);
-      expect(state.activeRecording, isNull);
+
+      expect(session.mode, CassetteMode.record);
+      expect(
+        state.activeRecording!.targetPresence,
+        RecordingTargetPresence.absent,
+      );
     });
 
     test('reserves ownership while the existence check is pending', () async {

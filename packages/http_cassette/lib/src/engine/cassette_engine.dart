@@ -258,6 +258,7 @@ final class EngineState {
   ) async {
     final reservation = sessions.reserve(CassetteMode.record);
     AppendCassettePrepared? appendPreparation;
+    late final RecordingTargetPresence targetPresence;
     ActiveRecordingState? preparedRecording;
     try {
       if (options.existingCassette == ExistingCassette.append) {
@@ -268,16 +269,21 @@ final class EngineState {
         switch (result) {
           case AppendCassettePrepared():
             appendPreparation = result;
+            targetPresence = RecordingTargetPresence.present;
           case AppendCassettePreparationFailed(:final failure):
             throw CassetteException(failure.envelope);
         }
       } else {
-        await _preflightRecordingTarget(name, options.existingCassette);
+        targetPresence = await _preflightRecordingTarget(
+          name,
+          options.existingCassette,
+        );
       }
       preparedRecording = ActiveRecordingState(
         cassetteName: name,
         configuration: configuration,
         options: options,
+        targetPresence: targetPresence,
         appendPreparation: appendPreparation,
       );
       activeRecording = preparedRecording;
@@ -296,7 +302,7 @@ final class EngineState {
     }
   }
 
-  Future<void> _preflightRecordingTarget(
+  Future<RecordingTargetPresence> _preflightRecordingTarget(
     CassetteName name,
     ExistingCassette handling,
   ) async {
@@ -340,15 +346,9 @@ final class EngineState {
         ),
       );
     }
-    if (handling == ExistingCassette.replace && !targetExists) {
-      throw CassetteException(
-        CassetteDiagnostic(
-          category: DiagnosticCategory.cassetteMissing,
-          summary: 'The recording replacement target does not exist.',
-          networkAccess: NetworkAccess.notAttempted,
-        ),
-      );
-    }
+    return targetExists
+        ? RecordingTargetPresence.present
+        : RecordingTargetPresence.absent;
   }
 
   /// Resolves [request] through the currently active replay session.

@@ -133,6 +133,7 @@ ActiveRecordingState _state({
       cassetteName: CassetteName('recording'),
       configuration: CassetteConfiguration(sanitisation: sanitisation),
       options: const RecordingOptions(),
+      targetPresence: RecordingTargetPresence.absent,
     );
 
 final class _ThrowingRequestSanitiser implements RequestSanitiser {

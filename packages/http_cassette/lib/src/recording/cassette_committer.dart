@@ -29,10 +29,17 @@ final class RecordingCassetteCommitter {
   Future<void> commit(ActiveRecordingState state) async {
     final cassette = state.finaliseCassette();
     final bytes = encodeCassetteV1(cassette);
-    final operation = switch (state.options.existingCassette) {
-      ExistingCassette.fail => CassetteStoreOperation.create,
-      ExistingCassette.replace => CassetteStoreOperation.replace,
-      ExistingCassette.append => CassetteStoreOperation.replaceIfUnchanged,
+    final operation =
+        switch ((state.options.existingCassette, state.targetPresence)) {
+      (ExistingCassette.fail, RecordingTargetPresence.absent) =>
+        CassetteStoreOperation.create,
+      (ExistingCassette.replace, RecordingTargetPresence.absent) =>
+        CassetteStoreOperation.create,
+      (ExistingCassette.replace, RecordingTargetPresence.present) =>
+        CassetteStoreOperation.replace,
+      (ExistingCassette.append, RecordingTargetPresence.present) =>
+        CassetteStoreOperation.replaceIfUnchanged,
+      _ => throw StateError('Invalid recording target state.'),
     };
 
     try {

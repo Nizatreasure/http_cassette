@@ -26,6 +26,15 @@ enum RecordingSettlementResult {
   timedOut,
 }
 
+/// Whether the recording target existed when session startup checked it.
+enum RecordingTargetPresence {
+  /// No target existed at startup.
+  absent,
+
+  /// A target existed at startup.
+  present,
+}
+
 /// Session-local configuration and state for one active recording session.
 final class ActiveRecordingState {
   /// Creates active state from validated session inputs.
@@ -36,8 +45,15 @@ final class ActiveRecordingState {
     required CassetteName cassetteName,
     required CassetteConfiguration configuration,
     required RecordingOptions options,
+    required RecordingTargetPresence targetPresence,
     AppendCassettePrepared? appendPreparation,
   }) {
+    if (options.existingCassette == ExistingCassette.fail &&
+        targetPresence != RecordingTargetPresence.absent) {
+      throw ArgumentError(
+        'Create-only recording requires an absent startup target.',
+      );
+    }
     if (appendPreparation != null) {
       if (options.existingCassette != ExistingCassette.append) {
         throw ArgumentError(
@@ -50,6 +66,12 @@ final class ActiveRecordingState {
         );
       }
     }
+    if (options.existingCassette == ExistingCassette.append &&
+        targetPresence != RecordingTargetPresence.present) {
+      throw ArgumentError(
+        'Append recording requires a present startup target.',
+      );
+    }
     final initialInteractions = appendPreparation?.cassette.interactions ??
         const <CassetteInteraction>[];
     return ActiveRecordingState._(
@@ -57,6 +79,7 @@ final class ActiveRecordingState {
       sanitisation: configuration.sanitisation,
       recording: configuration.recording,
       options: options,
+      targetPresence: targetPresence,
       appendSnapshot: appendPreparation?.snapshot,
       initialInteractions: initialInteractions,
     );
@@ -67,6 +90,7 @@ final class ActiveRecordingState {
     required this.sanitisation,
     required this.recording,
     required this.options,
+    required this.targetPresence,
     required this.appendSnapshot,
     required List<CassetteInteraction> initialInteractions,
   })  : _nextArrivalIndex = initialInteractions.length,
@@ -86,6 +110,9 @@ final class ActiveRecordingState {
 
   /// The target-handling options fixed when the session starts.
   final RecordingOptions options;
+
+  /// Whether the target existed when this recording started.
+  final RecordingTargetPresence targetPresence;
 
   /// The exact append target snapshot, or null for create and replacement.
   final CassetteSnapshot? appendSnapshot;

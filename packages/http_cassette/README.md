@@ -146,6 +146,8 @@ final append = await engine.startRecording(
 
 Append requires an existing, valid cassette whose schema version equals the engine's current writable schema version. Existing interactions are kept and new indices continue from the previous highest index. A detected concurrent change rejects the append without replacing the existing file.
 
+Replacement creates the cassette when the target is absent at session start and replaces it when the target is present. The engine remembers that initial state so the final store operation remains race-safe: a target which unexpectedly appears or disappears before close causes the close to fail instead of overwriting unrelated data.
+
 ## Replay a cassette
 
 Replay loads and validates the complete cassette before the session becomes active:

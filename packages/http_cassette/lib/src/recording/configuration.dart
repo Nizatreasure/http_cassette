@@ -40,7 +40,7 @@ enum ExistingCassette {
   /// Fail when the target cassette already exists.
   fail,
 
-  /// Replace an existing target when the recording closes successfully.
+  /// Create an absent target or replace an existing target on successful close.
   replace,
 
   /// Keep a valid current-version target and add newly recorded interactions.

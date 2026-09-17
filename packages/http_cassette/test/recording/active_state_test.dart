@@ -23,6 +23,7 @@ void main() {
           recording: recording,
         ),
         options: options,
+        targetPresence: RecordingTargetPresence.present,
       );
 
       expect(state.cassetteName, same(name));
@@ -47,6 +48,32 @@ void main() {
       expect(first.assignArrivalIndex(), 1);
       expect(second.assignArrivalIndex(), 0);
     });
+
+    test('rejects create-only state when the target was present', () {
+      expect(
+        () => ActiveRecordingState(
+          cassetteName: CassetteName('recording'),
+          configuration: CassetteConfiguration(),
+          options: const RecordingOptions(),
+          targetPresence: RecordingTargetPresence.present,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects append state when the target was absent', () {
+      expect(
+        () => ActiveRecordingState(
+          cassetteName: CassetteName('recording'),
+          configuration: CassetteConfiguration(),
+          options: const RecordingOptions(
+            existingCassette: ExistingCassette.append,
+          ),
+          targetPresence: RecordingTargetPresence.absent,
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 }
 
@@ -54,4 +81,5 @@ ActiveRecordingState _state(String name) => ActiveRecordingState(
       cassetteName: CassetteName(name),
       configuration: CassetteConfiguration(),
       options: const RecordingOptions(),
+      targetPresence: RecordingTargetPresence.absent,
     );

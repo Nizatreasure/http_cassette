@@ -118,6 +118,7 @@ void main() {
           cassetteName: name,
           configuration: CassetteConfiguration(),
           options: const RecordingOptions(),
+          targetPresence: RecordingTargetPresence.absent,
           appendPreparation: preparation,
         ),
         throwsArgumentError,
@@ -148,6 +149,7 @@ ActiveRecordingState _state(
       options: const RecordingOptions(
         existingCassette: ExistingCassette.append,
       ),
+      targetPresence: RecordingTargetPresence.present,
       appendPreparation: preparation,
     );
 

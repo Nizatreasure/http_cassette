@@ -99,6 +99,7 @@ ActiveRecordingState _state() => ActiveRecordingState(
       cassetteName: CassetteName('recording'),
       configuration: CassetteConfiguration(),
       options: const RecordingOptions(),
+      targetPresence: RecordingTargetPresence.absent,
     );
 
 CassetteRequest _request(String path) => CassetteRequest(

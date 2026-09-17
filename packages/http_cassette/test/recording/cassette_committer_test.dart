@@ -45,6 +45,19 @@ void main() {
       expect(decodeCassetteV1(store.bytes!).interactions, isEmpty);
     });
 
+    test('creates when the replacement target was absent at startup', () async {
+      final store = _CommitStore();
+      final state = _state(
+        existingCassette: ExistingCassette.replace,
+        targetPresence: RecordingTargetPresence.absent,
+      );
+
+      await RecordingCassetteCommitter(store).commit(state);
+
+      expect(store.operation, CassetteStoreOperation.create);
+      expect(decodeCassetteV1(store.bytes!).interactions, isEmpty);
+    });
+
     test('finalises before invoking the store', () async {
       final store = _CommitStore();
       final state = _state();
@@ -161,6 +174,32 @@ void main() {
               ),
         ),
       );
+    });
+
+    test('maps a replacement-create race safely', () async {
+      final name = CassetteName('recording');
+      final store = _CommitStore(
+        failure: CassetteStoreException.alreadyExists(name),
+      );
+
+      await expectLater(
+        RecordingCassetteCommitter(store).commit(
+          _state(
+            name: name,
+            existingCassette: ExistingCassette.replace,
+            targetPresence: RecordingTargetPresence.absent,
+          ),
+        ),
+        throwsA(
+          isA<CassetteException>().having(
+            (exception) => exception.diagnostic.category,
+            'category',
+            DiagnosticCategory.targetCassetteExists,
+          ),
+        ),
+      );
+
+      expect(store.operation, CassetteStoreOperation.create);
     });
 
     test('maps an authoritative replacement race safely', () async {
@@ -296,12 +335,17 @@ void main() {
 ActiveRecordingState _state({
   CassetteName? name,
   ExistingCassette existingCassette = ExistingCassette.fail,
+  RecordingTargetPresence? targetPresence,
   AppendCassettePrepared? appendPreparation,
 }) =>
     ActiveRecordingState(
       cassetteName: name ?? CassetteName('recording'),
       configuration: CassetteConfiguration(),
       options: RecordingOptions(existingCassette: existingCassette),
+      targetPresence: targetPresence ??
+          (existingCassette == ExistingCassette.fail
+              ? RecordingTargetPresence.absent
+              : RecordingTargetPresence.present),
       appendPreparation: appendPreparation,
     );
 
