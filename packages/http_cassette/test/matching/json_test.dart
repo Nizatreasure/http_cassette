@@ -306,6 +306,64 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('bounds large object differences while preserving their count', () {
+      final expected = <String, Object?>{
+        for (var index = 0; index < 100; index += 1)
+          'key${index.toString().padLeft(3, '0')}':
+              const ParsedJsonNumber.internal('0'),
+      };
+      final actual = <String, Object?>{
+        for (var index = 0; index < 100; index += 1)
+          'key${index.toString().padLeft(3, '0')}': true,
+      };
+
+      final result = compareJsonValues(
+        expected,
+        actual,
+        maximumRetained: 3,
+      );
+
+      expect(result.matches, isFalse);
+      expect(result.totalCount, 100);
+      expect(result.differences, hasLength(3));
+      expect(result.omittedCount, 97);
+      expect(
+        result.differences.map((difference) => difference.pointer),
+        <String>['/key000', '/key001', '/key002'],
+      );
+    });
+
+    test('bounds large array differences while preserving their count', () {
+      final expected = List<Object?>.generate(
+        100,
+        (index) => ParsedJsonNumber.internal('$index'),
+      );
+
+      final result = compareJsonValues(
+        expected,
+        const <Object?>[],
+        maximumRetained: 4,
+      );
+
+      expect(result.matches, isFalse);
+      expect(result.totalCount, 101);
+      expect(result.differences, hasLength(4));
+      expect(result.omittedCount, 97);
+      _expectDifferences(result, <(String, JsonDifferenceKind)>[
+        ('', JsonDifferenceKind.differentLength),
+        ('/0', JsonDifferenceKind.missing),
+        ('/1', JsonDifferenceKind.missing),
+        ('/2', JsonDifferenceKind.missing),
+      ]);
+    });
+
+    test('rejects a negative retained difference limit', () {
+      expect(
+        () => compareJsonValues(null, null, maximumRetained: -1),
+        throwsArgumentError,
+      );
+    });
   });
 }
 

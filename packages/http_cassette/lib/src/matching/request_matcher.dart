@@ -347,6 +347,7 @@ RequestBodyMatchResult _compareRequestBodies(
         expectedJson.value,
         actualJson.value,
         exclusions: exclusions,
+        maximumRetained: maximumRetained,
       );
       final differences = MatchDifferenceCollector(
         maximumRetained: maximumRetained,
@@ -359,6 +360,7 @@ RequestBodyMatchResult _compareRequestBodies(
           ),
         );
       }
+      differences.addOmitted(comparison.omittedCount);
       return RequestBodyMatchResult._(
         kind: RequestBodyComparisonKind.structuralJson,
         matches: comparison.matches,

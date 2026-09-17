@@ -4,6 +4,7 @@ import '../json/strict_json.dart';
 import '../json/value.dart';
 import '../model/headers.dart';
 import '../model/http_syntax.dart';
+import 'difference.dart';
 import 'exclusions.dart';
 
 export '../json/value.dart' show ParsedJsonNumber;
@@ -73,14 +74,22 @@ final class JsonDifference {
 
 /// The immutable result of structurally comparing two parsed JSON values.
 final class JsonComparisonResult {
-  JsonComparisonResult(Iterable<JsonDifference> differences)
-      : differences = List<JsonDifference>.unmodifiable(differences);
+  JsonComparisonResult._({
+    required Iterable<JsonDifference> differences,
+    required this.totalCount,
+  }) : differences = List<JsonDifference>.unmodifiable(differences);
 
   /// Deterministically ordered structural differences.
   final List<JsonDifference> differences;
 
+  /// The complete number of structural differences found.
+  final int totalCount;
+
+  /// The number counted but omitted from [differences].
+  int get omittedCount => totalCount - differences.length;
+
   /// Whether the two values are structurally equivalent.
-  bool get matches => differences.isEmpty;
+  bool get matches => totalCount == 0;
 }
 
 /// Compares values produced by [parseJsonBody] without exposing scalar values.
@@ -88,10 +97,11 @@ JsonComparisonResult compareJsonValues(
   Object? expected,
   Object? actual, {
   MatchingExclusions exclusions = MatchingExclusions.none,
+  int maximumRetained = MatchDifferenceCollector.defaultMaximumRetained,
 }) {
-  final differences = <JsonDifference>[];
+  final differences = _JsonDifferenceCollector(maximumRetained);
   _compareJsonValue(expected, actual, '', exclusions, differences);
-  return JsonComparisonResult(differences);
+  return differences.build();
 }
 
 /// Classifies and strictly parses [body] using [headers].
@@ -160,7 +170,7 @@ void _compareJsonValue(
   Object? actual,
   String pointer,
   MatchingExclusions exclusions,
-  List<JsonDifference> differences,
+  _JsonDifferenceCollector differences,
 ) {
   if (exclusions.jsonPointers.contains(pointer)) {
     return;
@@ -188,7 +198,7 @@ void _compareJsonObjects(
   Map<String, Object?> actual,
   String pointer,
   MatchingExclusions exclusions,
-  List<JsonDifference> differences,
+  _JsonDifferenceCollector differences,
 ) {
   final names = <String>{...expected.keys, ...actual.keys}.toList()..sort();
   for (final name in names) {
@@ -224,7 +234,7 @@ void _compareJsonArrays(
   List<Object?> actual,
   String pointer,
   MatchingExclusions exclusions,
-  List<JsonDifference> differences,
+  _JsonDifferenceCollector differences,
 ) {
   if (expected.length != actual.length) {
     differences.add(
@@ -299,7 +309,7 @@ bool _jsonListsEqual(List<Object?> expected, List<Object?> actual) {
 }
 
 bool _jsonValuesEqual(Object? expected, Object? actual) {
-  final differences = <JsonDifference>[];
+  final differences = _JsonDifferenceCollector(0);
   _compareJsonValue(
     expected,
     actual,
@@ -307,7 +317,35 @@ bool _jsonValuesEqual(Object? expected, Object? actual) {
     MatchingExclusions.none,
     differences,
   );
-  return differences.isEmpty;
+  return differences.totalCount == 0;
+}
+
+final class _JsonDifferenceCollector {
+  _JsonDifferenceCollector(this.maximumRetained) {
+    if (maximumRetained < 0) {
+      throw ArgumentError.value(
+        maximumRetained,
+        'maximumRetained',
+        'Maximum retained JSON differences must not be negative.',
+      );
+    }
+  }
+
+  final int maximumRetained;
+  final _differences = <JsonDifference>[];
+  var totalCount = 0;
+
+  void add(JsonDifference difference) {
+    totalCount += 1;
+    if (_differences.length < maximumRetained) {
+      _differences.add(difference);
+    }
+  }
+
+  JsonComparisonResult build() => JsonComparisonResult._(
+        differences: _differences,
+        totalCount: totalCount,
+      );
 }
 
 bool _hasExcludedDescendant(

@@ -114,6 +114,18 @@ final class MatchDifferenceCollector {
     }
   }
 
+  /// Counts [count] differences omitted by an upstream bounded traversal.
+  void addOmitted(int count) {
+    if (count < 0) {
+      throw ArgumentError.value(
+        count,
+        'count',
+        'Omitted difference count must not be negative.',
+      );
+    }
+    _totalCount += count;
+  }
+
   /// Returns an immutable snapshot of the collected differences.
   BoundedMatchDifferences build() => BoundedMatchDifferences._(
         differences: _differences,
