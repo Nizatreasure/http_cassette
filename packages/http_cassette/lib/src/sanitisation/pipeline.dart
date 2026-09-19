@@ -1,3 +1,4 @@
+import '../configuration/body_limits.dart';
 import '../configuration/matching_configuration.dart';
 import '../matching/exclusions.dart';
 import '../matching/request_matcher.dart';
@@ -91,11 +92,13 @@ CassetteResponse sanitiseCustomResponse(
 /// Runs the complete custom-then-built-in response sanitisation pipeline.
 CassetteResponse sanitiseResponse(
   CassetteResponse response,
-  SanitisationConfiguration configuration,
-) =>
+  SanitisationConfiguration configuration, {
+  int maximumDecodedBodyBytes = BodyLimits.defaultResponseBytes,
+}) =>
     sanitiseBuiltInResponse(
       sanitiseCustomResponse(response, configuration),
       configuration,
+      maximumDecodedBodyBytes: maximumDecodedBodyBytes,
     );
 
 void _validateRequestChange(

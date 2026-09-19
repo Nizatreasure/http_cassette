@@ -283,7 +283,21 @@ JSON scalar replacements preserve their JSON types:
 
 Email and UUID recognition is applied only after a value has been selected as sensitive. The package does not redact a field merely because its value looks like an email address or UUID.
 
-A single `Content-Encoding: identity` value means that the body is not transformed. HTTP Cassette therefore treats it like an unencoded body: valid JSON is inspected, sanitised, matched structurally, and stored as readable structured JSON. The redundant identity header is removed during persistence. Bodies using actual content encodings, including gzip and deflate, remain opaque and are stored without built-in body sanitisation.
+A single `Content-Encoding: identity` value means that the body is not transformed. HTTP Cassette therefore treats it like an unencoded body: valid JSON is inspected, sanitised, matched structurally, and stored as readable structured JSON. The redundant identity header is removed during persistence.
+
+Gzip-encoded JSON responses remain opaque by default. On platforms supporting `dart:io`, opt into decoding and plain storage when their sensitive JSON values must be sanitised:
+
+```dart
+final configuration = CassetteConfiguration(
+  sanitisation: SanitisationConfiguration(
+    encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+  ),
+);
+```
+
+This option applies only to non-empty responses with one `Content-Type` identifying JSON and one case-insensitive `Content-Encoding: gzip` value. The core decodes the complete response, enforces `BodyLimits.responseBytes` against the decoded bytes, sanitises the JSON, removes `Content-Encoding`, and persists readable plain JSON. Decoding temporarily holds encoded and decoded data in memory, and plain JSON can make the cassette larger than compressed network content. Invalid gzip, invalid decoded JSON, unavailable platform support, or a decoded body over the limit prevents that recording from being persisted.
+
+`deflate`, `br`, `zstd`, multiple content codings, ambiguous headers, encoded requests, and encoded non-JSON responses are not decoded. They retain their original bytes and headers and receive no built-in body sanitisation. `decodeAndRecompress` is reserved by the configuration model but does not yet enable decoding; use `decodeAndStorePlain` for the implemented opt-in behaviour.
 
 Sanitised request values are also excluded from the corresponding matcher component. This prevents replay from requiring the original secret. Body presence remains significant when a complete body value is excluded.
 

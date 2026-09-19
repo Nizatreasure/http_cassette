@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/recording/active_state.dart';
 import 'package:http_cassette/src/recording/request_attempt.dart';
+import 'package:http_cassette/src/sanitisation/content_decoding.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -123,15 +125,56 @@ void main() {
 
       expect(() => state.sanitiseResult(result), throwsA(same(error)));
     });
+
+    test('uses the session response limit for decoded gzip JSON', () {
+      final state = _state(
+        sanitisation: SanitisationConfiguration(
+          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        ),
+        bodyLimits: BodyLimits(responseBytes: 4),
+      );
+      final result = RecordingRequestResult(
+        arrivalIndex: 0,
+        request: CassetteRequest(
+          method: 'GET',
+          uri: Uri.parse('https://example.test/'),
+        ),
+        outcome: CassetteResponseOutcome(
+          CassetteResponse(
+            statusCode: 200,
+            headers: CassetteHeaders(<String, Iterable<String>>{
+              'content-type': <String>['application/json'],
+              'content-encoding': <String>['gzip'],
+            }),
+            body: gzip.encode(utf8.encode('{"keep":true}')),
+          ),
+        ),
+      );
+
+      expect(
+        () => state.sanitiseResult(result),
+        throwsA(
+          isA<ContentDecodingException>().having(
+            (failure) => failure.kind,
+            'kind',
+            ContentDecodingFailureKind.decodedBodyTooLarge,
+          ),
+        ),
+      );
+    });
   });
 }
 
 ActiveRecordingState _state({
   SanitisationConfiguration? sanitisation,
+  BodyLimits? bodyLimits,
 }) =>
     ActiveRecordingState(
       cassetteName: CassetteName('recording'),
-      configuration: CassetteConfiguration(sanitisation: sanitisation),
+      configuration: CassetteConfiguration(
+        sanitisation: sanitisation,
+        bodyLimits: bodyLimits,
+      ),
       options: const RecordingOptions(),
       targetPresence: RecordingTargetPresence.absent,
     );

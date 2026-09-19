@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/matching/json.dart';
 import 'package:http_cassette/src/matching/request_matcher.dart';
 import 'package:http_cassette/src/sanitisation/body.dart';
+import 'package:http_cassette/src/sanitisation/content_decoding.dart';
 import 'package:http_cassette/src/sanitisation/messages.dart';
 import 'package:test/test.dart';
 
@@ -170,6 +173,7 @@ void main() {
       final result = sanitiseBuiltInResponse(
         response,
         SanitisationConfiguration(),
+        maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
       );
 
       expect(result.statusCode, 401);
@@ -195,9 +199,182 @@ void main() {
       final result = sanitiseBuiltInResponse(
         response,
         SanitisationConfiguration(),
+        maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
       );
 
       expect(result, same(response));
+    });
+
+    test('decodes and sanitises configured gzip JSON as plain content', () {
+      final encoded = gzip.encode(
+        utf8.encode('{"token":"synthetic-secret","keep":true}'),
+      );
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>[' GZip '],
+        }),
+        body: encoded,
+      );
+
+      final result = sanitiseBuiltInResponse(
+        response,
+        SanitisationConfiguration(
+          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        ),
+        maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
+      );
+
+      expect(result.headers.contains('content-encoding'), isFalse);
+      expect(utf8.decode(result.body), '{"keep":true,"token":"[REDACTED]"}');
+      expect(response.body, encoded);
+      expect(response.headers.values('content-encoding'), <String>[' GZip ']);
+    });
+
+    test('keeps gzip JSON opaque unless plain storage is selected', () {
+      final encoded = gzip.encode(utf8.encode('{"token":"secret"}'));
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['gzip'],
+        }),
+        body: encoded,
+      );
+
+      for (final handling in <EncodedJsonResponseHandling>[
+        EncodedJsonResponseHandling.opaque,
+        EncodedJsonResponseHandling.decodeAndRecompress,
+      ]) {
+        final result = sanitiseBuiltInResponse(
+          response,
+          SanitisationConfiguration(encodedJsonResponses: handling),
+          maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
+        );
+
+        expect(result, same(response));
+      }
+    });
+
+    test('rejects gzip content exceeding the decoded response limit', () {
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['gzip'],
+        }),
+        body: gzip.encode(utf8.encode('{"keep":"too large"}')),
+      );
+
+      expect(
+        () => sanitiseBuiltInResponse(
+          response,
+          SanitisationConfiguration(
+            encodedJsonResponses:
+                EncodedJsonResponseHandling.decodeAndStorePlain,
+          ),
+          maximumDecodedBodyBytes: 4,
+        ),
+        throwsA(
+          isA<ContentDecodingException>()
+              .having(
+                (failure) => failure.kind,
+                'kind',
+                ContentDecodingFailureKind.decodedBodyTooLarge,
+              )
+              .having((failure) => failure.maximumBytes, 'limit', 4),
+        ),
+      );
+    });
+
+    test('keeps non-JSON and unsupported or ambiguous codings opaque', () {
+      final cases = <CassetteResponse>[
+        CassetteResponse(
+          statusCode: 200,
+          headers: CassetteHeaders(<String, Iterable<String>>{
+            'content-type': <String>['text/plain'],
+            'content-encoding': <String>['gzip'],
+          }),
+          body: gzip.encode(utf8.encode('plain text')),
+        ),
+        CassetteResponse(
+          statusCode: 200,
+          headers: CassetteHeaders(<String, Iterable<String>>{
+            'content-type': <String>['application/json'],
+            'content-encoding': <String>['deflate'],
+          }),
+          body: const <int>[1, 2, 3],
+        ),
+        CassetteResponse(
+          statusCode: 200,
+          headers: CassetteHeaders(<String, Iterable<String>>{
+            'content-type': <String>['application/json'],
+            'content-encoding': <String>['gzip', 'identity'],
+          }),
+          body: const <int>[1, 2, 3],
+        ),
+      ];
+
+      for (final response in cases) {
+        final result = sanitiseBuiltInResponse(
+          response,
+          SanitisationConfiguration(
+            encodedJsonResponses:
+                EncodedJsonResponseHandling.decodeAndStorePlain,
+          ),
+          maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
+        );
+
+        expect(result, same(response));
+      }
+    });
+
+    test('rejects invalid gzip and invalid decoded JSON safely', () {
+      final headers = CassetteHeaders(<String, Iterable<String>>{
+        'content-type': <String>['application/json'],
+        'content-encoding': <String>['gzip'],
+      });
+      final configuration = SanitisationConfiguration(
+        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+      );
+
+      expect(
+        () => sanitiseBuiltInResponse(
+          CassetteResponse(
+            statusCode: 200,
+            headers: headers,
+            body: const <int>[1, 2, 3],
+          ),
+          configuration,
+          maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
+        ),
+        throwsA(
+          isA<ContentDecodingException>().having(
+            (failure) => failure.kind,
+            'kind',
+            ContentDecodingFailureKind.invalidContent,
+          ),
+        ),
+      );
+      expect(
+        () => sanitiseBuiltInResponse(
+          CassetteResponse(
+            statusCode: 200,
+            headers: headers,
+            body: gzip.encode(utf8.encode('{"token":')),
+          ),
+          configuration,
+          maximumDecodedBodyBytes: BodyLimits.defaultResponseBytes,
+        ),
+        throwsA(
+          isA<JsonBodySanitisationException>().having(
+            (failure) => failure.status,
+            'status',
+            JsonBodyStatus.malformedJson,
+          ),
+        ),
+      );
     });
   });
 }

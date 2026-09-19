@@ -15,6 +15,9 @@ enum JsonBodyStatus {
   /// The content type does not identify JSON.
   notJsonMediaType,
 
+  /// The content type identifies JSON but the body remains content-encoded.
+  opaqueContentEncoding,
+
   /// The body is not valid UTF-8.
   invalidUtf8,
 
@@ -113,9 +116,14 @@ JsonBodyParseResult parseJsonBody(
   CassetteHeaders headers,
   List<int> body,
 ) {
-  if (!_hasJsonMediaType(headers)) {
+  if (!hasJsonMediaType(headers)) {
     return const JsonBodyParseResult._(
       status: JsonBodyStatus.notJsonMediaType,
+    );
+  }
+  if (hasOpaqueContentEncoding(headers)) {
+    return const JsonBodyParseResult._(
+      status: JsonBodyStatus.opaqueContentEncoding,
     );
   }
 
@@ -140,10 +148,8 @@ JsonBodyParseResult parseJsonBody(
   }
 }
 
-bool _hasJsonMediaType(CassetteHeaders headers) {
-  if (hasOpaqueContentEncoding(headers)) {
-    return false;
-  }
+/// Whether [headers] contain one supported JSON media type.
+bool hasJsonMediaType(CassetteHeaders headers) {
   final values = headers.values('content-type');
   if (values == null || values.length != 1) {
     return false;

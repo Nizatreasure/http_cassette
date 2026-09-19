@@ -44,7 +44,8 @@ JsonBodySanitisationResult sanitiseJsonBody(
     return _unchangedBody(body);
   }
   final parsed = parseJsonBody(headers, body);
-  if (parsed.status == JsonBodyStatus.notJsonMediaType) {
+  if (parsed.status == JsonBodyStatus.notJsonMediaType ||
+      parsed.status == JsonBodyStatus.opaqueContentEncoding) {
     return _unchangedBody(body);
   }
   if (parsed.status != JsonBodyStatus.valid) {

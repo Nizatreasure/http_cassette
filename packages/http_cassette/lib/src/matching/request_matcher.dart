@@ -497,5 +497,8 @@ bool _isInvalidJson(JsonBodyStatus status) => switch (status) {
       JsonBodyStatus.malformedJson ||
       JsonBodyStatus.duplicateObjectMember =>
         true,
-      JsonBodyStatus.notJsonMediaType || JsonBodyStatus.valid => false,
+      JsonBodyStatus.notJsonMediaType ||
+      JsonBodyStatus.opaqueContentEncoding ||
+      JsonBodyStatus.valid =>
+        false,
     };

@@ -77,6 +77,7 @@ final class ActiveRecordingState {
     return ActiveRecordingState._(
       cassetteName: cassetteName,
       sanitisation: configuration.sanitisation,
+      maximumDecodedResponseBodyBytes: configuration.bodyLimits.responseBytes,
       recording: configuration.recording,
       options: options,
       targetPresence: targetPresence,
@@ -88,6 +89,7 @@ final class ActiveRecordingState {
   ActiveRecordingState._({
     required this.cassetteName,
     required this.sanitisation,
+    required this.maximumDecodedResponseBodyBytes,
     required this.recording,
     required this.options,
     required this.targetPresence,
@@ -104,6 +106,9 @@ final class ActiveRecordingState {
 
   /// The sanitisation configuration fixed when the session starts.
   final SanitisationConfiguration sanitisation;
+
+  /// The maximum decoded response size fixed when the session starts.
+  final int maximumDecodedResponseBodyBytes;
 
   /// The recording lifecycle configuration fixed when the session starts.
   final RecordingConfiguration recording;
@@ -232,7 +237,11 @@ final class ActiveRecordingState {
 
   /// Sanitises [result] into an interaction without retaining it.
   CassetteInteraction sanitiseResult(RecordingRequestResult result) =>
-      sanitiseRecordingResult(result, sanitisation);
+      sanitiseRecordingResult(
+        result,
+        sanitisation,
+        maximumDecodedResponseBodyBytes: maximumDecodedResponseBodyBytes,
+      );
 
   /// Sanitises and retains one successful admitted request [result].
   ///

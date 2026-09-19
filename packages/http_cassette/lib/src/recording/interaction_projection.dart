@@ -9,12 +9,17 @@ import 'request_attempt.dart';
 /// The returned interaction contains no unsanitised request or response data.
 CassetteInteraction sanitiseRecordingResult(
   RecordingRequestResult result,
-  SanitisationConfiguration configuration,
-) {
+  SanitisationConfiguration configuration, {
+  required int maximumDecodedResponseBodyBytes,
+}) {
   final request = sanitiseRequest(result.request, configuration);
   final outcome = switch (result.outcome) {
     CassetteResponseOutcome(:final response) => CassetteResponseOutcome(
-        sanitiseResponse(response, configuration),
+        sanitiseResponse(
+          response,
+          configuration,
+          maximumDecodedBodyBytes: maximumDecodedResponseBodyBytes,
+        ),
       ),
     final CassetteTransportFailure failure => failure,
   };

@@ -59,7 +59,7 @@ void main() {
       expect(result.status, JsonBodyStatus.notJsonMediaType);
     });
 
-    test('does not classify content-encoded bytes as JSON', () {
+    test('reports JSON media with encoded bytes as opaque', () {
       final result = parseJsonBody(
         CassetteHeaders(<String, Iterable<String>>{
           'content-type': <String>['application/json'],
@@ -68,7 +68,7 @@ void main() {
         utf8.encode('{"valid":true}'),
       );
 
-      expect(result.status, JsonBodyStatus.notJsonMediaType);
+      expect(result.status, JsonBodyStatus.opaqueContentEncoding);
       expect(result.value, isNull);
     });
 
@@ -94,7 +94,7 @@ void main() {
         utf8.encode('{"valid":true}'),
       );
 
-      expect(result.status, JsonBodyStatus.notJsonMediaType);
+      expect(result.status, JsonBodyStatus.opaqueContentEncoding);
     });
 
     test('accepts every JSON root type', () {
