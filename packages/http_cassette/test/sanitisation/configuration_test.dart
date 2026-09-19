@@ -14,6 +14,10 @@ void main() {
 
       expect(configuration.builtInRulesEnabled, isTrue);
       expect(
+        configuration.encodedJsonResponses,
+        EncodedJsonResponseHandling.opaque,
+      );
+      expect(
         effectiveSensitiveHeaders(configuration),
         <String>{
           'api-key',
@@ -57,6 +61,10 @@ void main() {
       expect(configuration.additionalJsonPointers, isEmpty);
       expect(configuration.requestSanitisers, isEmpty);
       expect(configuration.responseSanitisers, isEmpty);
+      expect(
+        configuration.encodedJsonResponses,
+        EncodedJsonResponseHandling.opaque,
+      );
       expect(effectiveSensitiveHeaders(configuration), isEmpty);
       expect(effectiveSensitiveQueryParameters(configuration), isEmpty);
       expect(effectiveSensitiveJsonNames(configuration), isEmpty);
@@ -84,6 +92,24 @@ void main() {
       expect(
         configuration.additionalJsonPointers,
         <String>{'/customer/account~1number', '/z'},
+      );
+    });
+
+    test('retains explicit encoded JSON response handling', () {
+      final plain = SanitisationConfiguration(
+        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+      );
+      final recompressed = SanitisationConfiguration.unsafeWithoutBuiltIns(
+        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndRecompress,
+      );
+
+      expect(
+        plain.encodedJsonResponses,
+        EncodedJsonResponseHandling.decodeAndStorePlain,
+      );
+      expect(
+        recompressed.encodedJsonResponses,
+        EncodedJsonResponseHandling.decodeAndRecompress,
       );
     });
 
@@ -199,6 +225,20 @@ void main() {
       );
 
       expect(forward, isNot(reverse));
+    });
+
+    test('encoded JSON response handling participates in equality', () {
+      final opaque = SanitisationConfiguration();
+      final plain = SanitisationConfiguration(
+        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+      );
+      final samePlain = SanitisationConfiguration(
+        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+      );
+
+      expect(opaque, isNot(plain));
+      expect(plain, samePlain);
+      expect(plain.hashCode, samePlain.hashCode);
     });
   });
 }

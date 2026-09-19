@@ -28,7 +28,8 @@ export 'src/model/outcome.dart';
 export 'src/recording/configuration.dart'
     show ExistingCassette, RecordingConfiguration, RecordingOptions;
 export 'src/replay/configuration.dart' show ReplayOptions, ReplayPolicy;
-export 'src/sanitisation/configuration.dart' show SanitisationConfiguration;
+export 'src/sanitisation/configuration.dart'
+    show EncodedJsonResponseHandling, SanitisationConfiguration;
 export 'src/sanitisation/custom.dart'
     show RequestSanitiser, ResponseSanitiser, SanitisedRequest;
 export 'src/session/cassette_mode.dart';
