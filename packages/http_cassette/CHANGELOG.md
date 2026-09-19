@@ -20,4 +20,5 @@
 - Made explicit replacement create an absent cassette or replace an existing cassette while preserving startup-to-close race checks.
 - Treated a single identity content encoding as unencoded content for JSON sanitisation, matching, and readable persistence.
 - Added opt-in bounded decoding, sanitisation, and plain persistence for gzip-encoded JSON responses on `dart:io` platforms.
+- Added opt-in bounded recompression of sanitised gzip JSON responses.
 - Rejected non-canonical request hosts, including controls and non-ASCII spellings, at canonical request construction.

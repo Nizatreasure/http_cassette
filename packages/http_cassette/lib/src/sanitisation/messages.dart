@@ -6,6 +6,7 @@ import '../model/http_message.dart';
 import 'body.dart';
 import 'configuration.dart';
 import 'content_decoding.dart';
+import 'content_recompression.dart';
 import 'request_fields.dart';
 
 /// Immutable output from built-in canonical request sanitisation.
@@ -55,58 +56,89 @@ BuiltInRequestSanitisationResult sanitiseBuiltInRequest(
 CassetteResponse sanitiseBuiltInResponse(
   CassetteResponse response,
   SanitisationConfiguration configuration, {
-  required int maximumDecodedBodyBytes,
+  required int maximumTransformedBodyBytes,
 }) {
   final prepared = _prepareEncodedJsonResponse(
     response,
     configuration,
-    maximumDecodedBodyBytes: maximumDecodedBodyBytes,
+    maximumTransformedBodyBytes: maximumTransformedBodyBytes,
   );
   final bodyResult = sanitiseJsonBody(
-    prepared.headers,
-    prepared.body,
+    prepared.response.headers,
+    prepared.response.body,
     configuration,
   );
-  final headerResult = sanitiseHeaders(prepared.headers, configuration);
   final bodyChanged = bodyResult.sanitisedPointers.isNotEmpty;
-  final headersChanged = headerResult.headers != prepared.headers;
-  if (identical(prepared, response) && !bodyChanged && !headersChanged) {
+  var body = bodyChanged ? bodyResult.body : prepared.response.body;
+  var headers = prepared.response.headers;
+  if (prepared.recompress) {
+    body = recompressGzipContent(
+      body,
+      maximumBytes: maximumTransformedBodyBytes,
+    );
+    headers = _withGzipContentEncoding(headers);
+  }
+  final headerResult = sanitiseHeaders(headers, configuration);
+  final headersChanged = headerResult.headers != headers;
+  if (identical(prepared.response, response) &&
+      !bodyChanged &&
+      !headersChanged) {
     return response;
   }
 
   return CassetteResponse(
-    statusCode: prepared.statusCode,
+    statusCode: prepared.response.statusCode,
     headers: headerResult.headers,
-    body: bodyChanged ? bodyResult.body : prepared.body,
-    reasonPhrase: prepared.reasonPhrase,
+    body: body,
+    reasonPhrase: prepared.response.reasonPhrase,
   );
 }
 
-CassetteResponse _prepareEncodedJsonResponse(
+_EncodedJsonPreparation _prepareEncodedJsonResponse(
   CassetteResponse response,
   SanitisationConfiguration configuration, {
-  required int maximumDecodedBodyBytes,
+  required int maximumTransformedBodyBytes,
 }) {
-  if (configuration.encodedJsonResponses !=
-          EncodedJsonResponseHandling.decodeAndStorePlain ||
+  if (configuration.encodedJsonResponses ==
+          EncodedJsonResponseHandling.opaque ||
       response.body.isEmpty ||
       !hasGzipContentEncoding(response.headers) ||
       !hasJsonMediaType(response.headers)) {
-    return response;
+    return _EncodedJsonPreparation(response: response, recompress: false);
   }
 
   final decoded = decodeGzipContent(
     response.body,
-    maximumBytes: maximumDecodedBodyBytes,
+    maximumBytes: maximumTransformedBodyBytes,
   );
   final headers = <String, Iterable<String>>{
     for (final name in response.headers.names)
       if (name != 'content-encoding') name: response.headers.values(name)!,
   };
-  return CassetteResponse(
-    statusCode: response.statusCode,
-    headers: CassetteHeaders(headers),
-    body: decoded,
-    reasonPhrase: response.reasonPhrase,
+  return _EncodedJsonPreparation(
+    response: CassetteResponse(
+      statusCode: response.statusCode,
+      headers: CassetteHeaders(headers),
+      body: decoded,
+      reasonPhrase: response.reasonPhrase,
+    ),
+    recompress: configuration.encodedJsonResponses ==
+        EncodedJsonResponseHandling.decodeAndRecompress,
   );
+}
+
+CassetteHeaders _withGzipContentEncoding(CassetteHeaders headers) =>
+    CassetteHeaders(<String, Iterable<String>>{
+      for (final name in headers.names) name: headers.values(name)!,
+      'content-encoding': const <String>['gzip'],
+    });
+
+final class _EncodedJsonPreparation {
+  const _EncodedJsonPreparation({
+    required this.response,
+    required this.recompress,
+  });
+
+  final CassetteResponse response;
+  final bool recompress;
 }

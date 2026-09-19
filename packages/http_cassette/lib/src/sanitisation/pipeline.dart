@@ -93,12 +93,12 @@ CassetteResponse sanitiseCustomResponse(
 CassetteResponse sanitiseResponse(
   CassetteResponse response,
   SanitisationConfiguration configuration, {
-  int maximumDecodedBodyBytes = BodyLimits.defaultResponseBytes,
+  int maximumTransformedBodyBytes = BodyLimits.defaultResponseBytes,
 }) =>
     sanitiseBuiltInResponse(
       sanitiseCustomResponse(response, configuration),
       configuration,
-      maximumDecodedBodyBytes: maximumDecodedBodyBytes,
+      maximumTransformedBodyBytes: maximumTransformedBodyBytes,
     );
 
 void _validateRequestChange(

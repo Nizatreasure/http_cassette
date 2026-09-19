@@ -10,7 +10,7 @@ import 'request_attempt.dart';
 CassetteInteraction sanitiseRecordingResult(
   RecordingRequestResult result,
   SanitisationConfiguration configuration, {
-  required int maximumDecodedResponseBodyBytes,
+  required int maximumTransformedResponseBodyBytes,
 }) {
   final request = sanitiseRequest(result.request, configuration);
   final outcome = switch (result.outcome) {
@@ -18,7 +18,7 @@ CassetteInteraction sanitiseRecordingResult(
         sanitiseResponse(
           response,
           configuration,
-          maximumDecodedBodyBytes: maximumDecodedResponseBodyBytes,
+          maximumTransformedBodyBytes: maximumTransformedResponseBodyBytes,
         ),
       ),
     final CassetteTransportFailure failure => failure,

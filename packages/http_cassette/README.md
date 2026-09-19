@@ -297,7 +297,11 @@ final configuration = CassetteConfiguration(
 
 This option applies only to non-empty responses with one `Content-Type` identifying JSON and one case-insensitive `Content-Encoding: gzip` value. The core decodes the complete response, enforces `BodyLimits.responseBytes` against the decoded bytes, sanitises the JSON, removes `Content-Encoding`, and persists readable plain JSON. Decoding temporarily holds encoded and decoded data in memory, and plain JSON can make the cassette larger than compressed network content. Invalid gzip, invalid decoded JSON, unavailable platform support, or a decoded body over the limit prevents that recording from being persisted.
 
-`deflate`, `br`, `zstd`, multiple content codings, ambiguous headers, encoded requests, and encoded non-JSON responses are not decoded. They retain their original bytes and headers and receive no built-in body sanitisation. `decodeAndRecompress` is reserved by the configuration model but does not yet enable decoding; use `decodeAndStorePlain` for the implemented opt-in behaviour.
+Choose `EncodedJsonResponseHandling.decodeAndRecompress` to sanitise the same eligible gzip responses while retaining gzip storage. The core decodes and sanitises the JSON, recompresses it within `BodyLimits.responseBytes`, and persists the new gzip bytes with one canonical `Content-Encoding: gzip` value. Recompression usually produces a smaller cassette body than plain storage, but the cassette stores gzip as Base64, which adds roughly one third to the compressed payload size.
+
+Recompression temporarily retains decoded, sanitised, and recompressed representations, so it has greater CPU and peak-memory cost than plain storage. Plain storage avoids the recompression work and produces readable cassette JSON, but may use considerably more disk space than compressed network content.
+
+`deflate`, `br`, `zstd`, multiple content codings, ambiguous headers, encoded requests, and encoded non-JSON responses are not decoded. They retain their original bytes and headers and receive no built-in body sanitisation.
 
 Sanitised request values are also excluded from the corresponding matcher component. This prevents replay from requiring the original secret. Body presence remains significant when a complete body value is excluded.
 
