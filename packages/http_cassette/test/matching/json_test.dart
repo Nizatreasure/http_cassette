@@ -72,6 +72,31 @@ void main() {
       expect(result.value, isNull);
     });
 
+    test('classifies identity content coding as unencoded JSON', () {
+      final result = parseJsonBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>[' Identity '],
+        }),
+        utf8.encode('{"valid":true}'),
+      );
+
+      expect(result.status, JsonBodyStatus.valid);
+      expect(result.value, isA<Map<String, Object?>>());
+    });
+
+    test('keeps ambiguous identity content coding opaque', () {
+      final result = parseJsonBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['identity', 'identity'],
+        }),
+        utf8.encode('{"valid":true}'),
+      );
+
+      expect(result.status, JsonBodyStatus.notJsonMediaType);
+    });
+
     test('accepts every JSON root type', () {
       for (final source in <String>[
         '{}',

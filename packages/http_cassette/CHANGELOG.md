@@ -18,4 +18,5 @@
 - Made close and discard failures terminal, including explicit diagnostics for unconfirmed store-write results.
 - Added a configurable timeout for cassette-store existence checks, reads, and writes.
 - Made explicit replacement create an absent cassette or replace an existing cassette while preserving startup-to-close race checks.
+- Treated a single identity content encoding as unencoded content for JSON sanitisation, matching, and readable persistence.
 - Rejected non-canonical request hosts, including controls and non-ASCII spellings, at canonical request construction.

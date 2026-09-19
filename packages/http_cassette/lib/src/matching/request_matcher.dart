@@ -1,4 +1,5 @@
 import '../configuration/matching_configuration.dart';
+import '../model/content_encoding.dart';
 import '../model/http_message.dart';
 import 'body.dart';
 import 'custom.dart';
@@ -489,7 +490,7 @@ MatchDifferenceKind _jsonDifferenceKind(JsonDifferenceKind kind) =>
     };
 
 bool _hasContentEncoding(CassetteRequest request) =>
-    request.headers.values('content-encoding') != null;
+    hasOpaqueContentEncoding(request.headers);
 
 bool _isInvalidJson(JsonBodyStatus status) => switch (status) {
       JsonBodyStatus.invalidUtf8 ||

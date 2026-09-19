@@ -89,6 +89,23 @@ void main() {
       }
     });
 
+    test('sanitises identity-coded JSON as plain content', () {
+      final result = sanitiseJsonBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['IDENTITY'],
+        }),
+        utf8.encode('{"token":"synthetic-secret","kept":true}'),
+        SanitisationConfiguration(),
+      );
+
+      expect(
+        utf8.decode(result.body),
+        '{"kept":true,"token":"[REDACTED]"}',
+      );
+      expect(result.sanitisedPointers, <String>{'/token'});
+    });
+
     test('fails safely for every invalid claimed-JSON classification', () {
       const sentinel = 'synthetic-secret-sentinel';
       final cases = <JsonBodyStatus, List<int>>{

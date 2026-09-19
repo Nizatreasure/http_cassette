@@ -283,6 +283,8 @@ JSON scalar replacements preserve their JSON types:
 
 Email and UUID recognition is applied only after a value has been selected as sensitive. The package does not redact a field merely because its value looks like an email address or UUID.
 
+A single `Content-Encoding: identity` value means that the body is not transformed. HTTP Cassette therefore treats it like an unencoded body: valid JSON is inspected, sanitised, matched structurally, and stored as readable structured JSON. The redundant identity header is removed during persistence. Bodies using actual content encodings, including gzip and deflate, remain opaque and are stored without built-in body sanitisation.
+
 Sanitised request values are also excluded from the corresponding matcher component. This prevents replay from requiring the original secret. Body presence remains significant when a complete body value is excluded.
 
 Custom request and response sanitisers can handle domain-specific data. They run first in registration order, then the built-in rules sanitise their output. Custom sanitisers cannot bypass the built-in rules unless all built-ins are explicitly disabled with `SanitisationConfiguration.unsafeWithoutBuiltIns`.

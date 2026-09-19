@@ -163,6 +163,16 @@ void main() {
       expect(encoded.matches, isFalse);
     });
 
+    test('matches identity-coded JSON structurally', () {
+      final result = _compare(
+        _jsonRequest('{"value":1}', contentEncoding: 'identity'),
+        _jsonRequest('{ "value": 1 }', contentEncoding: 'IDENTITY'),
+      );
+
+      expect(result.body.kind, RequestBodyComparisonKind.structuralJson);
+      expect(result.matches, isTrue);
+    });
+
     test('combines configured and per-request exclusions', () {
       final configuration = MatchingConfiguration(
         includedHeaders: <String>{'x-secret'},

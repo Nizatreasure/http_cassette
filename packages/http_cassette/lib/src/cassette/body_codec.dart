@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../matching/json.dart';
+import '../model/content_encoding.dart';
 import '../model/headers.dart';
 import '../sanitisation/json_encoding.dart';
 
@@ -49,7 +50,8 @@ PreparedPersistedBody preparePersistedBody(
       changedNames.add(name);
       continue;
     }
-    if (name == 'content-encoding' && body is! PersistedBase64Body) {
+    if (name == 'content-encoding' &&
+        (hasIdentityContentEncoding(headers) || body is! PersistedBase64Body)) {
       changedNames.add(name);
       continue;
     }
@@ -91,7 +93,7 @@ PersistedBody selectPersistedBody(
   if (validated.isEmpty) {
     return const PersistedEmptyBody();
   }
-  if (headers.contains('content-encoding')) {
+  if (hasOpaqueContentEncoding(headers)) {
     return PersistedBase64Body.fromBytes(validated);
   }
 

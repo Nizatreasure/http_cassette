@@ -64,6 +64,40 @@ void main() {
       expect(prepared.changedHeaderNames, isEmpty);
     });
 
+    test('stores identity-coded JSON structurally and removes the coding', () {
+      final prepared = preparePersistedBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['Identity'],
+          'content-length': <String>['999'],
+        }),
+        utf8.encode('{ "value" : true }'),
+      );
+
+      expect(prepared.body, isA<PersistedJsonBody>());
+      expect(utf8.decode(prepared.body.reconstruct()), '{"value":true}');
+      expect(prepared.headers.contains('content-encoding'), isFalse);
+      expect(prepared.headers.values('content-length'), <String>['14']);
+      expect(
+        prepared.changedHeaderNames,
+        <String>{'content-encoding', 'content-length'},
+      );
+    });
+
+    test('removes identity coding from an opaque body representation', () {
+      final prepared = preparePersistedBody(
+        CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/octet-stream'],
+          'content-encoding': <String>['identity'],
+        }),
+        <int>[0xff],
+      );
+
+      expect(prepared.body, isA<PersistedBase64Body>());
+      expect(prepared.headers.contains('content-encoding'), isFalse);
+      expect(prepared.changedHeaderNames, <String>{'content-encoding'});
+    });
+
     test('removes content encoding from an empty body', () {
       final prepared = preparePersistedBody(
         CassetteHeaders(<String, Iterable<String>>{
@@ -127,6 +161,19 @@ void main() {
 
       expect(body, isA<PersistedBase64Body>());
       expect(body.reconstruct(), source);
+    });
+
+    test('selects structured JSON through identity content coding', () {
+      final body = selectPersistedBody(
+        _headers(
+          contentType: 'application/json',
+          contentEncoding: 'identity',
+        ),
+        utf8.encode('{ "valid" : true }'),
+      );
+
+      expect(body, isA<PersistedJsonBody>());
+      expect(utf8.decode(body.reconstruct()), '{"valid":true}');
     });
 
     test('selects valid media-type JSON before readable text', () {

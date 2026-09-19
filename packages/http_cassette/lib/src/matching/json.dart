@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../json/strict_json.dart';
 import '../json/value.dart';
+import '../model/content_encoding.dart';
 import '../model/headers.dart';
 import '../model/http_syntax.dart';
 import 'difference.dart';
@@ -140,7 +141,7 @@ JsonBodyParseResult parseJsonBody(
 }
 
 bool _hasJsonMediaType(CassetteHeaders headers) {
-  if (headers.contains('content-encoding')) {
+  if (hasOpaqueContentEncoding(headers)) {
     return false;
   }
   final values = headers.values('content-type');
