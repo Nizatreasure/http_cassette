@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -158,6 +160,22 @@ void main() {
     expect(replayed.data, 'recorded response');
     expect(replayed.headers['x-trace'], <String>['first', 'second']);
     expect(inner.fetchCount, 1);
+  });
+
+  test('records gzip JSON as plain content and replays without transport',
+      () async {
+    await _verifyGzipResponseLifecycle(
+      handling: EncodedJsonResponseHandling.decodeAndStorePlain,
+      expectRecompressed: false,
+    );
+  });
+
+  test('recompresses sanitised gzip JSON and replays without transport',
+      () async {
+    await _verifyGzipResponseLifecycle(
+      handling: EncodedJsonResponseHandling.decodeAndRecompress,
+      expectRecompressed: true,
+    );
   });
 
   test('returns a captured response when later sanitisation fails', () async {
@@ -741,6 +759,71 @@ void main() {
     expect(inner.closeCount, 1);
     expect(inner.lastCloseWasForced, isTrue);
   });
+}
+
+Future<void> _verifyGzipResponseLifecycle({
+  required EncodedJsonResponseHandling handling,
+  required bool expectRecompressed,
+}) async {
+  final store = MemoryCassetteStore();
+  final engine = CassetteEngine(
+    store: store,
+    configuration: CassetteConfiguration(
+      sanitisation: SanitisationConfiguration(
+        encodedJsonResponses: handling,
+      ),
+    ),
+  );
+  final originalBytes = gzip.encode(
+    utf8.encode('{"token":"synthetic-secret","keep":true}'),
+  );
+  final inner = _StubHttpClientAdapter()
+    ..response = ResponseBody.fromBytes(
+      originalBytes,
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+        Headers.contentEncodingHeader: <String>['gzip'],
+      },
+    );
+  final dio = Dio()..httpClientAdapter = inner;
+  addTearDown(() => dio.close(force: true));
+  dio.installHttpCassette(engine);
+  final options = RequestOptions(path: 'https://example.test/gzip');
+
+  final recording = await engine.startRecording('gzip-response');
+  final live = await dio.httpClientAdapter.fetch(options, null, null);
+  final liveBytes = await live.stream.expand((chunk) => chunk).toList();
+
+  expect(liveBytes, originalBytes);
+  expect(live.headers[Headers.contentEncodingHeader], <String>['gzip']);
+  expect(inner.fetchCount, 1);
+  await recording.close();
+
+  inner.response = ResponseBody.fromString('unexpected network response', 200);
+  final replay = await engine.startReplay('gzip-response');
+  addTearDown(replay.discard);
+  final replayed = await dio.httpClientAdapter.fetch(options, null, null);
+  final replayedBytes = await replayed.stream.expand((chunk) => chunk).toList();
+
+  expect(inner.fetchCount, 1);
+  if (expectRecompressed) {
+    expect(
+      replayed.headers[Headers.contentEncodingHeader],
+      <String>['gzip'],
+    );
+    expect(
+      utf8.decode(gzip.decode(replayedBytes)),
+      '{"keep":true,"token":"[REDACTED]"}',
+    );
+  } else {
+    expect(
+        replayed.headers.containsKey(Headers.contentEncodingHeader), isFalse);
+    expect(
+      utf8.decode(replayedBytes),
+      '{"keep":true,"token":"[REDACTED]"}',
+    );
+  }
 }
 
 final class _StubHttpClientAdapter implements HttpClientAdapter {

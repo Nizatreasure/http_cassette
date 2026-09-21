@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http_cassette/http_cassette.dart';
@@ -107,6 +109,22 @@ void main() {
 
     expect(await replayed.stream.toBytes(), <int>[1, 2, 3]);
     expect(inner.sendCount, 1);
+  });
+
+  test('records gzip JSON as plain content and replays without inner access',
+      () async {
+    await _verifyGzipResponseLifecycle(
+      handling: EncodedJsonResponseHandling.decodeAndStorePlain,
+      expectRecompressed: false,
+    );
+  });
+
+  test('recompresses sanitised gzip JSON and replays without inner access',
+      () async {
+    await _verifyGzipResponseLifecycle(
+      handling: EncodedJsonResponseHandling.decodeAndRecompress,
+      expectRecompressed: true,
+    );
   });
 
   test('returns a captured response when later sanitisation fails', () async {
@@ -644,6 +662,69 @@ void main() {
 
     expect(inner.closeCount, 1);
   });
+}
+
+Future<void> _verifyGzipResponseLifecycle({
+  required EncodedJsonResponseHandling handling,
+  required bool expectRecompressed,
+}) async {
+  final store = MemoryCassetteStore();
+  final engine = CassetteEngine(
+    store: store,
+    configuration: CassetteConfiguration(
+      sanitisation: SanitisationConfiguration(
+        encodedJsonResponses: handling,
+      ),
+    ),
+  );
+  final originalBytes = gzip.encode(
+    utf8.encode('{"token":"synthetic-secret","keep":true}'),
+  );
+  final inner = _StubClient()
+    ..responseOverride = http.StreamedResponse(
+      Stream<List<int>>.value(originalBytes),
+      200,
+      headers: <String, String>{
+        'content-type': 'application/json',
+        'content-encoding': 'gzip',
+      },
+    );
+  final client = CassetteHttpClient(engine, inner: inner);
+  addTearDown(client.close);
+  final uri = Uri.parse('https://example.test/gzip');
+
+  final recording = await engine.startRecording('gzip-response');
+  final live = await client.send(http.Request('GET', uri));
+  final liveBytes = await live.stream.toBytes();
+
+  expect(liveBytes, originalBytes);
+  expect(live.headers['content-encoding'], 'gzip');
+  expect(inner.sendCount, 1);
+  await recording.close();
+
+  inner.responseOverride = http.StreamedResponse(
+    Stream<List<int>>.value(utf8.encode('unexpected network response')),
+    200,
+  );
+  final replay = await engine.startReplay('gzip-response');
+  addTearDown(replay.discard);
+  final replayed = await client.send(http.Request('GET', uri));
+  final replayedBytes = await replayed.stream.toBytes();
+
+  expect(inner.sendCount, 1);
+  if (expectRecompressed) {
+    expect(replayed.headers['content-encoding'], 'gzip');
+    expect(
+      utf8.decode(gzip.decode(replayedBytes)),
+      '{"keep":true,"token":"[REDACTED]"}',
+    );
+  } else {
+    expect(replayed.headers.containsKey('content-encoding'), isFalse);
+    expect(
+      utf8.decode(replayedBytes),
+      '{"keep":true,"token":"[REDACTED]"}',
+    );
+  }
 }
 
 final class _UrlStreamedResponse extends http.StreamedResponse
