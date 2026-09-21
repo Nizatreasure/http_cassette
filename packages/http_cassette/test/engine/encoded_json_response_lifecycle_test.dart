@@ -14,6 +14,15 @@ void main() {
       );
     });
 
+    test('persists client-decompressed gzip JSON as plain content', () async {
+      await _verifyLifecycle(
+        handling: EncodedJsonResponseHandling.decodeAndStorePlain,
+        expectedPersistedEncoding: 'json',
+        expectRecompressed: false,
+        capturedBodyIsDecompressed: true,
+      );
+    });
+
     test('persists and replays sanitised JSON as gzip content', () async {
       await _verifyLifecycle(
         handling: EncodedJsonResponseHandling.decodeAndRecompress,
@@ -28,6 +37,7 @@ Future<void> _verifyLifecycle({
   required EncodedJsonResponseHandling handling,
   required String expectedPersistedEncoding,
   required bool expectRecompressed,
+  bool capturedBodyIsDecompressed = false,
 }) async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(
@@ -43,9 +53,9 @@ Future<void> _verifyLifecycle({
     method: 'GET',
     uri: Uri.parse('https://example.test/items'),
   );
-  final originalBytes = gzip.encode(
-    utf8.encode('{"token":"synthetic-secret","keep":true}'),
-  );
+  final plainBytes = utf8.encode('{"token":"synthetic-secret","keep":true}');
+  final originalBytes =
+      capturedBodyIsDecompressed ? plainBytes : gzip.encode(plainBytes);
   final liveOutcome = CassetteResponseOutcome(
     CassetteResponse(
       statusCode: 200,

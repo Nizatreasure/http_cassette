@@ -233,6 +233,28 @@ void main() {
       expect(response.headers.values('content-encoding'), <String>[' GZip ']);
     });
 
+    test('sanitises automatically decompressed gzip JSON as plain content', () {
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['gzip'],
+        }),
+        body: utf8.encode('{"token":"synthetic-secret","keep":true}'),
+      );
+
+      final result = sanitiseBuiltInResponse(
+        response,
+        SanitisationConfiguration(
+          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        ),
+        maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
+      );
+
+      expect(result.headers.contains('content-encoding'), isFalse);
+      expect(utf8.decode(result.body), '{"keep":true,"token":"[REDACTED]"}');
+    });
+
     test('keeps gzip JSON opaque under the default handling', () {
       final encoded = gzip.encode(utf8.encode('{"token":"secret"}'));
       final response = CassetteResponse(
@@ -263,6 +285,31 @@ void main() {
         body: gzip.encode(
           utf8.encode('{"token":"synthetic-secret","keep":true}'),
         ),
+      );
+
+      final result = sanitiseBuiltInResponse(
+        response,
+        SanitisationConfiguration(
+          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndRecompress,
+        ),
+        maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
+      );
+
+      expect(result.headers.values('content-encoding'), <String>['gzip']);
+      expect(
+        utf8.decode(gzip.decode(result.body)),
+        '{"keep":true,"token":"[REDACTED]"}',
+      );
+    });
+
+    test('recompresses automatically decompressed gzip JSON', () {
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['gzip'],
+        }),
+        body: utf8.encode('{"token":"synthetic-secret","keep":true}'),
       );
 
       final result = sanitiseBuiltInResponse(
@@ -404,10 +451,10 @@ void main() {
           maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
         ),
         throwsA(
-          isA<ContentDecodingException>().having(
-            (failure) => failure.kind,
-            'kind',
-            ContentDecodingFailureKind.invalidContent,
+          isA<JsonBodySanitisationException>().having(
+            (failure) => failure.status,
+            'status',
+            JsonBodyStatus.malformedJson,
           ),
         ),
       );

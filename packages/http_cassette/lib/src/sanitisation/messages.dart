@@ -107,10 +107,12 @@ _EncodedJsonPreparation _prepareEncodedJsonResponse(
     return _EncodedJsonPreparation(response: response, recompress: false);
   }
 
-  final decoded = decodeGzipContent(
-    response.body,
-    maximumBytes: maximumTransformedBodyBytes,
-  );
+  final decoded = _hasGzipSignature(response.body)
+      ? decodeGzipContent(
+          response.body,
+          maximumBytes: maximumTransformedBodyBytes,
+        )
+      : response.body;
   final headers = <String, Iterable<String>>{
     for (final name in response.headers.names)
       if (name != 'content-encoding') name: response.headers.values(name)!,
@@ -126,6 +128,9 @@ _EncodedJsonPreparation _prepareEncodedJsonResponse(
         EncodedJsonResponseHandling.decodeAndRecompress,
   );
 }
+
+bool _hasGzipSignature(List<int> bytes) =>
+    bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
 
 CassetteHeaders _withGzipContentEncoding(CassetteHeaders headers) =>
     CassetteHeaders(<String, Iterable<String>>{
