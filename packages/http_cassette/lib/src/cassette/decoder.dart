@@ -67,7 +67,7 @@ final class CassetteDecodeException implements Exception {
   /// The one-based source column when syntax parsing identified it safely.
   final int? column;
 
-  /// The unsupported integer version when it fits safely in an [int].
+  /// The unsupported version when it is exactly representable on all targets.
   final int? observedSchemaVersion;
 
   /// The configured total byte limit when [kind] is
@@ -714,8 +714,8 @@ bool _keysEqual(Iterable<String> actual, List<String> expected) {
 }
 
 int? _safeInt(BigInt value) {
-  const maximum = 0x7fffffffffffffff;
-  const minimum = -0x8000000000000000;
+  const maximum = 9007199254740991;
+  const minimum = -9007199254740991;
   return value >= BigInt.from(minimum) && value <= BigInt.from(maximum)
       ? value.toInt()
       : null;

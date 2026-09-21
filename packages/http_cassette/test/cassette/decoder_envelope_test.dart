@@ -164,6 +164,33 @@ void main() {
       expect(exception.toString(), isNot(contains('999999')));
     });
 
+    test('retains versions at both portable safe-integer boundaries', () {
+      _expectVersionFailure(
+        9007199254740991,
+        CassetteDecodeFailureKind.unsupportedNewerVersion,
+      );
+      _expectVersionFailure(
+        -9007199254740991,
+        CassetteDecodeFailureKind.unsupportedOlderVersion,
+      );
+    });
+
+    test('does not retain versions outside portable safe integers', () {
+      for (final entry in <String, CassetteDecodeFailureKind>{
+        '9007199254740992': CassetteDecodeFailureKind.unsupportedNewerVersion,
+        '-9007199254740992': CassetteDecodeFailureKind.unsupportedOlderVersion,
+      }.entries) {
+        final exception = _captureFailure(
+          () => _decode(
+            '{"schemaVersion":${entry.key},"interactions":[]}',
+          ),
+        );
+
+        expect(exception.kind, entry.value);
+        expect(exception.observedSchemaVersion, isNull);
+      }
+    });
+
     test('requires interactions to be an array', () {
       _expectFailure(
         () => _decode('{"schemaVersion":1,"interactions":{}}'),
