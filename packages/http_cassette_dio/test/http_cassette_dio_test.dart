@@ -178,6 +178,13 @@ void main() {
     );
   });
 
+  for (final failureKind in <String>['malformed', 'decoded-too-large']) {
+    test('returns live gzip response when $failureKind processing fails',
+        () async {
+      await _verifyGzipResponseFailure(failureKind);
+    });
+  }
+
   test('returns a captured response when later sanitisation fails', () async {
     const malformedJson = '{"token":"secret"';
     inner.response = ResponseBody.fromString(
@@ -824,6 +831,71 @@ Future<void> _verifyGzipResponseLifecycle({
       '{"keep":true,"token":"[REDACTED]"}',
     );
   }
+}
+
+Future<void> _verifyGzipResponseFailure(String failureKind) async {
+  const maximumResponseBytes = 128;
+  final isDecodedSizeFailure = failureKind == 'decoded-too-large';
+  final responseBytes = isDecodedSizeFailure
+      ? gzip.encode(
+          utf8.encode(
+            '{"keep":"${List<String>.filled(4096, 'a').join()}"}',
+          ),
+        )
+      : <int>[1, 2, 3];
+  expect(responseBytes.length, lessThan(maximumResponseBytes));
+  final store = MemoryCassetteStore();
+  final engine = CassetteEngine(
+    store: store,
+    configuration: CassetteConfiguration(
+      bodyLimits: BodyLimits(responseBytes: maximumResponseBytes),
+      sanitisation: SanitisationConfiguration(
+        encodedJsonResponses: isDecodedSizeFailure
+            ? EncodedJsonResponseHandling.decodeAndRecompress
+            : EncodedJsonResponseHandling.decodeAndStorePlain,
+      ),
+    ),
+  );
+  final inner = _StubHttpClientAdapter()
+    ..response = ResponseBody.fromBytes(
+      responseBytes,
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+        Headers.contentEncodingHeader: <String>['gzip'],
+      },
+    );
+  final dio = Dio()..httpClientAdapter = inner;
+  addTearDown(() => dio.close(force: true));
+  dio.installHttpCassette(engine);
+  final cassetteName = 'gzip-$failureKind';
+  final recording = await engine.startRecording(cassetteName);
+
+  final live = await dio.httpClientAdapter.fetch(
+    RequestOptions(path: 'https://example.test/gzip-failure'),
+    null,
+    null,
+  );
+  final liveBytes = await live.stream.expand((chunk) => chunk).toList();
+
+  expect(liveBytes, responseBytes);
+  expect(live.headers[Headers.contentEncodingHeader], <String>['gzip']);
+  expect(inner.fetchCount, 1);
+  await expectLater(
+    recording.close(),
+    throwsA(
+      isA<CassetteException>().having(
+        (failure) => failure.diagnostic.category,
+        'category',
+        DiagnosticCategory.recordingRequestFailed,
+      ),
+    ),
+  );
+  expect(await store.exists(CassetteName(cassetteName)), isFalse);
+  expect(engine.isActive, isFalse);
+
+  final recovery = await engine.startRecording('recovery-$failureKind');
+  await recovery.discard();
 }
 
 final class _StubHttpClientAdapter implements HttpClientAdapter {

@@ -127,6 +127,13 @@ void main() {
     );
   });
 
+  for (final failureKind in <String>['malformed', 'decoded-too-large']) {
+    test('returns live gzip response when $failureKind processing fails',
+        () async {
+      await _verifyGzipResponseFailure(failureKind);
+    });
+  }
+
   test('returns a captured response when later sanitisation fails', () async {
     const malformedJson = '{"token":"secret"';
     inner.responseOverride = http.StreamedResponse(
@@ -725,6 +732,68 @@ Future<void> _verifyGzipResponseLifecycle({
       '{"keep":true,"token":"[REDACTED]"}',
     );
   }
+}
+
+Future<void> _verifyGzipResponseFailure(String failureKind) async {
+  const maximumResponseBytes = 128;
+  final isDecodedSizeFailure = failureKind == 'decoded-too-large';
+  final responseBytes = isDecodedSizeFailure
+      ? gzip.encode(
+          utf8.encode(
+            '{"keep":"${List<String>.filled(4096, 'a').join()}"}',
+          ),
+        )
+      : <int>[1, 2, 3];
+  expect(responseBytes.length, lessThan(maximumResponseBytes));
+  final store = MemoryCassetteStore();
+  final engine = CassetteEngine(
+    store: store,
+    configuration: CassetteConfiguration(
+      bodyLimits: BodyLimits(responseBytes: maximumResponseBytes),
+      sanitisation: SanitisationConfiguration(
+        encodedJsonResponses: isDecodedSizeFailure
+            ? EncodedJsonResponseHandling.decodeAndRecompress
+            : EncodedJsonResponseHandling.decodeAndStorePlain,
+      ),
+    ),
+  );
+  final inner = _StubClient()
+    ..responseOverride = http.StreamedResponse(
+      Stream<List<int>>.value(responseBytes),
+      200,
+      headers: <String, String>{
+        'content-type': 'application/json',
+        'content-encoding': 'gzip',
+      },
+    );
+  final client = CassetteHttpClient(engine, inner: inner);
+  addTearDown(client.close);
+  final cassetteName = 'gzip-$failureKind';
+  final recording = await engine.startRecording(cassetteName);
+
+  final live = await client.send(
+    http.Request('GET', Uri.parse('https://example.test/gzip-failure')),
+  );
+  final liveBytes = await live.stream.toBytes();
+
+  expect(liveBytes, responseBytes);
+  expect(live.headers['content-encoding'], 'gzip');
+  expect(inner.sendCount, 1);
+  await expectLater(
+    recording.close(),
+    throwsA(
+      isA<CassetteException>().having(
+        (failure) => failure.diagnostic.category,
+        'category',
+        DiagnosticCategory.recordingRequestFailed,
+      ),
+    ),
+  );
+  expect(await store.exists(CassetteName(cassetteName)), isFalse);
+  expect(engine.isActive, isFalse);
+
+  final recovery = await engine.startRecording('recovery-$failureKind');
+  await recovery.discard();
 }
 
 final class _UrlStreamedResponse extends http.StreamedResponse
