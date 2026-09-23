@@ -166,7 +166,7 @@ void main() {
       () async {
     await _verifyGzipResponseLifecycle(
       handling: GzipJsonResponseHandling.sanitiseAndStorePlain,
-      expectRecompressed: false,
+      expectedReplayIsGzip: false,
     );
   });
 
@@ -174,7 +174,7 @@ void main() {
       () async {
     await _verifyGzipResponseLifecycle(
       handling: GzipJsonResponseHandling.sanitiseAndStoreCompressed,
-      expectRecompressed: true,
+      expectedReplayIsGzip: true,
     );
   });
 
@@ -770,7 +770,7 @@ void main() {
 
 Future<void> _verifyGzipResponseLifecycle({
   required GzipJsonResponseHandling handling,
-  required bool expectRecompressed,
+  required bool expectedReplayIsGzip,
 }) async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(
@@ -814,23 +814,13 @@ Future<void> _verifyGzipResponseLifecycle({
   final replayedBytes = await replayed.stream.expand((chunk) => chunk).toList();
 
   expect(inner.fetchCount, 1);
-  if (expectRecompressed) {
-    expect(
-      replayed.headers[Headers.contentEncodingHeader],
-      <String>['gzip'],
-    );
-    expect(
-      utf8.decode(gzip.decode(replayedBytes)),
-      '{"keep":true,"token":"[REDACTED]"}',
-    );
-  } else {
-    expect(
-        replayed.headers.containsKey(Headers.contentEncodingHeader), isFalse);
-    expect(
-      utf8.decode(replayedBytes),
-      '{"keep":true,"token":"[REDACTED]"}',
-    );
-  }
+  expect(
+    replayed.headers[Headers.contentEncodingHeader],
+    <String>['gzip'],
+  );
+  final replayedPlainBytes =
+      expectedReplayIsGzip ? gzip.decode(replayedBytes) : replayedBytes;
+  expect(utf8.decode(replayedPlainBytes), '{"keep":true,"token":"[REDACTED]"}');
 }
 
 Future<void> _verifyGzipResponseFailure(String failureKind) async {

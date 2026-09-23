@@ -5,6 +5,7 @@ import '../matching/json.dart';
 import '../model/content_encoding.dart';
 import '../model/headers.dart';
 import '../sanitisation/content_decoding.dart';
+import '../sanitisation/content_recompression.dart';
 import '../sanitisation/json_encoding.dart';
 
 /// An immutable body representation used by the cassette schema.
@@ -47,6 +48,9 @@ PreparedPersistedBody preparePersistedBody(
     throw ArgumentError('Selected persisted body must reconstruct the body.');
   }
   final reconstructedLength = body.reconstruct().length;
+  final preservesGzipCoding = hasGzipContentEncoding(headers) &&
+      selectedBody != null &&
+      (body is PersistedJsonBody || body is PersistedGzipBase64Body);
   final changedNames = <String>{};
   final corrected = <String, Iterable<String>>{};
 
@@ -58,7 +62,9 @@ PreparedPersistedBody preparePersistedBody(
     }
     if (name == 'content-encoding' &&
         (hasIdentityContentEncoding(headers) ||
-            body is! PersistedBase64Body && body is! PersistedGzipBase64Body)) {
+            !preservesGzipCoding &&
+                body is! PersistedBase64Body &&
+                body is! PersistedGzipBase64Body)) {
       changedNames.add(name);
       continue;
     }
@@ -228,6 +234,19 @@ final class PersistedGzipBase64Body extends PersistedBody {
         _reconstructed = decodeGzipContent(
           compressedBytes,
           maximumBytes: maximumReconstructedBytes,
+        );
+
+  /// Compresses known plain [bytes] for bounded cassette storage.
+  PersistedGzipBase64Body.fromPlainBytes(
+    List<int> bytes, {
+    required int maximumCompressedBytes,
+  })  : _reconstructed =
+            Uint8List.fromList(_validatedBytes(bytes)).asUnmodifiableView(),
+        content = base64Encode(
+          recompressGzipContent(
+            bytes,
+            maximumBytes: maximumCompressedBytes,
+          ),
         );
 
   /// Standard padded Base64 containing the gzip storage representation.

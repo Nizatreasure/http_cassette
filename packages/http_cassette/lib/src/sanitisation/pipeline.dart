@@ -1,3 +1,4 @@
+import '../cassette/body_codec.dart';
 import '../configuration/body_limits.dart';
 import '../configuration/matching_configuration.dart';
 import '../matching/exclusions.dart';
@@ -32,6 +33,20 @@ final class CustomRequestSanitisationResult {
 
   /// The union of exclusions reported by every custom sanitiser.
   final MatchingExclusions exclusions;
+}
+
+/// Immutable response sanitisation and cassette storage selection.
+final class ResponseSanitisationResult {
+  const ResponseSanitisationResult._({
+    required this.response,
+    required this.persistedBody,
+  });
+
+  /// The canonical response reconstructed during replay.
+  final CassetteResponse response;
+
+  /// An explicit body storage representation, when ordinary selection differs.
+  final PersistedBody? persistedBody;
 }
 
 /// Runs the complete custom-then-built-in request sanitisation pipeline.
@@ -95,11 +110,28 @@ CassetteResponse sanitiseResponse(
   SanitisationConfiguration configuration, {
   int maximumTransformedBodyBytes = BodyLimits.defaultResponseBytes,
 }) =>
-    sanitiseBuiltInResponse(
-      sanitiseCustomResponse(response, configuration),
+    sanitiseResponseForRecording(
+      response,
       configuration,
       maximumTransformedBodyBytes: maximumTransformedBodyBytes,
-    );
+    ).response;
+
+/// Runs response sanitisation and retains any special storage selection.
+ResponseSanitisationResult sanitiseResponseForRecording(
+  CassetteResponse response,
+  SanitisationConfiguration configuration, {
+  int maximumTransformedBodyBytes = BodyLimits.defaultResponseBytes,
+}) {
+  final result = sanitiseBuiltInResponseForRecording(
+    sanitiseCustomResponse(response, configuration),
+    configuration,
+    maximumTransformedBodyBytes: maximumTransformedBodyBytes,
+  );
+  return ResponseSanitisationResult._(
+    response: result.response,
+    persistedBody: result.persistedBody,
+  );
+}
 
 void _validateRequestChange(
   CassetteRequest before,

@@ -569,15 +569,17 @@ CassetteOutcome decodeCassetteOutcomeV1(
     location: '$location/body',
     maximumReconstructedBytes: maximumBodyBytes,
   );
-  if (persistedBody is PersistedGzipBase64Body &&
-      (!hasGzipContentEncoding(headers) || !hasJsonMediaType(headers))) {
+  final hasGzipJsonStorage = hasGzipContentEncoding(headers) &&
+      hasJsonMediaType(headers) &&
+      (persistedBody is PersistedJsonBody ||
+          persistedBody is PersistedGzipBase64Body);
+  if (persistedBody is PersistedGzipBase64Body && !hasGzipJsonStorage) {
     _invalidStructure('$location/headers');
   }
   final prepared = preparePersistedBody(
     headers,
     persistedBody.reconstruct(),
-    selectedBody:
-        persistedBody is PersistedGzipBase64Body ? persistedBody : null,
+    selectedBody: hasGzipJsonStorage ? persistedBody : null,
   );
   if (prepared.body != persistedBody) {
     _invalidStructure('$location/body');
@@ -596,8 +598,7 @@ CassetteOutcome decodeCassetteOutcomeV1(
           body: persistedBody.reconstruct(),
         ),
       ),
-      persistedResponseBody:
-          persistedBody is PersistedGzipBase64Body ? persistedBody : null,
+      persistedResponseBody: hasGzipJsonStorage ? persistedBody : null,
     );
   } on ArgumentError {
     _invalidStructure('$location/reasonPhrase');

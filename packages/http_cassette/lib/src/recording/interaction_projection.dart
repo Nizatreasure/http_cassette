@@ -13,20 +13,22 @@ CassetteInteraction sanitiseRecordingResult(
   required int maximumTransformedResponseBodyBytes,
 }) {
   final request = sanitiseRequest(result.request, configuration);
-  final outcome = switch (result.outcome) {
-    CassetteResponseOutcome(:final response) => CassetteResponseOutcome(
-        sanitiseResponse(
-          response,
-          configuration,
-          maximumTransformedBodyBytes: maximumTransformedResponseBodyBytes,
-        ),
+  final responseResult = switch (result.outcome) {
+    CassetteResponseOutcome(:final response) => sanitiseResponseForRecording(
+        response,
+        configuration,
+        maximumTransformedBodyBytes: maximumTransformedResponseBodyBytes,
       ),
-    final CassetteTransportFailure failure => failure,
+    CassetteTransportFailure() => null,
   };
+  final outcome = responseResult == null
+      ? result.outcome
+      : CassetteResponseOutcome(responseResult.response);
   return CassetteInteraction(
     index: result.arrivalIndex,
     request: request.request,
     matchingExclusions: request.exclusions,
     outcome: outcome,
+    persistedResponseBody: responseResult?.persistedBody,
   );
 }

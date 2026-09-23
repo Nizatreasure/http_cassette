@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http_cassette/http_cassette.dart';
+import 'package:http_cassette/src/cassette/body_codec.dart';
 import 'package:http_cassette/src/matching/json.dart';
 import 'package:http_cassette/src/matching/request_matcher.dart';
 import 'package:http_cassette/src/sanitisation/body.dart';
@@ -227,7 +228,7 @@ void main() {
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
 
-      expect(result.headers.contains('content-encoding'), isFalse);
+      expect(result.headers.values('content-encoding'), <String>[' GZip ']);
       expect(utf8.decode(result.body), '{"keep":true,"token":"[REDACTED]"}');
       expect(response.body, encoded);
       expect(response.headers.values('content-encoding'), <String>[' GZip ']);
@@ -251,7 +252,7 @@ void main() {
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
 
-      expect(result.headers.contains('content-encoding'), isFalse);
+      expect(result.headers.values('content-encoding'), <String>['gzip']);
       expect(utf8.decode(result.body), '{"keep":true,"token":"[REDACTED]"}');
     });
 
@@ -275,6 +276,31 @@ void main() {
       expect(result, same(response));
     });
 
+    test('recompresses client-decompressed JSON without sanitising it', () {
+      final original = utf8.encode('{"token":"synthetic-secret"}');
+      final response = CassetteResponse(
+        statusCode: 200,
+        headers: CassetteHeaders(<String, Iterable<String>>{
+          'content-type': <String>['application/json'],
+          'content-encoding': <String>['gzip'],
+        }),
+        body: original,
+      );
+
+      final result = sanitiseBuiltInResponseForRecording(
+        response,
+        SanitisationConfiguration(),
+        maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
+      );
+
+      expect(result.response, same(response));
+      expect(result.response.body, original);
+      expect(result.persistedBody, isA<PersistedGzipBase64Body>());
+      expect(result.persistedBody!.reconstruct(), original);
+      expect(utf8.decode(result.persistedBody!.reconstruct()),
+          '{"token":"synthetic-secret"}');
+    });
+
     test('decodes, sanitises, and recompresses configured gzip JSON', () {
       final response = CassetteResponse(
         statusCode: 200,
@@ -287,7 +313,7 @@ void main() {
         ),
       );
 
-      final result = sanitiseBuiltInResponse(
+      final result = sanitiseBuiltInResponseForRecording(
         response,
         SanitisationConfiguration(
           gzipJsonResponses:
@@ -296,9 +322,13 @@ void main() {
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
 
-      expect(result.headers.values('content-encoding'), <String>['gzip']);
       expect(
-        utf8.decode(gzip.decode(result.body)),
+        result.response.headers.values('content-encoding'),
+        <String>[' GZip '],
+      );
+      expect(result.persistedBody, isA<PersistedBase64Body>());
+      expect(
+        utf8.decode(gzip.decode(result.response.body)),
         '{"keep":true,"token":"[REDACTED]"}',
       );
     });
@@ -313,7 +343,7 @@ void main() {
         body: utf8.encode('{"token":"synthetic-secret","keep":true}'),
       );
 
-      final result = sanitiseBuiltInResponse(
+      final result = sanitiseBuiltInResponseForRecording(
         response,
         SanitisationConfiguration(
           gzipJsonResponses:
@@ -322,9 +352,13 @@ void main() {
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
 
-      expect(result.headers.values('content-encoding'), <String>['gzip']);
       expect(
-        utf8.decode(gzip.decode(result.body)),
+        result.response.headers.values('content-encoding'),
+        <String>['gzip'],
+      );
+      expect(result.persistedBody, isA<PersistedGzipBase64Body>());
+      expect(
+        utf8.decode(result.response.body),
         '{"keep":true,"token":"[REDACTED]"}',
       );
     });
