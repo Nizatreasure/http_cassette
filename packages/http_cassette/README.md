@@ -285,19 +285,19 @@ Email and UUID recognition is applied only after a value has been selected as se
 
 A single `Content-Encoding: identity` value means that the body is not transformed. HTTP Cassette therefore treats it like an unencoded body: valid JSON is inspected, sanitised, matched structurally, and stored as readable structured JSON. The redundant identity header is removed during persistence.
 
-Gzip-encoded JSON responses remain opaque by default. On platforms supporting `dart:io`, opt into decoding and plain storage when their sensitive JSON values must be sanitised:
+Gzip-coded JSON responses are stored without built-in body sanitisation by default. On platforms supporting `dart:io`, opt into sanitisation and plain storage when their sensitive JSON values must be removed:
 
 ```dart
 final configuration = CassetteConfiguration(
   sanitisation: SanitisationConfiguration(
-    encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+    gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
   ),
 );
 ```
 
 This option applies only to non-empty responses with one `Content-Type` identifying JSON and one case-insensitive `Content-Encoding: gzip` value. Dio, `http`, or their underlying transport may already have decompressed the body while retaining the original header. The core checks the captured bytes: a gzip signature is decoded, while bytes without that signature are treated as the already-decompressed JSON representation and validated normally. It enforces `BodyLimits.responseBytes` against captured and decoded bytes, sanitises the JSON, removes `Content-Encoding`, and persists readable plain JSON. Decoding temporarily holds encoded and decoded data in memory, and plain JSON can make the cassette larger than compressed network content. Invalid gzip, invalid JSON, unavailable platform support when decoding is required, or a body over the limit prevents that recording from being persisted.
 
-Choose `EncodedJsonResponseHandling.decodeAndRecompress` to sanitise the same eligible responses while retaining gzip storage. The core recompresses the sanitised JSON even when the client had already decompressed the captured body. Recompression usually produces a smaller cassette body than plain storage, but the cassette stores gzip as Base64, which adds roughly one third to the compressed payload size.
+Choose `GzipJsonResponseHandling.sanitiseAndStoreCompressed` to sanitise the same eligible responses while retaining gzip storage. The core recompresses the sanitised JSON even when the client had already decompressed the captured body. Recompression usually produces a smaller cassette body than plain storage, but the cassette stores gzip as Base64, which adds roughly one third to the compressed payload size.
 
 Recompression temporarily retains decoded, sanitised, and recompressed representations, so it has greater CPU and peak-memory cost than plain storage. Plain storage avoids the recompression work and produces readable cassette JSON, but may use considerably more disk space than compressed network content.
 

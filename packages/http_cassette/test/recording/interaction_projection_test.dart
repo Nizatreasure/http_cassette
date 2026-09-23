@@ -129,7 +129,7 @@ void main() {
     test('uses the session response limit for decoded gzip JSON', () {
       final state = _state(
         sanitisation: SanitisationConfiguration(
-          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+          gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
         ),
         bodyLimits: BodyLimits(responseBytes: 4),
       );

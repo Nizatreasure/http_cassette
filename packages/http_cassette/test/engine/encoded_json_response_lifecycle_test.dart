@@ -8,7 +8,7 @@ void main() {
   group('encoded JSON response lifecycle', () {
     test('persists and replays decoded gzip JSON as plain content', () async {
       await _verifyLifecycle(
-        handling: EncodedJsonResponseHandling.decodeAndStorePlain,
+        handling: GzipJsonResponseHandling.sanitiseAndStorePlain,
         expectedPersistedEncoding: 'json',
         expectRecompressed: false,
       );
@@ -16,7 +16,7 @@ void main() {
 
     test('persists client-decompressed gzip JSON as plain content', () async {
       await _verifyLifecycle(
-        handling: EncodedJsonResponseHandling.decodeAndStorePlain,
+        handling: GzipJsonResponseHandling.sanitiseAndStorePlain,
         expectedPersistedEncoding: 'json',
         expectRecompressed: false,
         capturedBodyIsDecompressed: true,
@@ -25,7 +25,7 @@ void main() {
 
     test('persists and replays sanitised JSON as gzip content', () async {
       await _verifyLifecycle(
-        handling: EncodedJsonResponseHandling.decodeAndRecompress,
+        handling: GzipJsonResponseHandling.sanitiseAndStoreCompressed,
         expectedPersistedEncoding: 'base64',
         expectRecompressed: true,
       );
@@ -34,7 +34,7 @@ void main() {
 }
 
 Future<void> _verifyLifecycle({
-  required EncodedJsonResponseHandling handling,
+  required GzipJsonResponseHandling handling,
   required String expectedPersistedEncoding,
   required bool expectRecompressed,
   bool capturedBodyIsDecompressed = false,
@@ -44,7 +44,7 @@ Future<void> _verifyLifecycle({
     store: store,
     configuration: CassetteConfiguration(
       sanitisation: SanitisationConfiguration(
-        encodedJsonResponses: handling,
+        gzipJsonResponses: handling,
       ),
     ),
   );

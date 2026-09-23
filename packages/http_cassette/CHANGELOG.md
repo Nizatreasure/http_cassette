@@ -19,6 +19,5 @@
 - Added a configurable timeout for cassette-store existence checks, reads, and writes.
 - Made explicit replacement create an absent cassette or replace an existing cassette while preserving startup-to-close race checks.
 - Treated a single identity content encoding as unencoded content for JSON sanitisation, matching, and readable persistence.
-- Added opt-in bounded decoding, sanitisation, and plain persistence for gzip-encoded JSON responses, including bodies already decompressed by the HTTP client.
-- Added opt-in bounded recompression of sanitised gzip JSON responses.
+- Added `GzipJsonResponseHandling` for explicit storage without sanitisation, sanitised plain storage, and sanitised compressed storage, including responses already decompressed by the HTTP client.
 - Rejected non-canonical request hosts, including controls and non-ASCII spellings, at canonical request construction.

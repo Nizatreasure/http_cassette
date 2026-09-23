@@ -14,8 +14,8 @@ void main() {
 
       expect(configuration.builtInRulesEnabled, isTrue);
       expect(
-        configuration.encodedJsonResponses,
-        EncodedJsonResponseHandling.opaque,
+        configuration.gzipJsonResponses,
+        GzipJsonResponseHandling.storeWithoutSanitisation,
       );
       expect(
         effectiveSensitiveHeaders(configuration),
@@ -62,8 +62,8 @@ void main() {
       expect(configuration.requestSanitisers, isEmpty);
       expect(configuration.responseSanitisers, isEmpty);
       expect(
-        configuration.encodedJsonResponses,
-        EncodedJsonResponseHandling.opaque,
+        configuration.gzipJsonResponses,
+        GzipJsonResponseHandling.storeWithoutSanitisation,
       );
       expect(effectiveSensitiveHeaders(configuration), isEmpty);
       expect(effectiveSensitiveQueryParameters(configuration), isEmpty);
@@ -95,21 +95,21 @@ void main() {
       );
     });
 
-    test('retains explicit encoded JSON response handling', () {
+    test('retains explicit gzip JSON response handling', () {
       final plain = SanitisationConfiguration(
-        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
       );
       final recompressed = SanitisationConfiguration.unsafeWithoutBuiltIns(
-        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndRecompress,
+        gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStoreCompressed,
       );
 
       expect(
-        plain.encodedJsonResponses,
-        EncodedJsonResponseHandling.decodeAndStorePlain,
+        plain.gzipJsonResponses,
+        GzipJsonResponseHandling.sanitiseAndStorePlain,
       );
       expect(
-        recompressed.encodedJsonResponses,
-        EncodedJsonResponseHandling.decodeAndRecompress,
+        recompressed.gzipJsonResponses,
+        GzipJsonResponseHandling.sanitiseAndStoreCompressed,
       );
     });
 
@@ -230,10 +230,10 @@ void main() {
     test('encoded JSON response handling participates in equality', () {
       final opaque = SanitisationConfiguration();
       final plain = SanitisationConfiguration(
-        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
       );
       final samePlain = SanitisationConfiguration(
-        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
       );
 
       expect(opaque, isNot(plain));

@@ -222,7 +222,7 @@ void main() {
       final result = sanitiseBuiltInResponse(
         response,
         SanitisationConfiguration(
-          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+          gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
         ),
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
@@ -246,7 +246,7 @@ void main() {
       final result = sanitiseBuiltInResponse(
         response,
         SanitisationConfiguration(
-          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+          gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
         ),
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
@@ -290,7 +290,8 @@ void main() {
       final result = sanitiseBuiltInResponse(
         response,
         SanitisationConfiguration(
-          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndRecompress,
+          gzipJsonResponses:
+              GzipJsonResponseHandling.sanitiseAndStoreCompressed,
         ),
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
@@ -315,7 +316,8 @@ void main() {
       final result = sanitiseBuiltInResponse(
         response,
         SanitisationConfiguration(
-          encodedJsonResponses: EncodedJsonResponseHandling.decodeAndRecompress,
+          gzipJsonResponses:
+              GzipJsonResponseHandling.sanitiseAndStoreCompressed,
         ),
         maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
       );
@@ -341,8 +343,8 @@ void main() {
         () => sanitiseBuiltInResponse(
           response,
           SanitisationConfiguration(
-            encodedJsonResponses:
-                EncodedJsonResponseHandling.decodeAndRecompress,
+            gzipJsonResponses:
+                GzipJsonResponseHandling.sanitiseAndStoreCompressed,
           ),
           maximumTransformedBodyBytes: 2,
         ),
@@ -372,8 +374,7 @@ void main() {
         () => sanitiseBuiltInResponse(
           response,
           SanitisationConfiguration(
-            encodedJsonResponses:
-                EncodedJsonResponseHandling.decodeAndStorePlain,
+            gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
           ),
           maximumTransformedBodyBytes: 4,
         ),
@@ -421,8 +422,7 @@ void main() {
         final result = sanitiseBuiltInResponse(
           response,
           SanitisationConfiguration(
-            encodedJsonResponses:
-                EncodedJsonResponseHandling.decodeAndStorePlain,
+            gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
           ),
           maximumTransformedBodyBytes: BodyLimits.defaultResponseBytes,
         );
@@ -437,7 +437,7 @@ void main() {
         'content-encoding': <String>['gzip'],
       });
       final configuration = SanitisationConfiguration(
-        encodedJsonResponses: EncodedJsonResponseHandling.decodeAndStorePlain,
+        gzipJsonResponses: GzipJsonResponseHandling.sanitiseAndStorePlain,
       );
 
       expect(

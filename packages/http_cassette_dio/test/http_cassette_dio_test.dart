@@ -165,7 +165,7 @@ void main() {
   test('records gzip JSON as plain content and replays without transport',
       () async {
     await _verifyGzipResponseLifecycle(
-      handling: EncodedJsonResponseHandling.decodeAndStorePlain,
+      handling: GzipJsonResponseHandling.sanitiseAndStorePlain,
       expectRecompressed: false,
     );
   });
@@ -173,7 +173,7 @@ void main() {
   test('recompresses sanitised gzip JSON and replays without transport',
       () async {
     await _verifyGzipResponseLifecycle(
-      handling: EncodedJsonResponseHandling.decodeAndRecompress,
+      handling: GzipJsonResponseHandling.sanitiseAndStoreCompressed,
       expectRecompressed: true,
     );
   });
@@ -769,7 +769,7 @@ void main() {
 }
 
 Future<void> _verifyGzipResponseLifecycle({
-  required EncodedJsonResponseHandling handling,
+  required GzipJsonResponseHandling handling,
   required bool expectRecompressed,
 }) async {
   final store = MemoryCassetteStore();
@@ -777,7 +777,7 @@ Future<void> _verifyGzipResponseLifecycle({
     store: store,
     configuration: CassetteConfiguration(
       sanitisation: SanitisationConfiguration(
-        encodedJsonResponses: handling,
+        gzipJsonResponses: handling,
       ),
     ),
   );
@@ -850,9 +850,9 @@ Future<void> _verifyGzipResponseFailure(String failureKind) async {
     configuration: CassetteConfiguration(
       bodyLimits: BodyLimits(responseBytes: maximumResponseBytes),
       sanitisation: SanitisationConfiguration(
-        encodedJsonResponses: isDecodedSizeFailure
-            ? EncodedJsonResponseHandling.decodeAndRecompress
-            : EncodedJsonResponseHandling.decodeAndStorePlain,
+        gzipJsonResponses: isDecodedSizeFailure
+            ? GzipJsonResponseHandling.sanitiseAndStoreCompressed
+            : GzipJsonResponseHandling.sanitiseAndStorePlain,
       ),
     ),
   );

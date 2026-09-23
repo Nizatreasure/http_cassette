@@ -99,8 +99,8 @@ _EncodedJsonPreparation _prepareEncodedJsonResponse(
   SanitisationConfiguration configuration, {
   required int maximumTransformedBodyBytes,
 }) {
-  if (configuration.encodedJsonResponses ==
-          EncodedJsonResponseHandling.opaque ||
+  if (configuration.gzipJsonResponses ==
+          GzipJsonResponseHandling.storeWithoutSanitisation ||
       response.body.isEmpty ||
       !hasGzipContentEncoding(response.headers) ||
       !hasJsonMediaType(response.headers)) {
@@ -124,8 +124,8 @@ _EncodedJsonPreparation _prepareEncodedJsonResponse(
       body: decoded,
       reasonPhrase: response.reasonPhrase,
     ),
-    recompress: configuration.encodedJsonResponses ==
-        EncodedJsonResponseHandling.decodeAndRecompress,
+    recompress: configuration.gzipJsonResponses ==
+        GzipJsonResponseHandling.sanitiseAndStoreCompressed,
   );
 }
 

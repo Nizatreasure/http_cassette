@@ -30,16 +30,16 @@ const _builtInCredentialNames = <String>{
   'token',
 };
 
-/// How encoded JSON response bodies are handled during sanitisation.
-enum EncodedJsonResponseHandling {
-  /// Keep encoded bytes opaque without built-in body sanitisation.
-  opaque,
+/// How gzip-coded JSON response bodies are sanitised and stored.
+enum GzipJsonResponseHandling {
+  /// Store the captured representation without built-in body sanitisation.
+  storeWithoutSanitisation,
 
-  /// Decode supported content, sanitise it, and persist plain JSON.
-  decodeAndStorePlain,
+  /// Prepare and sanitise the JSON, then store it as plain JSON.
+  sanitiseAndStorePlain,
 
-  /// Decode supported content, sanitise it, and restore its content coding.
-  decodeAndRecompress,
+  /// Prepare and sanitise the JSON, then store it as compressed content.
+  sanitiseAndStoreCompressed,
 }
 
 /// Configures secure sanitisation before a recording is persisted.
@@ -66,8 +66,8 @@ abstract final class SanitisationConfiguration {
     Iterable<RequestSanitiser> requestSanitisers = const <RequestSanitiser>[],
     Iterable<ResponseSanitiser> responseSanitisers =
         const <ResponseSanitiser>[],
-    EncodedJsonResponseHandling encodedJsonResponses =
-        EncodedJsonResponseHandling.opaque,
+    GzipJsonResponseHandling gzipJsonResponses =
+        GzipJsonResponseHandling.storeWithoutSanitisation,
   }) {
     final pointers = MatchingExclusions(
       jsonPointers: additionalJsonPointers,
@@ -90,7 +90,7 @@ abstract final class SanitisationConfiguration {
       responseSanitisers: List<ResponseSanitiser>.unmodifiable(
         responseSanitisers,
       ),
-      encodedJsonResponses: encodedJsonResponses,
+      gzipJsonResponses: gzipJsonResponses,
     );
   }
 
@@ -103,8 +103,8 @@ abstract final class SanitisationConfiguration {
     Iterable<RequestSanitiser> requestSanitisers = const <RequestSanitiser>[],
     Iterable<ResponseSanitiser> responseSanitisers =
         const <ResponseSanitiser>[],
-    EncodedJsonResponseHandling encodedJsonResponses =
-        EncodedJsonResponseHandling.opaque,
+    GzipJsonResponseHandling gzipJsonResponses =
+        GzipJsonResponseHandling.storeWithoutSanitisation,
   }) =>
       _SanitisationConfiguration(
         builtInRulesEnabled: false,
@@ -118,7 +118,7 @@ abstract final class SanitisationConfiguration {
         responseSanitisers: List<ResponseSanitiser>.unmodifiable(
           responseSanitisers,
         ),
-        encodedJsonResponses: encodedJsonResponses,
+        gzipJsonResponses: gzipJsonResponses,
       );
 
   /// Secure defaults with no project-specific additions.
@@ -145,8 +145,8 @@ abstract final class SanitisationConfiguration {
   /// Custom response sanitisers in explicit execution order.
   List<ResponseSanitiser> get responseSanitisers;
 
-  /// How encoded JSON response bodies are prepared for sanitisation.
-  EncodedJsonResponseHandling get encodedJsonResponses;
+  /// How gzip-coded JSON response bodies are sanitised and stored.
+  GzipJsonResponseHandling get gzipJsonResponses;
 }
 
 final class _SanitisationConfiguration implements SanitisationConfiguration {
@@ -158,7 +158,7 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
     required this.additionalJsonPointers,
     required this.requestSanitisers,
     required this.responseSanitisers,
-    required this.encodedJsonResponses,
+    required this.gzipJsonResponses,
   });
 
   @override
@@ -183,7 +183,7 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
   final List<ResponseSanitiser> responseSanitisers;
 
   @override
-  final EncodedJsonResponseHandling encodedJsonResponses;
+  final GzipJsonResponseHandling gzipJsonResponses;
 
   @override
   bool operator ==(Object other) =>
@@ -199,7 +199,7 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
           _setsEqual(additionalJsonPointers, other.additionalJsonPointers) &&
           _listsEqual(requestSanitisers, other.requestSanitisers) &&
           _listsEqual(responseSanitisers, other.responseSanitisers) &&
-          encodedJsonResponses == other.encodedJsonResponses;
+          gzipJsonResponses == other.gzipJsonResponses;
 
   @override
   int get hashCode => Object.hash(
@@ -210,7 +210,7 @@ final class _SanitisationConfiguration implements SanitisationConfiguration {
         Object.hashAll(additionalJsonPointers),
         Object.hashAll(requestSanitisers),
         Object.hashAll(responseSanitisers),
-        encodedJsonResponses,
+        gzipJsonResponses,
       );
 }
 
