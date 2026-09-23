@@ -82,6 +82,8 @@ Replay failures never fall back to the wrapped client. A missing or invalid cass
 
 Active requests and responses are completely buffered. The defaults are 2 MiB for requests and 5 MiB for responses. Configure them through the shared core engine's `BodyLimits`.
 
+The adapter captures the response bytes exposed by the wrapped client. The client or its transport may expose original gzip bytes or bytes it has already decompressed while retaining `Content-Encoding: gzip`. HTTP Cassette records that distinction and reconstructs the same body state during replay. Configure gzip JSON sanitisation and storage through the core package.
+
 A request over its limit fails before the wrapped client is called. A response over its limit fails after one authorised attempt. Content is never truncated, and empty streams remain empty. These limits apply to individual HTTP bodies; the store's separate `maximumBytes` value limits one complete encoded cassette.
 
 If a complete live response has been captured but later cassette processing, such as sanitisation, fails, the cassette client returns the unchanged response to the caller. The admitted recording request remains failed, so closing the recording throws and discards the complete cassette. Failures before complete response capture and request cancellation still fail the individual request immediately.

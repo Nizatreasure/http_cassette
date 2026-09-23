@@ -80,6 +80,8 @@ Active requests are consumed once from `dio`'s final encoded request stream, che
 
 Active responses are also completely buffered before they are recorded or returned to `dio`. The engine's response-body limit applies to this capture. Declared or measured bodies over their configured limit fail without truncation. Cancellation and stream errors retain no partial body.
 
+The adapter captures the response bytes exposed by the wrapped `HttpClientAdapter`. The transport may expose original gzip bytes or bytes it has already decompressed while retaining `Content-Encoding: gzip`. HTTP Cassette records that distinction and reconstructs the same body state during replay. Configure gzip JSON sanitisation and storage through the core package.
+
 If a complete live response has been captured but later cassette processing, such as sanitisation, fails, the adapter returns the unchanged response to `dio`. The admitted recording request remains failed, so closing the recording throws and discards the complete cassette. Failures before complete response capture and caller cancellation still fail the individual request immediately.
 
 Original stream chunks, timing, and back-pressure are not preserved. During an active session, `dio` send progress may advance while HTTP Cassette buffers the encoded request rather than while bytes reach the network. Response delivery waits for complete bounded capture. Inactive requests retain `dio`'s ordinary streaming and progress behaviour.

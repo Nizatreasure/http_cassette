@@ -115,6 +115,7 @@ void main() {
       () async {
     await _verifyGzipResponseLifecycle(
       handling: GzipJsonResponseHandling.sanitiseAndStorePlain,
+      expectedPersistedEncoding: 'json',
       expectedReplayIsGzip: false,
     );
   });
@@ -123,9 +124,46 @@ void main() {
       () async {
     await _verifyGzipResponseLifecycle(
       handling: GzipJsonResponseHandling.sanitiseAndStoreCompressed,
+      expectedPersistedEncoding: 'base64',
       expectedReplayIsGzip: true,
     );
   });
+
+  for (final testCase in <({
+    GzipJsonResponseHandling handling,
+    String description,
+    String encoding,
+    bool sanitised,
+  })>[
+    (
+      handling: GzipJsonResponseHandling.storeWithoutSanitisation,
+      description: 'stores client-decoded gzip JSON without sanitisation',
+      encoding: 'gzipBase64',
+      sanitised: false,
+    ),
+    (
+      handling: GzipJsonResponseHandling.sanitiseAndStorePlain,
+      description: 'stores client-decoded gzip JSON as sanitised plain JSON',
+      encoding: 'json',
+      sanitised: true,
+    ),
+    (
+      handling: GzipJsonResponseHandling.sanitiseAndStoreCompressed,
+      description: 'compresses client-decoded sanitised JSON only for storage',
+      encoding: 'gzipBase64',
+      sanitised: true,
+    ),
+  ]) {
+    test('${testCase.description} and replays without inner access', () async {
+      await _verifyGzipResponseLifecycle(
+        handling: testCase.handling,
+        expectedPersistedEncoding: testCase.encoding,
+        expectedReplayIsGzip: false,
+        capturedBodyIsDecompressed: true,
+        expectedSanitised: testCase.sanitised,
+      );
+    });
+  }
 
   for (final failureKind in <String>['malformed', 'decoded-too-large']) {
     test('returns live gzip response when $failureKind processing fails',
@@ -673,7 +711,10 @@ void main() {
 
 Future<void> _verifyGzipResponseLifecycle({
   required GzipJsonResponseHandling handling,
+  required String expectedPersistedEncoding,
   required bool expectedReplayIsGzip,
+  bool capturedBodyIsDecompressed = false,
+  bool expectedSanitised = true,
 }) async {
   final store = MemoryCassetteStore();
   final engine = CassetteEngine(
@@ -684,9 +725,9 @@ Future<void> _verifyGzipResponseLifecycle({
       ),
     ),
   );
-  final originalBytes = gzip.encode(
-    utf8.encode('{"token":"synthetic-secret","keep":true}'),
-  );
+  final plainBytes = utf8.encode('{"token":"synthetic-secret","keep":true}');
+  final originalBytes =
+      capturedBodyIsDecompressed ? plainBytes : gzip.encode(plainBytes);
   final inner = _StubClient()
     ..responseOverride = http.StreamedResponse(
       Stream<List<int>>.value(originalBytes),
@@ -709,6 +750,15 @@ Future<void> _verifyGzipResponseLifecycle({
   expect(inner.sendCount, 1);
   await recording.close();
 
+  final snapshot = await store.read(CassetteName('gzip-response'));
+  final cassette =
+      jsonDecode(utf8.decode(snapshot.bytes)) as Map<String, Object?>;
+  final interaction = (cassette['interactions']! as List<Object?>).single
+      as Map<String, Object?>;
+  final storedOutcome = interaction['outcome']! as Map<String, Object?>;
+  final storedBody = storedOutcome['body']! as Map<String, Object?>;
+  expect(storedBody['encoding'], expectedPersistedEncoding);
+
   inner.responseOverride = http.StreamedResponse(
     Stream<List<int>>.value(utf8.encode('unexpected network response')),
     200,
@@ -722,7 +772,12 @@ Future<void> _verifyGzipResponseLifecycle({
   expect(replayed.headers['content-encoding'], 'gzip');
   final replayedPlainBytes =
       expectedReplayIsGzip ? gzip.decode(replayedBytes) : replayedBytes;
-  expect(utf8.decode(replayedPlainBytes), '{"keep":true,"token":"[REDACTED]"}');
+  expect(
+    utf8.decode(replayedPlainBytes),
+    expectedSanitised
+        ? '{"keep":true,"token":"[REDACTED]"}'
+        : '{"token":"synthetic-secret","keep":true}',
+  );
 }
 
 Future<void> _verifyGzipResponseFailure(String failureKind) async {
