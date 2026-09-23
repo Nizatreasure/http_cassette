@@ -1,14 +1,17 @@
 import 'dart:convert';
 
+import '../configuration/body_limits.dart';
 import '../configuration/cassette_size_limit.dart';
 import '../json/strict_json.dart';
-import '../json/value.dart';
 import '../matching/exclusions.dart';
+import '../matching/json.dart';
 import '../matching/uri_component.dart';
+import '../model/content_encoding.dart';
 import '../model/headers.dart';
 import '../model/http_message.dart';
 import '../model/http_syntax.dart';
 import '../model/outcome.dart';
+import '../sanitisation/content_decoding.dart';
 import 'body_codec.dart';
 import 'cassette.dart';
 import 'interaction.dart';
@@ -35,6 +38,12 @@ enum CassetteDecodeFailureKind {
 
   /// A decoded value does not satisfy the cassette schema.
   invalidStructure,
+
+  /// A reconstructed body exceeds its configured body limit.
+  bodyTooLarge,
+
+  /// The current platform cannot reconstruct a supported body encoding.
+  unsupportedBodyDecoding,
 
   /// The cassette schema version predates readable versions.
   unsupportedOlderVersion,
@@ -70,8 +79,7 @@ final class CassetteDecodeException implements Exception {
   /// The unsupported version when it is exactly representable on all targets.
   final int? observedSchemaVersion;
 
-  /// The configured total byte limit when [kind] is
-  /// [CassetteDecodeFailureKind.inputTooLarge].
+  /// The configured byte limit for an oversized cassette or body.
   final int? maximumBytes;
 
   /// The schema version supported by this decoder.
@@ -194,7 +202,11 @@ CassetteEnvelopeV1 decodeCassetteEnvelopeV1(
 Cassette decodeCassetteV1(
   List<int> bytes, {
   int maximumBytes = defaultMaximumCassetteBytesV1,
+  int maximumRequestBodyBytes = BodyLimits.defaultRequestBytes,
+  int maximumResponseBodyBytes = BodyLimits.defaultResponseBytes,
 }) {
+  _validateMaximumBodyBytes(maximumRequestBodyBytes);
+  _validateMaximumBodyBytes(maximumResponseBodyBytes);
   final envelope = decodeCassetteEnvelopeV1(
     bytes,
     maximumBytes: maximumBytes,
@@ -218,17 +230,20 @@ Cassette decodeCassetteV1(
     final decodedRequest = decodeCassetteRequestV1(
       value['request'],
       location: '$location/request',
+      maximumBodyBytes: maximumRequestBodyBytes,
     );
-    final outcome = decodeCassetteOutcomeV1(
+    final decodedOutcome = _decodeCassetteOutcomeV1(
       value['outcome'],
       location: '$location/outcome',
+      maximumBodyBytes: maximumResponseBodyBytes,
     );
     interactions.add(
       CassetteInteraction(
         index: position,
         request: decodedRequest.request,
         matchingExclusions: decodedRequest.matchingExclusions,
-        outcome: outcome,
+        outcome: decodedOutcome.outcome,
+        persistedResponseBody: decodedOutcome.persistedResponseBody,
       ),
     );
   }
@@ -241,11 +256,19 @@ void _validateMaximumCassetteBytes(int maximumBytes) {
   }
 }
 
+void _validateMaximumBodyBytes(int maximumBytes) {
+  if (maximumBytes <= 0) {
+    throw ArgumentError('Maximum body byte count must be positive.');
+  }
+}
+
 /// Strictly decodes one V1 persisted body at [location].
 PersistedBody decodePersistedBodyV1(
   Object? value, {
   required String location,
+  int maximumReconstructedBytes = BodyLimits.defaultResponseBytes,
 }) {
+  _validateMaximumBodyBytes(maximumReconstructedBytes);
   if (value is! Map<String, Object?>) {
     _invalidStructure(location);
   }
@@ -259,6 +282,11 @@ PersistedBody decodePersistedBodyV1(
     'json' => _decodeJsonBody(value, location),
     'text' => _decodeTextBody(value, location),
     'base64' => _decodeBase64Body(value, location),
+    'gzipBase64' => _decodeGzipBase64Body(
+        value,
+        location,
+        maximumReconstructedBytes: maximumReconstructedBytes,
+      ),
     _ => _invalidStructure('$location/encoding'),
   };
 }
@@ -388,7 +416,9 @@ MatchingExclusions decodeMatchingExclusionsV1(
 DecodedCassetteRequestV1 decodeCassetteRequestV1(
   Object? value, {
   required String location,
+  int maximumBodyBytes = BodyLimits.defaultRequestBytes,
 }) {
+  _validateMaximumBodyBytes(maximumBodyBytes);
   if (value is! Map<String, Object?> ||
       !_keysEqual(value.keys, const <String>[
         'method',
@@ -417,7 +447,11 @@ DecodedCassetteRequestV1 decodeCassetteRequestV1(
   final persistedBody = decodePersistedBodyV1(
     value['body'],
     location: '$location/body',
+    maximumReconstructedBytes: maximumBodyBytes,
   );
+  if (persistedBody is PersistedGzipBase64Body) {
+    _invalidStructure('$location/body/encoding');
+  }
   final matchingExclusions = decodeMatchingExclusionsV1(
     value['matchingExclusions'],
     location: '$location/matchingExclusions',
@@ -466,7 +500,21 @@ DecodedCassetteRequestV1 decodeCassetteRequestV1(
 CassetteOutcome decodeCassetteOutcomeV1(
   Object? value, {
   required String location,
+  int maximumBodyBytes = BodyLimits.defaultResponseBytes,
+}) =>
+    _decodeCassetteOutcomeV1(
+      value,
+      location: location,
+      maximumBodyBytes: maximumBodyBytes,
+    ).outcome;
+
+({CassetteOutcome outcome, PersistedBody? persistedResponseBody})
+    _decodeCassetteOutcomeV1(
+  Object? value, {
+  required String location,
+  required int maximumBodyBytes,
 }) {
+  _validateMaximumBodyBytes(maximumBodyBytes);
   if (value is! Map<String, Object?>) {
     _invalidStructure(location);
   }
@@ -475,16 +523,25 @@ CassetteOutcome decodeCassetteOutcomeV1(
     _invalidStructure('$location/type');
   }
   return switch (type) {
-    'response' => _decodeResponseOutcomeV1(value, location),
-    'transportFailure' => _decodeTransportFailureV1(value, location),
+    'response' => _decodeResponseOutcomeV1(
+        value,
+        location,
+        maximumBodyBytes: maximumBodyBytes,
+      ),
+    'transportFailure' => (
+        outcome: _decodeTransportFailureV1(value, location),
+        persistedResponseBody: null,
+      ),
     _ => _invalidStructure('$location/type'),
   };
 }
 
-CassetteOutcome _decodeResponseOutcomeV1(
+({CassetteOutcome outcome, PersistedBody? persistedResponseBody})
+    _decodeResponseOutcomeV1(
   Map<String, Object?> value,
-  String location,
-) {
+  String location, {
+  required int maximumBodyBytes,
+}) {
   final hasReasonPhrase = value.containsKey('reasonPhrase');
   final expectedKeys = hasReasonPhrase
       ? const <String>['type', 'statusCode', 'reasonPhrase', 'headers', 'body']
@@ -510,8 +567,18 @@ CassetteOutcome _decodeResponseOutcomeV1(
   final persistedBody = decodePersistedBodyV1(
     value['body'],
     location: '$location/body',
+    maximumReconstructedBytes: maximumBodyBytes,
   );
-  final prepared = preparePersistedBody(headers, persistedBody.reconstruct());
+  if (persistedBody is PersistedGzipBase64Body &&
+      (!hasGzipContentEncoding(headers) || !hasJsonMediaType(headers))) {
+    _invalidStructure('$location/headers');
+  }
+  final prepared = preparePersistedBody(
+    headers,
+    persistedBody.reconstruct(),
+    selectedBody:
+        persistedBody is PersistedGzipBase64Body ? persistedBody : null,
+  );
   if (prepared.body != persistedBody) {
     _invalidStructure('$location/body');
   }
@@ -520,13 +587,17 @@ CassetteOutcome _decodeResponseOutcomeV1(
   }
 
   try {
-    return CassetteResponseOutcome(
-      CassetteResponse(
-        statusCode: statusCode,
-        reasonPhrase: reasonPhrase as String?,
-        headers: headers,
-        body: persistedBody.reconstruct(),
+    return (
+      outcome: CassetteResponseOutcome(
+        CassetteResponse(
+          statusCode: statusCode,
+          reasonPhrase: reasonPhrase as String?,
+          headers: headers,
+          body: persistedBody.reconstruct(),
+        ),
       ),
+      persistedResponseBody:
+          persistedBody is PersistedGzipBase64Body ? persistedBody : null,
     );
   } on ArgumentError {
     _invalidStructure('$location/reasonPhrase');
@@ -647,6 +718,48 @@ PersistedBody _decodeBase64Body(Map<String, Object?> value, String location) {
       _invalidStructure('$location/content');
     }
     return PersistedBase64Body.fromBytes(bytes);
+  } on FormatException {
+    _invalidStructure('$location/content');
+  }
+}
+
+PersistedBody _decodeGzipBase64Body(
+  Map<String, Object?> value,
+  String location, {
+  required int maximumReconstructedBytes,
+}) {
+  if (!_keysEqual(value.keys, const <String>['encoding', 'content'])) {
+    _invalidStructure(location);
+  }
+  final content = value['content'];
+  if (content is! String || content.isEmpty) {
+    _invalidStructure('$location/content');
+  }
+  try {
+    final bytes = base64Decode(content);
+    if (base64Encode(bytes) != content) {
+      _invalidStructure('$location/content');
+    }
+    return PersistedGzipBase64Body.fromCompressedBytes(
+      bytes,
+      maximumReconstructedBytes: maximumReconstructedBytes,
+    );
+  } on ContentDecodingException catch (failure) {
+    switch (failure.kind) {
+      case ContentDecodingFailureKind.invalidContent:
+        _invalidStructure('$location/content');
+      case ContentDecodingFailureKind.decodedBodyTooLarge:
+        throw CassetteDecodeException(
+          kind: CassetteDecodeFailureKind.bodyTooLarge,
+          location: '$location/content',
+          maximumBytes: failure.maximumBytes,
+        );
+      case ContentDecodingFailureKind.unsupportedPlatform:
+        throw CassetteDecodeException(
+          kind: CassetteDecodeFailureKind.unsupportedBodyDecoding,
+          location: '$location/encoding',
+        );
+    }
   } on FormatException {
     _invalidStructure('$location/content');
   }

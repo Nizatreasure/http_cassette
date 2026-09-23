@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:http_cassette/src/cassette/body_codec.dart';
 import 'package:http_cassette/src/cassette/decoder.dart';
 import 'package:http_cassette/src/json/strict_json.dart';
@@ -25,6 +28,13 @@ void main() {
         '{"encoding":"base64","content":"AAECAw=="}',
       );
       expect(binary.reconstruct(), <int>[0, 1, 2, 3]);
+
+      final plain = utf8.encode('{"value":true}');
+      final gzipBody = _decode(
+        '{"encoding":"gzipBase64",'
+        '"content":"${base64Encode(gzip.encode(plain))}"}',
+      ) as PersistedGzipBase64Body;
+      expect(gzipBody.reconstruct(), plain);
     });
 
     test('requires exact fields in exact order', () {
@@ -72,6 +82,28 @@ void main() {
           '/body/content',
         );
       }
+    });
+
+    test('rejects malformed or oversized gzip storage safely', () {
+      _expectInvalid(
+        '{"encoding":"gzipBase64","content":"AAECAw=="}',
+        '/body/content',
+      );
+
+      final content = base64Encode(gzip.encode(utf8.encode('too large')));
+      final error = _capture(
+        () => decodePersistedBodyV1(
+          parseStrictJson(
+            '{"encoding":"gzipBase64","content":"$content"}',
+          ),
+          location: '/body',
+          maximumReconstructedBytes: 3,
+        ),
+      );
+
+      expect(error.kind, CassetteDecodeFailureKind.bodyTooLarge);
+      expect(error.location, '/body/content');
+      expect(error.maximumBytes, 3);
     });
 
     test('requires lexical object order throughout JSON content', () {

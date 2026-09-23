@@ -223,6 +223,8 @@ final class EngineState {
       final result = await ReplayCassetteLoader(
         store,
         operationTimeout: configuration.storeOperations.timeout,
+        maximumRequestBodyBytes: configuration.bodyLimits.requestBytes,
+        maximumResponseBodyBytes: configuration.bodyLimits.responseBytes,
       ).load(name);
       switch (result) {
         case ReplayCassetteLoadFailed(:final failure):
@@ -265,6 +267,8 @@ final class EngineState {
         final result = await AppendCassettePreparer(
           store,
           operationTimeout: configuration.storeOperations.timeout,
+          maximumRequestBodyBytes: configuration.bodyLimits.requestBytes,
+          maximumResponseBodyBytes: configuration.bodyLimits.responseBytes,
         ).prepare(name);
         switch (result) {
           case AppendCassettePrepared():

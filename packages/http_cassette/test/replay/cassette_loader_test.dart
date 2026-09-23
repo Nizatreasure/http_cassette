@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/cassette.dart';
+import 'package:http_cassette/src/cassette/decoder.dart';
 import 'package:http_cassette/src/cassette/encoder.dart';
 import 'package:http_cassette/src/replay/cassette_loader.dart';
 import 'package:http_cassette/src/replay/loading_failure.dart';
@@ -85,6 +89,43 @@ void main() {
           as ReplayCassetteDecodeFailure;
       expect(failure.diagnostic.maximumBytes, 1);
       expect(failure.diagnostic.failureKind.name, 'inputTooLarge');
+    });
+
+    test('uses the configured response limit for gzip storage', () async {
+      final name = CassetteName('replay/gzip-limit');
+      final plain = utf8.encode('{"value":true}');
+      final compressed = base64Encode(gzip.encode(plain));
+      final bytes = utf8.encode(
+        '{"schemaVersion":1,"interactions":[{"index":0,'
+        '"request":{"method":"GET","uri":"https://example.test/",'
+        '"headers":{},"body":{"encoding":"empty"},'
+        '"matchingExclusions":{"uriUserInformation":false,"body":false,'
+        '"headers":[],"queryParameters":[],"jsonPointers":[]}},'
+        '"outcome":{"type":"response","statusCode":200,'
+        '"headers":{"content-encoding":["gzip"],'
+        '"content-length":["14"],'
+        '"content-type":["application/json"]},'
+        '"body":{"encoding":"gzipBase64","content":"$compressed"}}}]}',
+      );
+      final store = _Store(
+        snapshot: CassetteSnapshot(
+          name: name,
+          bytes: bytes,
+          revision: CassetteRevision(),
+        ),
+      );
+
+      final result = await ReplayCassetteLoader(
+        store,
+        maximumResponseBodyBytes: plain.length - 1,
+      ).load(name);
+
+      final failure = (result as ReplayCassetteLoadFailed).failure
+          as ReplayCassetteDecodeFailure;
+      expect(failure.diagnostic.failureKind,
+          CassetteDecodeFailureKind.bodyTooLarge);
+      expect(failure.diagnostic.maximumBytes, plain.length - 1);
+      expect(failure.envelope.category, DiagnosticCategory.bodyLimitExceeded);
     });
 
     test('rejects a snapshot for a different name', () async {

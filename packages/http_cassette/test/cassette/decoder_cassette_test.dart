@@ -65,6 +65,31 @@ void main() {
       }
     });
 
+    test('re-encodes gzip Base64 storage byte for byte', () {
+      final compressed = base64Encode(
+        gzip.encode(utf8.encode('{"value":true}')),
+      );
+      final source = _cassetteWithResponseBodyV1(
+        '{"encoding":"gzipBase64","content":"$compressed"}',
+        headers: '{"content-encoding":["gzip"],'
+            '"content-length":["14"],'
+            '"content-type":["application/json"]}',
+      );
+      final firstEncoding = encodeCassetteV1(_decode(source));
+      final secondEncoding = encodeCassetteV1(
+        decodeCassetteV1(firstEncoding),
+      );
+
+      expect(secondEncoding, firstEncoding);
+      final response = _decode(source).interactions.single.outcome
+          as CassetteResponseOutcome;
+      expect(utf8.decode(response.response.body), '{"value":true}');
+      expect(
+        response.response.headers.values('content-encoding'),
+        <String>['gzip'],
+      );
+    });
+
     test('rejects the reviewed invalid cassette fixtures safely', () {
       for (final fixture in _invalidFixturesV1) {
         final error = _capture(
@@ -130,10 +155,14 @@ String _request({String method = 'GET'}) =>
 String _outcome() => '{"type":"response","statusCode":204,"headers":{},'
     '"body":{"encoding":"empty"}}';
 
-String _cassetteWithResponseBodyV1(String body) =>
+String _cassetteWithResponseBodyV1(
+  String body, {
+  String headers = '{}',
+}) =>
     '{"schemaVersion":1,"interactions":['
     '{"index":0,"request":${_request()},"outcome":'
-    '{"type":"response","statusCode":200,"headers":{},"body":$body}}]}';
+    '{"type":"response","statusCode":200,"headers":$headers,'
+    '"body":$body}}]}';
 
 void _expectInteractionFailure(String interaction, String location) {
   _expectFailure(

@@ -1,6 +1,7 @@
 import '../cassette/cassette.dart';
 import '../cassette/decoder.dart';
 import '../cassette/name.dart';
+import '../configuration/body_limits.dart';
 import '../diagnostics/diagnostic.dart';
 import '../store/configuration.dart';
 import '../store/exception.dart';
@@ -82,13 +83,22 @@ final class AppendCassettePreparer {
   const AppendCassettePreparer(
     this.store, {
     this.operationTimeout = StoreOperationConfiguration.defaultTimeout,
-  });
+    this.maximumRequestBodyBytes = BodyLimits.defaultRequestBytes,
+    this.maximumResponseBodyBytes = BodyLimits.defaultResponseBytes,
+  })  : assert(maximumRequestBodyBytes > 0),
+        assert(maximumResponseBodyBytes > 0);
 
   /// The store supplying one immutable append-target snapshot.
   final CassetteStore store;
 
   /// The maximum wait for the append-target read.
   final Duration operationTimeout;
+
+  /// Maximum reconstructed request body size.
+  final int maximumRequestBodyBytes;
+
+  /// Maximum reconstructed response body size.
+  final int maximumResponseBodyBytes;
 
   /// Reads and prepares the cassette identified by [cassetteName].
   ///
@@ -127,6 +137,8 @@ final class AppendCassettePreparer {
       final cassette = decodeCassetteV1(
         snapshot.bytes,
         maximumBytes: store.maximumBytes,
+        maximumRequestBodyBytes: maximumRequestBodyBytes,
+        maximumResponseBodyBytes: maximumResponseBodyBytes,
       );
       if (cassette.schemaVersion != currentWritableCassetteSchemaVersion) {
         throw StateError(
@@ -175,10 +187,13 @@ AppendCassettePreparationFailure _decodeFailure(
       DiagnosticCategory.appendSchemaVersionMismatch,
     CassetteDecodeFailureKind.invalidStructure =>
       DiagnosticCategory.invalidCassetteStructure,
+    CassetteDecodeFailureKind.bodyTooLarge =>
+      DiagnosticCategory.bodyLimitExceeded,
     CassetteDecodeFailureKind.inputTooLarge ||
     CassetteDecodeFailureKind.invalidUtf8 ||
     CassetteDecodeFailureKind.malformedJson ||
-    CassetteDecodeFailureKind.duplicateObjectMember =>
+    CassetteDecodeFailureKind.duplicateObjectMember ||
+    CassetteDecodeFailureKind.unsupportedBodyDecoding =>
       DiagnosticCategory.cassetteDecodeFailure,
   };
   return AppendCassettePreparationFailure._(
@@ -198,6 +213,8 @@ AppendCassettePreparationFailure _decodeFailure(
           'The append target has an invalid cassette structure.',
         DiagnosticCategory.cassetteDecodeFailure =>
           'The append target could not be decoded.',
+        DiagnosticCategory.bodyLimitExceeded =>
+          'An append target body exceeds its configured byte limit.',
         _ => throw StateError('Invalid append preparation category.'),
       },
       networkAccess: NetworkAccess.notAttempted,

@@ -16,7 +16,8 @@ final class ReplayCassetteDecodeDiagnostic {
         'Decode source positions must be positive and complete.',
       );
     }
-    if (failure.kind == CassetteDecodeFailureKind.inputTooLarge &&
+    if ((failure.kind == CassetteDecodeFailureKind.inputTooLarge ||
+            failure.kind == CassetteDecodeFailureKind.bodyTooLarge) &&
         (failure.maximumBytes == null || failure.maximumBytes! <= 0)) {
       throw ArgumentError(
         'An oversized cassette failure requires a positive byte limit.',
@@ -29,6 +30,10 @@ final class ReplayCassetteDecodeDiagnostic {
       CassetteDecodeFailureKind.malformedJson ||
       CassetteDecodeFailureKind.duplicateObjectMember =>
         DiagnosticCategory.cassetteDecodeFailure,
+      CassetteDecodeFailureKind.unsupportedBodyDecoding =>
+        DiagnosticCategory.cassetteDecodeFailure,
+      CassetteDecodeFailureKind.bodyTooLarge =>
+        DiagnosticCategory.bodyLimitExceeded,
       CassetteDecodeFailureKind.invalidStructure =>
         DiagnosticCategory.invalidCassetteStructure,
       CassetteDecodeFailureKind.unsupportedOlderVersion =>
@@ -49,9 +54,12 @@ final class ReplayCassetteDecodeDiagnostic {
         _ => null,
       },
       supportedSchemaVersion: failure.supportedSchemaVersion,
-      maximumBytes: failure.kind == CassetteDecodeFailureKind.inputTooLarge
-          ? failure.maximumBytes
-          : null,
+      maximumBytes: switch (failure.kind) {
+        CassetteDecodeFailureKind.inputTooLarge ||
+        CassetteDecodeFailureKind.bodyTooLarge =>
+          failure.maximumBytes,
+        _ => null,
+      },
       category: category,
     );
   }
@@ -69,10 +77,15 @@ final class ReplayCassetteDecodeDiagnostic {
   }) : envelope = CassetteDiagnostic(
           category: category,
           summary: switch (category) {
-            DiagnosticCategory.cassetteDecodeFailure =>
-              failureKind == CassetteDecodeFailureKind.inputTooLarge
-                  ? 'The replay cassette exceeds the configured byte limit.'
-                  : 'The replay cassette could not be decoded.',
+            DiagnosticCategory.cassetteDecodeFailure => switch (failureKind) {
+                CassetteDecodeFailureKind.inputTooLarge =>
+                  'The replay cassette exceeds the configured byte limit.',
+                CassetteDecodeFailureKind.unsupportedBodyDecoding =>
+                  'A replay cassette body cannot be decoded on this platform.',
+                _ => 'The replay cassette could not be decoded.',
+              },
+            DiagnosticCategory.bodyLimitExceeded =>
+              'A replay cassette body exceeds its configured byte limit.',
             DiagnosticCategory.invalidCassetteStructure =>
               'The replay cassette has an invalid structure.',
             DiagnosticCategory.unsupportedOlderSchemaVersion =>

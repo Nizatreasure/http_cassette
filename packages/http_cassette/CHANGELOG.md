@@ -9,7 +9,7 @@
 - Added strict, first, last, sequence, and cycle replay policies, optional unused-interaction verification, and deterministic concurrent request ordering.
 - Added secure built-in request and response sanitisation, type-preserving JSON redaction, RFC 6901 JSON Pointer rules, and custom sanitiser support.
 - Added configurable request, response, and total cassette size limits.
-- Added strict versioned cassette encoding and decoding with readable JSON, text, and Base64 body representations.
+- Added strict versioned cassette encoding and decoding with readable JSON, text, Base64, and bounded gzip Base64 body representations.
 - Added structured, value-safe diagnostics for loading, matching, exhaustion, storage, cancellation, and lifecycle failures.
 - Added the public interception and cancellation contracts used by official and third-party transport adapters.
 - Added configurable engine activation policies for enabled, fail-closed, and silent pass-through operation.

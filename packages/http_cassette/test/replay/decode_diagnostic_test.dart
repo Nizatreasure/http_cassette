@@ -96,6 +96,38 @@ void main() {
       expect(diagnostic.observedSchemaVersion, isNull);
     });
 
+    test('maps reconstructed body limits and platform support safely', () {
+      final oversized = _diagnostic(
+        const CassetteDecodeException(
+          kind: CassetteDecodeFailureKind.bodyTooLarge,
+          location: '/interactions/0/outcome/body/content',
+          maximumBytes: 4096,
+        ),
+      );
+      final unsupported = _diagnostic(
+        const CassetteDecodeException(
+          kind: CassetteDecodeFailureKind.unsupportedBodyDecoding,
+          location: '/interactions/0/outcome/body/encoding',
+        ),
+      );
+
+      expect(oversized.envelope.category, DiagnosticCategory.bodyLimitExceeded);
+      expect(oversized.maximumBytes, 4096);
+      expect(
+        oversized.envelope.summary,
+        'A replay cassette body exceeds its configured byte limit.',
+      );
+      expect(
+        unsupported.envelope.category,
+        DiagnosticCategory.cassetteDecodeFailure,
+      );
+      expect(unsupported.maximumBytes, isNull);
+      expect(
+        unsupported.envelope.summary,
+        'A replay cassette body cannot be decoded on this platform.',
+      );
+    });
+
     test('distinguishes older and newer schema versions', () {
       final older = _diagnostic(
         const CassetteDecodeException(
@@ -160,6 +192,10 @@ void main() {
           kind: CassetteDecodeFailureKind.inputTooLarge,
           location: '',
           maximumBytes: 0,
+        ),
+        const CassetteDecodeException(
+          kind: CassetteDecodeFailureKind.bodyTooLarge,
+          location: '/body',
         ),
       ];
 

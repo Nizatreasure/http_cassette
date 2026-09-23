@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http_cassette/http_cassette.dart';
 import 'package:http_cassette/src/cassette/body_codec.dart';
@@ -62,6 +63,28 @@ void main() {
       expect(prepared.body, isA<PersistedBase64Body>());
       expect(prepared.headers.values('content-encoding'), <String>['gzip']);
       expect(prepared.changedHeaderNames, isEmpty);
+    });
+
+    test('retains gzip storage while reconstructing plain bytes', () {
+      final plain = utf8.encode('{"value":true}');
+      final body = PersistedGzipBase64Body.fromCompressedBytes(
+        gzip.encode(plain),
+        maximumReconstructedBytes: plain.length,
+      );
+      final prepared = preparePersistedBody(
+        _headers(
+          contentType: 'application/json',
+          contentEncoding: 'gzip',
+          contentLength: '999',
+        ),
+        plain,
+        selectedBody: body,
+      );
+
+      expect(prepared.body, same(body));
+      expect(prepared.body.reconstruct(), plain);
+      expect(prepared.headers.values('content-encoding'), <String>['gzip']);
+      expect(prepared.headers.values('content-length'), <String>['14']);
     });
 
     test('stores identity-coded JSON structurally and removes the coding', () {
@@ -403,9 +426,11 @@ Object? _parseJson(String source) {
 CassetteHeaders _headers({
   String? contentType,
   String? contentEncoding,
+  String? contentLength,
 }) =>
     CassetteHeaders(<String, Iterable<String>>{
       if (contentType != null) 'content-type': <String>[contentType],
       if (contentEncoding != null)
         'content-encoding': <String>[contentEncoding],
+      if (contentLength != null) 'content-length': <String>[contentLength],
     });

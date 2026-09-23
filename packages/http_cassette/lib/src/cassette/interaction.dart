@@ -1,6 +1,7 @@
 import '../matching/exclusions.dart';
 import '../model/http_message.dart';
 import '../model/outcome.dart';
+import 'body_codec.dart';
 
 /// One immutable, sanitised interaction ready for cassette persistence.
 final class CassetteInteraction {
@@ -13,6 +14,7 @@ final class CassetteInteraction {
     required this.request,
     required this.outcome,
     this.matchingExclusions = MatchingExclusions.none,
+    this.persistedResponseBody,
   }) : index = _validateIndex(index);
 
   /// The request-arrival index within the containing cassette.
@@ -27,6 +29,13 @@ final class CassetteInteraction {
   /// The sanitised canonical response or portable transport failure.
   final CassetteOutcome outcome;
 
+  /// The response body representation retained from cassette decoding.
+  ///
+  /// A new recording normally leaves this absent so persistence selects the
+  /// canonical representation. Decoding retains storage-only representations
+  /// so append can reproduce them deterministically.
+  final PersistedBody? persistedResponseBody;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -34,7 +43,8 @@ final class CassetteInteraction {
           index == other.index &&
           request == other.request &&
           matchingExclusions == other.matchingExclusions &&
-          outcome == other.outcome;
+          outcome == other.outcome &&
+          persistedResponseBody == other.persistedResponseBody;
 
   @override
   int get hashCode => Object.hash(
@@ -42,6 +52,7 @@ final class CassetteInteraction {
         request,
         matchingExclusions,
         outcome,
+        persistedResponseBody,
       );
 }
 

@@ -1,6 +1,7 @@
 import '../cassette/cassette.dart';
 import '../cassette/decoder.dart';
 import '../cassette/name.dart';
+import '../configuration/body_limits.dart';
 import '../store/configuration.dart';
 import '../store/exception.dart';
 import '../store/operation_timeout.dart';
@@ -45,13 +46,22 @@ final class ReplayCassetteLoader {
   const ReplayCassetteLoader(
     this.store, {
     this.operationTimeout = StoreOperationConfiguration.defaultTimeout,
-  });
+    this.maximumRequestBodyBytes = BodyLimits.defaultRequestBytes,
+    this.maximumResponseBodyBytes = BodyLimits.defaultResponseBytes,
+  })  : assert(maximumRequestBodyBytes > 0),
+        assert(maximumResponseBodyBytes > 0);
 
   /// The store used for the single snapshot read and its decoding limit.
   final CassetteStore store;
 
   /// The maximum wait for the snapshot read.
   final Duration operationTimeout;
+
+  /// Maximum reconstructed request body size.
+  final int maximumRequestBodyBytes;
+
+  /// Maximum reconstructed response body size.
+  final int maximumResponseBodyBytes;
 
   /// Reads and decodes the complete cassette identified by [cassetteName].
   ///
@@ -74,6 +84,8 @@ final class ReplayCassetteLoader {
         decodeCassetteV1(
           snapshot.bytes,
           maximumBytes: store.maximumBytes,
+          maximumRequestBodyBytes: maximumRequestBodyBytes,
+          maximumResponseBodyBytes: maximumResponseBodyBytes,
         ),
       );
     } on CassetteStoreException catch (failure) {

@@ -22,7 +22,7 @@ Map<String, Object?> _projectInteraction(CassetteInteraction interaction) =>
     Map<String, Object?>.unmodifiable(<String, Object?>{
       'index': interaction.index,
       'request': _projectRequest(interaction),
-      'outcome': _projectOutcome(interaction.outcome),
+      'outcome': _projectOutcome(interaction),
     });
 
 Map<String, Object?> _projectRequest(CassetteInteraction interaction) {
@@ -41,21 +41,30 @@ Map<String, Object?> _projectRequest(CassetteInteraction interaction) {
   });
 }
 
-Map<String, Object?> _projectOutcome(CassetteOutcome outcome) =>
-    switch (outcome) {
-      CassetteResponseOutcome() => _projectResponse(outcome),
-      CassetteTransportFailure() => Map<String, Object?>.unmodifiable(
+Map<String, Object?> _projectOutcome(CassetteInteraction interaction) =>
+    switch (interaction.outcome) {
+      final CassetteResponseOutcome outcome =>
+        _projectResponse(interaction, outcome),
+      final CassetteTransportFailure failure =>
+        Map<String, Object?>.unmodifiable(
           <String, Object?>{
             'type': 'transportFailure',
-            'category': outcome.category.name,
-            'message': outcome.message,
+            'category': failure.category.name,
+            'message': failure.message,
           },
         ),
     };
 
-Map<String, Object?> _projectResponse(CassetteResponseOutcome outcome) {
+Map<String, Object?> _projectResponse(
+  CassetteInteraction interaction,
+  CassetteResponseOutcome outcome,
+) {
   final response = outcome.response;
-  final prepared = preparePersistedBody(response.headers, response.body);
+  final prepared = preparePersistedBody(
+    response.headers,
+    response.body,
+    selectedBody: interaction.persistedResponseBody,
+  );
 
   return Map<String, Object?>.unmodifiable(<String, Object?>{
     'type': 'response',
@@ -92,6 +101,12 @@ Map<String, Object?> _projectBody(PersistedBody body) => switch (body) {
       PersistedBase64Body() => Map<String, Object?>.unmodifiable(
           <String, Object?>{
             'encoding': 'base64',
+            'content': body.content,
+          },
+        ),
+      PersistedGzipBase64Body() => Map<String, Object?>.unmodifiable(
+          <String, Object?>{
+            'encoding': 'gzipBase64',
             'content': body.content,
           },
         ),

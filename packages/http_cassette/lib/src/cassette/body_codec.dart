@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../matching/json.dart';
 import '../model/content_encoding.dart';
 import '../model/headers.dart';
+import '../sanitisation/content_decoding.dart';
 import '../sanitisation/json_encoding.dart';
 
 /// An immutable body representation used by the cassette schema.
@@ -37,9 +38,14 @@ final class PreparedPersistedBody {
 /// Selects a persisted body and corrects payload-derived [headers].
 PreparedPersistedBody preparePersistedBody(
   CassetteHeaders headers,
-  List<int> bytes,
-) {
-  final body = selectPersistedBody(headers, bytes);
+  List<int> bytes, {
+  PersistedBody? selectedBody,
+}) {
+  final body = selectedBody ?? selectPersistedBody(headers, bytes);
+  if (selectedBody != null &&
+      !_bytesEqual(body.reconstruct(), Uint8List.fromList(bytes))) {
+    throw ArgumentError('Selected persisted body must reconstruct the body.');
+  }
   final reconstructedLength = body.reconstruct().length;
   final changedNames = <String>{};
   final corrected = <String, Iterable<String>>{};
@@ -51,7 +57,8 @@ PreparedPersistedBody preparePersistedBody(
       continue;
     }
     if (name == 'content-encoding' &&
-        (hasIdentityContentEncoding(headers) || body is! PersistedBase64Body)) {
+        (hasIdentityContentEncoding(headers) ||
+            body is! PersistedBase64Body && body is! PersistedGzipBase64Body)) {
       changedNames.add(name);
       continue;
     }
@@ -206,6 +213,35 @@ final class PersistedBase64Body extends PersistedBody {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is PersistedBase64Body && content == other.content;
+
+  @override
+  int get hashCode => content.hashCode;
+}
+
+/// Gzip-compressed Base64 storage which reconstructs plain replay bytes.
+final class PersistedGzipBase64Body extends PersistedBody {
+  /// Creates bounded gzip storage from [compressedBytes].
+  PersistedGzipBase64Body.fromCompressedBytes(
+    List<int> compressedBytes, {
+    required int maximumReconstructedBytes,
+  })  : content = base64Encode(_validatedBytes(compressedBytes)),
+        _reconstructed = decodeGzipContent(
+          compressedBytes,
+          maximumBytes: maximumReconstructedBytes,
+        );
+
+  /// Standard padded Base64 containing the gzip storage representation.
+  final String content;
+
+  final Uint8List _reconstructed;
+
+  @override
+  Uint8List reconstruct() => _reconstructed;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PersistedGzipBase64Body && content == other.content;
 
   @override
   int get hashCode => content.hashCode;
