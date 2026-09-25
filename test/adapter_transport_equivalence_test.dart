@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -103,6 +104,60 @@ void main() {
     expect(body, TransportEquivalenceFixture.responseBody);
     expect(inner.fetchCount, 0);
   });
+
+  test('replays Dio client-decoded gzip JSON through package:http', () async {
+    final snapshot = await _recordDioClientDecodedGzipSnapshot();
+    _expectGzipBase64Body(snapshot);
+    final store = MemoryCassetteStore();
+    await store.create(CassetteName('equivalence/gzip'), snapshot.bytes);
+    final engine = CassetteEngine(store: store);
+    final inner = _HttpTransport();
+    final client = CassetteHttpClient(engine, inner: inner);
+    final replay = await engine.startReplay('equivalence/gzip');
+
+    final response = await client.send(_httpRequest());
+    final body = await response.stream.toBytes();
+    await replay.close();
+    client.close();
+
+    expect(response.headers['content-encoding'], 'gzip');
+    expect(utf8.decode(body), _sanitisedGzipJson);
+    expect(inner.sendCount, 0);
+  });
+
+  test('replays package:http client-decoded gzip JSON through Dio', () async {
+    final snapshot = await _recordHttpClientDecodedGzipSnapshot();
+    _expectGzipBase64Body(snapshot);
+    final store = MemoryCassetteStore();
+    await store.create(CassetteName('equivalence/gzip'), snapshot.bytes);
+    final engine = CassetteEngine(store: store);
+    final inner = _DioTransport();
+    final adapter = CassetteHttpClientAdapter(engine: engine, inner: inner);
+    final replay = await engine.startReplay('equivalence/gzip');
+
+    final response = await adapter.fetch(
+      _dioRequestOptions(),
+      _dioRequestStream(),
+      null,
+    );
+    final body = await response.stream.expand((chunk) => chunk).toList();
+    await replay.close();
+    adapter.close(force: true);
+
+    expect(response.headers['content-encoding'], <String>['gzip']);
+    expect(utf8.decode(body), _sanitisedGzipJson);
+    expect(inner.fetchCount, 0);
+  });
+}
+
+const _sourceGzipJson = '{"token":"synthetic-secret","keep":true}';
+const _sanitisedGzipJson = '{"keep":true,"token":"[REDACTED]"}';
+
+void _expectGzipBase64Body(CassetteSnapshot snapshot) {
+  final interaction = TransportEquivalenceFixture.recordedInteraction(snapshot);
+  final outcome = TransportEquivalenceFixture.recordedOutcome(interaction);
+  final body = Map<String, Object?>.from(outcome['body'] as Map);
+  expect(body['encoding'], 'gzipBase64');
 }
 
 Future<Map<String, Object?>> _recordDioInteraction() async =>
@@ -145,6 +200,49 @@ Future<CassetteSnapshot> _recordHttpSnapshot() async {
 
   return store.read(CassetteName('equivalence/request'));
 }
+
+Future<CassetteSnapshot> _recordDioClientDecodedGzipSnapshot() async {
+  final store = MemoryCassetteStore();
+  final engine = _gzipEngine(store);
+  final adapter = CassetteHttpClientAdapter(
+    engine: engine,
+    inner: _ClientDecodedGzipDioTransport(),
+  );
+  final recording = await engine.startRecording('equivalence/gzip');
+
+  await adapter.fetch(_dioRequestOptions(), _dioRequestStream(), null);
+  await recording.close();
+  adapter.close(force: true);
+
+  return store.read(CassetteName('equivalence/gzip'));
+}
+
+Future<CassetteSnapshot> _recordHttpClientDecodedGzipSnapshot() async {
+  final store = MemoryCassetteStore();
+  final engine = _gzipEngine(store);
+  final client = CassetteHttpClient(
+    engine,
+    inner: _ClientDecodedGzipHttpTransport(),
+  );
+  final recording = await engine.startRecording('equivalence/gzip');
+
+  final response = await client.send(_httpRequest());
+  await response.stream.drain<void>();
+  await recording.close();
+  client.close();
+
+  return store.read(CassetteName('equivalence/gzip'));
+}
+
+CassetteEngine _gzipEngine(MemoryCassetteStore store) => CassetteEngine(
+      store: store,
+      configuration: CassetteConfiguration(
+        sanitisation: SanitisationConfiguration(
+          gzipJsonResponses:
+              GzipJsonResponseHandling.sanitiseAndStoreCompressed,
+        ),
+      ),
+    );
 
 Future<Map<String, Object?>> _recordDioFailureInteraction() async {
   final store = MemoryCassetteStore();
@@ -239,6 +337,44 @@ final class _HttpTransport extends http.BaseClient {
       Stream<List<int>>.value(TransportEquivalenceFixture.responseBody),
       200,
       headers: TransportEquivalenceFixture.responseHeaders,
+      request: request,
+    );
+  }
+}
+
+final class _ClientDecodedGzipDioTransport implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    await requestStream?.drain<void>();
+    return ResponseBody.fromBytes(
+      utf8.encode(_sourceGzipJson),
+      200,
+      headers: <String, List<String>>{
+        'content-type': <String>['application/json'],
+        'content-encoding': <String>['gzip'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final class _ClientDecodedGzipHttpTransport extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    await request.finalize().drain<void>();
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode(_sourceGzipJson)),
+      200,
+      headers: const <String, String>{
+        'content-type': 'application/json',
+        'content-encoding': 'gzip',
+      },
       request: request,
     );
   }
