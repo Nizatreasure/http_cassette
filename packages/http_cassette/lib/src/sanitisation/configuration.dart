@@ -30,15 +30,32 @@ const _builtInCredentialNames = <String>{
   'token',
 };
 
-/// How gzip-coded JSON response bodies are sanitised and stored.
+/// How eligible gzip-coded JSON response bodies are sanitised and stored.
+///
+/// A response is eligible when it has a non-empty body, a supported JSON media
+/// type and exactly one gzip content coding. The HTTP client may expose either
+/// gzip bytes or bytes which it has already decompressed while retaining the
+/// gzip header.
 enum GzipJsonResponseHandling {
-  /// Store the captured representation without built-in body sanitisation.
+  /// Store the captured body state without built-in body sanitisation.
+  ///
+  /// Captured gzip bytes remain ordinary Base64. Already-decompressed strict
+  /// JSON is recompressed only for `gzipBase64` cassette storage and is
+  /// decompressed back to plain bytes during replay. That recompression
+  /// requires a platform with gzip processing support.
   storeWithoutSanitisation,
 
-  /// Prepare and sanitise the JSON, then store it as plain JSON.
+  /// Sanitise and store structured JSON which replays as plain bytes.
+  ///
+  /// This mode requires a platform with gzip processing support, including
+  /// when the HTTP client has already decompressed the captured body.
   sanitiseAndStorePlain,
 
-  /// Prepare and sanitise the JSON, then store it as compressed content.
+  /// Sanitise and compress while preserving the captured body state.
+  ///
+  /// Captured gzip bytes are recompressed into ordinary Base64 and replay as
+  /// gzip bytes. Already-decompressed bytes use `gzipBase64` storage and replay
+  /// as plain bytes. This mode requires gzip processing support.
   sanitiseAndStoreCompressed,
 }
 

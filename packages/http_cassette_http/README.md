@@ -23,6 +23,8 @@ Add `http`, the core package, and this integration package:
 dart pub add http http_cassette http_cassette_http
 ```
 
+The adapter requires `http` 1.5.0 or later because its cancellation contract uses the abort APIs introduced in that release.
+
 Import the three packages:
 
 ```dart
