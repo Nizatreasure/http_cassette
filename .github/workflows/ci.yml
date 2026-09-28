@@ -26,6 +26,7 @@ jobs:
       - run: dart pub get
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze --fatal-infos
+      - run: dart test
       - run: dart test packages/http_cassette/test
       - run: dart test packages/http_cassette_dio/test
       - run: dart test packages/http_cassette_http/test
