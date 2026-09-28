@@ -4,6 +4,8 @@ import 'package:http_cassette/http_cassette.dart';
 /// Adapts an `http` abort trigger to the core cancellation contract.
 final class HttpCassetteCancellation implements CassetteCancellation {
   HttpCassetteCancellation._(this.abortTrigger) {
+    // Dart 3.6 reports this retained future as discarded.
+    // ignore: discarded_futures
     _whenCancelled = abortTrigger.then<void>(
       (_) {
         _isCancelled = true;

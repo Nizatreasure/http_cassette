@@ -9,6 +9,8 @@ final class DioCassetteCancellation implements CassetteCancellation {
   }) : _isCancelled = isCancelled {
     _whenCancelled = isCancelled
         ? Future<void>.value()
+        // Dart 3.6 reports this retained future as discarded.
+        // ignore: discarded_futures
         : cancellation.then<void>((_) {
             _isCancelled = true;
           });
@@ -34,7 +36,10 @@ DioCassetteCancellation? createDioCassetteCancellation(
     return null;
   }
 
-  final cancellation = cancelFuture ?? token!.whenCancel.then<void>((_) {});
+  final cancellation = cancelFuture ??
+      // Dart 3.6 reports this retained future as discarded.
+      // ignore: discarded_futures
+      token!.whenCancel.then<void>((_) {});
   return DioCassetteCancellation._(
     isCancelled: token?.isCancelled ?? false,
     cancellation: cancellation,
