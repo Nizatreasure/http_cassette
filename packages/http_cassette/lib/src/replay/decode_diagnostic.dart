@@ -28,8 +28,7 @@ final class ReplayCassetteDecodeDiagnostic {
       CassetteDecodeFailureKind.inputTooLarge ||
       CassetteDecodeFailureKind.invalidUtf8 ||
       CassetteDecodeFailureKind.malformedJson ||
-      CassetteDecodeFailureKind.duplicateObjectMember =>
-        DiagnosticCategory.cassetteDecodeFailure,
+      CassetteDecodeFailureKind.duplicateObjectMember ||
       CassetteDecodeFailureKind.unsupportedBodyDecoding =>
         DiagnosticCategory.cassetteDecodeFailure,
       CassetteDecodeFailureKind.bodyTooLarge =>
